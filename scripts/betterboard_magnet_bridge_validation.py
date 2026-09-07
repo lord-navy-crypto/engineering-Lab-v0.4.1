@@ -13,14 +13,17 @@ import csv
 import importlib.util
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE_PATH = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_digital_twin.py"
 spec = importlib.util.spec_from_file_location("physical_lab_digital_twin", CORE_PATH)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"Could not load Engineering Lab digital-twin core: {CORE_PATH}")
 core = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
+sys.modules[spec.name] = core
 spec.loader.exec_module(core)
 
 
@@ -78,7 +81,6 @@ def main() -> int:
     }
 
     checks: dict[str, bool] = {}
-    source_bridge = None
     if args.bridge:
         source_bridge = json.loads(args.bridge.read_text(encoding="utf-8"))
         summary = source_bridge.get("comparison", {})

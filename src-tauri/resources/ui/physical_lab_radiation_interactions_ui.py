@@ -23,6 +23,28 @@ def _load_core():
         return core
 
 
+def _load_response_surface_ui():
+    try:
+        import physical_lab_radiation_response_surface_ui as mod
+        return mod
+    except ModuleNotFoundError:
+        core_path = Path(__file__).with_name("physical_lab_radiation_response_surface.py")
+        core_spec = importlib.util.spec_from_file_location("physical_lab_radiation_response_surface", core_path)
+        if core_spec is None or core_spec.loader is None:
+            raise ImportError(f"Unable to load {core_path}")
+        core = importlib.util.module_from_spec(core_spec)
+        sys.modules.setdefault("physical_lab_radiation_response_surface", core)
+        core_spec.loader.exec_module(core)
+        path = Path(__file__).with_name("physical_lab_radiation_response_surface_ui.py")
+        spec = importlib.util.spec_from_file_location("physical_lab_radiation_response_surface_ui", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load {path}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault("physical_lab_radiation_response_surface_ui", mod)
+        spec.loader.exec_module(mod)
+        return mod
+
+
 def render_radiation_interactions_workspace(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
     if profile != "radia-magnet-studio" or not namespace:
         return
@@ -77,34 +99,36 @@ def render_radiation_interactions_workspace(st: Any, profile: str, namespace: Ma
                 st.error(f"Pairwise radiation interaction screening failed: {exc}")
 
     result = st.session_state.get("pl_rad_interaction_result")
-    if not result:
-        return
+    if result:
+        import pandas as pd
+        import plotly.graph_objects as go
 
-    import pandas as pd
-    import plotly.graph_objects as go
+        summary = result.get("summary") or {}
+        grouped = pd.DataFrame(summary.get("grouped") or [])
+        leaders = summary.get("leadersByMetric") or {}
+        if leaders:
+            st.markdown("#### Largest pairwise non-additivity by observable")
+            st.dataframe(pd.DataFrame([{"metric": m, **v} for m, v in leaders.items()]), width="stretch", hide_index=True)
 
-    summary = result.get("summary") or {}
-    grouped = pd.DataFrame(summary.get("grouped") or [])
-    leaders = summary.get("leadersByMetric") or {}
-    if leaders:
-        st.markdown("#### Largest pairwise non-additivity by observable")
-        st.dataframe(pd.DataFrame([{"metric": m, **v} for m, v in leaders.items()]), width="stretch", hide_index=True)
+        if not grouped.empty:
+            metrics = sorted(grouped["metric"].dropna().unique().tolist())
+            metric = st.selectbox("Interaction observable", metrics, key="pl_rad_interaction_metric")
+            sub = grouped[grouped["metric"] == metric].copy()
+            sub["pair"] = sub["errorA"] + " × " + sub["errorB"]
+            st.dataframe(sub, width="stretch", hide_index=True)
+            fig = go.Figure()
+            fig.add_bar(x=sub["pair"], y=sub["medianAbsInteractionResidual"], name="median |interaction|")
+            fig.add_scatter(x=sub["pair"], y=sub["maxAbsInteractionResidual"], mode="markers", name="max |interaction|")
+            fig.update_layout(
+                title=f"Pairwise non-additivity → {metric}",
+                xaxis_title="Manufacturing-error pair",
+                yaxis_title=f"interaction residual in {metric}",
+                height=460,
+            )
+            st.plotly_chart(fig, width="stretch")
+        st.caption(result.get("boundary", ""))
 
-    if not grouped.empty:
-        metrics = sorted(grouped["metric"].dropna().unique().tolist())
-        metric = st.selectbox("Interaction observable", metrics, key="pl_rad_interaction_metric")
-        sub = grouped[grouped["metric"] == metric].copy()
-        sub["pair"] = sub["errorA"] + " × " + sub["errorB"]
-        st.dataframe(sub, width="stretch", hide_index=True)
-        fig = go.Figure()
-        fig.add_bar(x=sub["pair"], y=sub["medianAbsInteractionResidual"], name="median |interaction|")
-        fig.add_scatter(x=sub["pair"], y=sub["maxAbsInteractionResidual"], mode="markers", name="max |interaction|")
-        fig.update_layout(
-            title=f"Pairwise non-additivity → {metric}",
-            xaxis_title="Manufacturing-error pair",
-            yaxis_title=f"interaction residual in {metric}",
-            height=460,
-        )
-        st.plotly_chart(fig, width="stretch")
-
-    st.caption(result.get("boundary", ""))
+    try:
+        _load_response_surface_ui().render_radiation_response_surface_workspace(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Local radiation response-surface workspace could not load: {exc}")

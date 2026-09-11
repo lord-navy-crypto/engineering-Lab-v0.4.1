@@ -22,7 +22,7 @@ def _render_modal(st: Any) -> None:
         import numpy as np
         with st.spinner("Projecting the physical motion into mass-normalized normal modes..."):
             st.session_state['pl_vi_modal']=coupled_modal_energy_transfer(coupling_k=kc,duration=duration)
-            st.session_state['pl_vi_detuning']=coupled_detuning_scan(detunings=np.linspace(-detspan,detspan, nine:=9),coupling_k=kc,duration=min(duration,220.0))
+            st.session_state['pl_vi_detuning']=coupled_detuning_scan(detunings=np.linspace(-detspan,detspan,9),coupling_k=kc,duration=min(duration,220.0))
     r=st.session_state.get('pl_vi_modal'); d=st.session_state.get('pl_vi_detuning')
     if r:
         a,b,c=st.columns(3)

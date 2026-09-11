@@ -1,0 +1,46 @@
+name: Radiation Response Surface Integrity
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_radiation_response_surface.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_response_surface_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_quality_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/radiation_response_surface_validation.py'
+      - '.github/workflows/radiation-response-surface-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_radiation_response_surface.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_response_surface_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_quality_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/radiation_response_surface_validation.py'
+      - '.github/workflows/radiation-response-surface-integrity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-radiation-response-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install validation dependency
+        run: python -m pip install --disable-pip-version-check numpy
+      - name: Syntax and packaging wiring
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_radiation_response_surface.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_radiation_response_surface_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_radiation_quality_ui.py
+          python -m py_compile scripts/radiation_response_surface_validation.py
+          python -m json.tool src-tauri/tauri.conf.json >/dev/null
+          grep -q 'physical_lab_radiation_response_surface.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_radiation_response_surface_ui.py' src-tauri/tauri.conf.json
+          grep -q 'render_radiation_response_surface_workspace' src-tauri/resources/ui/physical_lab_radiation_quality_ui.py
+      - name: Exact quadratic coefficient recovery
+        run: python scripts/radiation_response_surface_validation.py

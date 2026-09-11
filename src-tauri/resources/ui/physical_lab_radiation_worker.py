@@ -88,13 +88,12 @@ def _json_safe_matrix(values):
     arr = np.asarray(values)
     if arr.ndim != 2:
         raise ValueError("angular-map quantity must be a 2-D array")
-    rows = []
-    for row in arr:
-        rows.append([_finite(x) for x in row])
-    return rows
+    return [[_finite(x) for x in row] for row in arr]
 
 
 def _extract_angular_map(v11, result: dict[str, Any], cfg: dict[str, Any], gamma: float) -> dict[str, Any] | None:
+    import numpy as np
+
     if not bool(cfg.get("includeAngularMap", False)):
         return None
     grid_points = int(cfg.get("angularGridPoints", 9))

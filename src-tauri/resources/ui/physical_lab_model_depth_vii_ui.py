@@ -38,3 +38,8 @@ def render_model_depth_vii_workspace(st:Any,profile:str)->None:
         render_model_depth_viii_workspace(st, profile)
     except Exception as exc:
         st.warning(f"Physical Lab Model Depth VIII could not load: {exc}")
+    try:
+        from physical_lab_model_depth_ix_ui import render_model_depth_ix_workspace
+        render_model_depth_ix_workspace(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Model Depth IX could not load: {exc}")

@@ -85,9 +85,20 @@ def _render_lattice(st: Any) -> None:
     st.dataframe([{'q_mode':row['mode_index'],'|q|':row['q_magnitude'],'dominant_frequency':row['dominant_frequency_cycles_per_reduced_time']} for row in r['modes']],hide_index=True,width='stretch'); st.caption(r['boundary'])
 
 
+def _render_depth_iv(st: Any, profile: str) -> None:
+    try:
+        from physical_lab_model_depth_iv_ui import render_model_depth_iv_workspace
+        render_model_depth_iv_workspace(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Model Depth IV could not load: {exc}")
+
+
 def render_model_depth_workspace(st: Any, profile: str) -> None:
-    if profile not in {'ising-monte-carlo','nonlinear-chaos','oscillation-integration'}: return
-    st.markdown('---'); st.markdown('## Physical Lab · Model Depth III')
-    if profile=='ising-monte-carlo': _render_ising(st)
-    elif profile=='nonlinear-chaos': _render_duffing(st)
-    else: _render_lattice(st)
+    if profile not in {'ising-monte-carlo','nonlinear-chaos','oscillation-integration','numerical-methods'}: return
+    if profile in {'ising-monte-carlo','nonlinear-chaos','oscillation-integration'}:
+        st.markdown('---'); st.markdown('## Physical Lab · Model Depth III')
+        if profile=='ising-monte-carlo': _render_ising(st)
+        elif profile=='nonlinear-chaos': _render_duffing(st)
+        else: _render_lattice(st)
+    if profile in {'nonlinear-chaos','numerical-methods'}:
+        _render_depth_iv(st, profile)

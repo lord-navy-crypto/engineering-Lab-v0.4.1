@@ -11,20 +11,33 @@ from physical_lab_research_orchestrator import (
     convergence_diagnostics,
     parse_numeric_table,
 )
+from physical_lab_sweep_executor import (
+    available_adapters,
+    cancel_sweep_job,
+    create_sweep_job,
+    list_sweep_jobs,
+    read_sweep_result,
+    start_sweep_job,
+)
 
 
 def _csv_bytes(rows: list[dict[str, Any]]) -> bytes:
     if not rows:
         return b""
+    fields = []
+    for row in rows:
+        for key in row.keys():
+            if key not in fields:
+                fields.append(key)
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
     writer.writeheader(); writer.writerows(rows)
     return output.getvalue().encode("utf-8")
 
 
 def _render_sweep(st: Any, profile: str) -> None:
     st.markdown("### Parameter Sweep Designer")
-    st.caption("Build a bounded Cartesian design that can be reused by any model. This designs runs; it does not execute arbitrary code.")
+    st.caption("Build a bounded Cartesian design that can be reused by any model. Execution is restricted to allow-listed Physical Lab adapters.")
     axis_count = int(st.selectbox("Number of sweep parameters", [1, 2, 3], index=1, key=f"pl_orch_axes_{profile}"))
     defaults = [("parameter_a", 0.0, 1.0, 5), ("parameter_b", 0.0, 1.0, 5), ("parameter_c", 0.1, 10.0, 4)]
     axes = []
@@ -45,6 +58,81 @@ def _render_sweep(st: Any, profile: str) -> None:
         st.dataframe(r["rows"][:200], hide_index=True, width="stretch")
         st.download_button("Download sweep design CSV", data=_csv_bytes(r["rows"]), file_name=f"physical_lab_{profile}_sweep.csv", mime="text/csv", key=f"pl_orch_download_{profile}")
         st.caption(r["boundary"])
+
+
+def _result_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for point in result.get("points") or []:
+        row = {
+            "design_index": point.get("design_index"),
+            "status": point.get("status"),
+            "cached": point.get("cached"),
+        }
+        for key, value in (point.get("parameters") or {}).items():
+            row[f"param::{key}"] = value
+        for key, value in (point.get("metrics") or {}).items():
+            row[f"metric::{key}"] = value
+        if point.get("error"):
+            row["error"] = point.get("error")
+        rows.append(row)
+    return rows
+
+
+def _render_executor(st: Any, profile: str) -> None:
+    st.markdown("### Campaign Executor")
+    st.caption("Execute the current bounded design in a persistent local child process. Per-point failures are retained without aborting the remaining campaign; identical adapter/parameter points reuse cache.")
+    design = st.session_state.get(f"pl_orch_design_{profile}")
+    adapters = available_adapters(profile)
+    if not adapters:
+        st.info("No allow-listed sweep adapter is registered for this profile yet. The executor registry is intentionally explicit rather than accepting arbitrary Python callables.")
+        return
+    if not design:
+        st.info("Build a parameter sweep design first.")
+    ids = [x["id"] for x in adapters]
+    labels = {x["id"]: x["label"] for x in adapters}
+    adapter = st.selectbox("Model adapter", ids, format_func=lambda x: f"{labels[x]} · {x}", key=f"pl_orch_adapter_{profile}")
+    st.caption("Axis names must match the selected model function's numeric parameter names. Invalid points are recorded as failed rather than silently altered.")
+    a,b = st.columns(2)
+    if a.button("Create & start sweep campaign", type="primary", disabled=design is None, key=f"pl_orch_exec_start_{profile}"):
+        job = create_sweep_job(profile, adapter, design["rows"])
+        job = start_sweep_job(job["id"])
+        st.session_state[f"pl_orch_active_job_{profile}"] = job["id"]
+        st.rerun()
+    if b.button("Refresh campaign status", key=f"pl_orch_exec_refresh_{profile}"):
+        st.rerun()
+
+    jobs = list_sweep_jobs(profile=profile, limit=20)
+    if not jobs:
+        st.caption("No sweep campaigns for this profile yet.")
+        return
+    active_default = st.session_state.get(f"pl_orch_active_job_{profile}")
+    job_ids = [j["id"] for j in jobs]
+    default_index = job_ids.index(active_default) if active_default in job_ids else 0
+    selected = st.selectbox("Campaign", job_ids, index=default_index, key=f"pl_orch_exec_job_{profile}")
+    job = next(j for j in jobs if j["id"] == selected)
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("Status", str(job.get("status") or "—"))
+    c2.metric("Progress", f"{100.0*float(job.get('progress') or 0.0):.1f}%")
+    c3.metric("Failed points", int(job.get("failed_points") or 0))
+    c4.metric("Cache hits", int(job.get("cached_points") or 0))
+    st.progress(max(0.0, min(float(job.get("progress") or 0.0), 1.0)))
+    st.caption(f"{job.get('adapter_label')} · {job.get('completed_points',0)}/{job.get('point_count',0)} points · stage={job.get('stage')}")
+    if job.get("error"):
+        st.error(str(job.get("error")))
+    if job.get("status") in {"queued","running","interrupted"}:
+        if st.button("Cancel selected campaign", key=f"pl_orch_exec_cancel_{profile}"):
+            cancel_sweep_job(selected); st.rerun()
+    elif job.get("status") in {"failed","cancelled","interrupted"}:
+        if st.button("Restart selected campaign", key=f"pl_orch_exec_restart_{profile}"):
+            start_sweep_job(selected); st.rerun()
+
+    result = read_sweep_result(selected)
+    if result:
+        rows = _result_rows(result)
+        st.markdown("#### Campaign result table")
+        st.dataframe(rows[:500], hide_index=True, width="stretch")
+        st.download_button("Download campaign result CSV", data=_csv_bytes(rows), file_name=f"{selected}.csv", mime="text/csv", key=f"pl_orch_exec_download_{profile}_{selected}")
+        st.caption(result.get("boundary", ""))
 
 
 def _render_table_and_convergence(st: Any, profile: str) -> None:
@@ -102,7 +190,8 @@ def _render_table_and_convergence(st: Any, profile: str) -> None:
 def render_research_orchestrator(st: Any, profile: str) -> None:
     st.markdown("---")
     with st.expander("Physical Lab · Research Orchestrator", expanded=False):
-        st.caption("Reusable platform tools for designing sweeps, turning tables into numeric evidence, estimating convergence, and comparing runs across the active model profile.")
-        tabs = st.tabs(["Sweep Designer", "Data / Convergence / Compare"])
+        st.caption("Reusable platform tools for designing sweeps, executing allow-listed campaigns, turning tables into numeric evidence, estimating convergence, and comparing runs across the active model profile.")
+        tabs = st.tabs(["Sweep Designer", "Campaign Executor", "Data / Convergence / Compare"])
         with tabs[0]: _render_sweep(st, profile)
-        with tabs[1]: _render_table_and_convergence(st, profile)
+        with tabs[1]: _render_executor(st, profile)
+        with tabs[2]: _render_table_and_convergence(st, profile)

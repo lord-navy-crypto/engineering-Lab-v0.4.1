@@ -73,7 +73,7 @@ def _load_radiation_stokes_ui_module():
 def _load_radiation_quality_ui_module():
     _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radiation_sensitivity","physical_lab_radiation_sensitivity.py"); return _load("physical_lab_radiation_quality_ui","physical_lab_radiation_quality_ui.py")
 def _load_radiation_seed_compare_ui_module():
-    _load("physical_lab_radiation_quality","physical_lab_radia_radiation_propagation.py"); _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radiation_seed_compare","physical_lab_radiation_seed_compare.py"); return _load("physical_lab_radiation_seed_compare_ui","physical_lab_radiation_seed_compare_ui.py")
+    _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radia_radiation_propagation","physical_lab_radia_radiation_propagation.py"); _load("physical_lab_radiation_seed_compare","physical_lab_radiation_seed_compare.py"); return _load("physical_lab_radiation_seed_compare_ui","physical_lab_radiation_seed_compare_ui.py")
 
 
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:

@@ -50,6 +50,8 @@
       "resources/ui/physical_lab_model_depth_v_ui.py": "ui/physical_lab_model_depth_v_ui.py",
       "resources/ui/physical_lab_model_depth_vi.py": "ui/physical_lab_model_depth_vi.py",
       "resources/ui/physical_lab_model_depth_vi_ui.py": "ui/physical_lab_model_depth_vi_ui.py",
+      "resources/ui/physical_lab_model_depth_vii.py": "ui/physical_lab_model_depth_vii.py",
+      "resources/ui/physical_lab_model_depth_vii_ui.py": "ui/physical_lab_model_depth_vii_ui.py",
       "resources/ui/physical_lab_undulator_spectrum.py": "ui/physical_lab_undulator_spectrum.py",
       "resources/ui/physical_lab_undulator_spectrum_ui.py": "ui/physical_lab_undulator_spectrum_ui.py",
       "resources/ui/physical_lab_radiation_stokes_ui.py": "ui/physical_lab_radiation_stokes_ui.py",

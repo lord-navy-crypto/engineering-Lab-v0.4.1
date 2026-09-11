@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import math
 from pathlib import Path
 import sys
 from typing import Any, Mapping
@@ -22,19 +23,99 @@ def _load_core():
         return core
 
 
-def _load_requirements():
+def _finite(value: Any) -> float | None:
     try:
-        import physical_lab_radiation_requirements as mod
-        return mod
-    except ModuleNotFoundError:
-        path = Path(__file__).with_name("physical_lab_radiation_requirements.py")
-        spec = importlib.util.spec_from_file_location("physical_lab_radiation_requirements", path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Unable to load {path}")
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules.setdefault("physical_lab_radiation_requirements", mod)
-        spec.loader.exec_module(mod)
-        return mod
+        x = float(value)
+    except Exception:
+        return None
+    return x if math.isfinite(x) else None
+
+
+def _predict_requirement_surface(coeff: Mapping[str, Any], x: float, y: float) -> float:
+    return float(
+        coeff["intercept"] + coeff["linearA"] * x + coeff["linearB"] * y
+        + coeff["quadraticA"] * x * x + coeff["quadraticB"] * y * y
+        + coeff["interactionAB"] * x * y
+    )
+
+
+def _classify_requirement_surface(
+    surface: Mapping[str, Any],
+    *,
+    lower: float | None = None,
+    upper: float | None = None,
+    points: int = 81,
+) -> dict[str, Any]:
+    """Classify the local quadratic surrogate inside coded [-1,+1]^2 only."""
+    if lower is None and upper is None:
+        raise ValueError("At least one requirement bound is required")
+    lo = _finite(lower) if lower is not None else None
+    hi = _finite(upper) if upper is not None else None
+    if lower is not None and lo is None:
+        raise ValueError("lower bound must be finite")
+    if upper is not None and hi is None:
+        raise ValueError("upper bound must be finite")
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError("lower bound must not exceed upper bound")
+
+    import numpy as np
+
+    coeff = surface.get("coefficients") or {}
+    required = {"intercept", "linearA", "linearB", "quadraticA", "quadraticB", "interactionAB"}
+    if not required.issubset(coeff):
+        raise ValueError("surface coefficients are incomplete")
+
+    n = max(21, min(int(points), 201))
+    axis = np.linspace(-1.0, 1.0, n)
+    predicted = np.empty((n, n), dtype=float)
+    passed = np.zeros((n, n), dtype=bool)
+    margin = np.empty((n, n), dtype=float)
+
+    for iy, y in enumerate(axis):
+        for ix, x in enumerate(axis):
+            value = _predict_requirement_surface(coeff, float(x), float(y))
+            predicted[iy, ix] = value
+            ok_lo = lo is None or value >= lo
+            ok_hi = hi is None or value <= hi
+            passed[iy, ix] = ok_lo and ok_hi
+            margins = []
+            if lo is not None:
+                margins.append(value - lo)
+            if hi is not None:
+                margins.append(hi - value)
+            margin[iy, ix] = min(margins)
+
+    center_idx = int(np.argmin(np.abs(axis)))
+    center_value = float(predicted[center_idx, center_idx])
+    center_pass = bool(passed[center_idx, center_idx])
+
+    yy, xx = np.meshgrid(axis, axis, indexing="ij")
+    changed = passed != center_pass
+    nearest = None
+    if np.any(changed):
+        nearest = float(np.min(np.sqrt(xx[changed] ** 2 + yy[changed] ** 2)))
+
+    return {
+        "schema": "physical-lab-radiation-requirement-contour-v1",
+        "metric": surface.get("metric"),
+        "factorA": surface.get("factorA"),
+        "factorB": surface.get("factorB"),
+        "lower": lo,
+        "upper": hi,
+        "codedA": [float(x) for x in axis],
+        "codedB": [float(x) for x in axis],
+        "predicted": predicted.tolist(),
+        "passMask": passed.tolist(),
+        "margin": margin.tolist(),
+        "passGridFraction": float(np.mean(passed)),
+        "centerValue": center_value,
+        "centerStatus": "PASS" if center_pass else "REVIEW",
+        "nearestClassificationBoundaryFromCenterCoded": nearest,
+        "boundary": (
+            "PASS/REVIEW is predicted only by the local quadratic surrogate inside the sampled coded [-1,+1] box. "
+            "passGridFraction is geometric sampled area, not probability or manufacturing yield. The boundary distance is grid-discretized."
+        ),
+    }
 
 
 def render_radiation_response_surface_workspace(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
@@ -135,7 +216,6 @@ def render_radiation_response_surface_workspace(st: Any, profile: str, namespace
     st.caption(
         "Classify this same local surrogate against explicit engineering bounds. PASS area is geometric area in the sampled tolerance box only—not manufacturing yield."
     )
-    req = _load_requirements()
     vals = [float(p["value"]) for p in (surface.get("points") or []) if p.get("value") is not None]
     default_min = min(vals) if vals else 0.0
     default_max = max(vals) if vals else 1.0
@@ -151,7 +231,7 @@ def render_radiation_response_surface_workspace(st: Any, profile: str, namespace
 
     if use_lower or use_upper:
         try:
-            contour = req.classify_requirement_surface(
+            contour = _classify_requirement_surface(
                 surface,
                 lower=float(lower) if use_lower else None,
                 upper=float(upper) if use_upper else None,
@@ -159,7 +239,7 @@ def render_radiation_response_surface_workspace(st: Any, profile: str, namespace
             )
             m1, m2, m3 = st.columns(3)
             m1.metric("Center status", contour["centerStatus"])
-            m2.metric("PASS grid area", f"{100.0*contour['passGridFraction']:.1f}%")
+            m2.metric("PASS grid area", f"{100.0 * contour['passGridFraction']:.1f}%")
             nearest = contour.get("nearestClassificationBoundaryFromCenterCoded")
             m3.metric("Nearest boundary (coded)", "none in box" if nearest is None else f"{nearest:.3f}")
 

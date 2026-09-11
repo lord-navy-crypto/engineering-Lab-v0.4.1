@@ -95,6 +95,7 @@ def _load_radiation_stokes_ui_module():
 
 def _load_radiation_quality_ui_module():
     _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py")
+    _load("physical_lab_radiation_sensitivity","physical_lab_radiation_sensitivity.py")
     return _load("physical_lab_radiation_quality_ui","physical_lab_radiation_quality_ui.py")
 
 
@@ -141,7 +142,7 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile=="radia-magnet-studio":
         try: _load_radiation_stokes_ui_module().render_radiation_stokes_workspace(st,profile,namespace)
         except Exception as exc: _record_module_exception("trajectory-radiation-stokes-map",exc,profile); st.warning(f"Physical Lab Trajectory Radiation & Stokes Map could not load: {exc}")
-        try: _load_radiation_quality_ui_module().render_radiation_quality_workspace(st,profile)
+        try: _load_radiation_quality_ui_module().render_radiation_quality_workspace(st,profile,namespace)
         except Exception as exc: _record_module_exception("manufacturing-radiation-quality",exc,profile); st.warning(f"Physical Lab Radiation Quality Degradation could not load: {exc}")
         try: _load_radiation_seed_compare_ui_module().render_seed_radiation_comparison(st,profile,namespace)
         except Exception as exc: _record_module_exception("manufacturing-seed-radiation-map",exc,profile); st.warning(f"Physical Lab Nominal-vs-Seed Radiation Map could not load: {exc}")

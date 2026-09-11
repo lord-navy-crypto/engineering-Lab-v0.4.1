@@ -1,0 +1,35 @@
+name: Model Depth VIII Integrity
+
+on:
+  pull_request:
+    paths:
+      - "src-tauri/resources/ui/physical_lab_model_depth_viii.py"
+      - "src-tauri/resources/ui/physical_lab_model_depth_viii_ui.py"
+      - "src-tauri/resources/ui/physical_lab_model_depth_vii_ui.py"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/model_depth_viii_validation.py"
+      - ".github/workflows/model-depth-viii-integrity.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scientific runtime
+        run: python -m pip install --upgrade pip numpy scipy
+      - name: Compile Model Depth VIII sources
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_model_depth_viii.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_model_depth_viii_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_model_depth_vii_ui.py
+          python -m py_compile scripts/model_depth_viii_validation.py
+      - name: Validate spectral estimators and chirp FRF
+        run: python scripts/model_depth_viii_validation.py
+      - name: Verify DMG resource wiring
+        run: |
+          grep -q 'physical_lab_model_depth_viii.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_model_depth_viii_ui.py' src-tauri/tauri.conf.json

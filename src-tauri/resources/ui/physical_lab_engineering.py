@@ -88,6 +88,11 @@ def _load_undulator_spectrum_ui_module():
     return _load("physical_lab_undulator_spectrum_ui","physical_lab_undulator_spectrum_ui.py")
 
 
+def _load_radiation_stokes_ui_module():
+    _load("physical_lab_radia_radiation_propagation","physical_lab_radia_radiation_propagation.py")
+    return _load("physical_lab_radiation_stokes_ui","physical_lab_radiation_stokes_ui.py")
+
+
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:
     try: _load_diagnostics_module().record_exception(source,exc,profile=profile,code="PLATFORM_MODULE_ERROR")
     except Exception: pass
@@ -120,6 +125,10 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile in {"radia-magnet-studio","radiation-platform"}:
         try: _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st,namespace)
         except Exception as exc: _record_module_exception("undulator-spectrum-studio",exc,profile); st.warning(f"Physical Lab Undulator Spectrum & Beam Broadening Studio could not load: {exc}")
+
+    if profile=="radia-magnet-studio":
+        try: _load_radiation_stokes_ui_module().render_radiation_stokes_workspace(st,profile,namespace)
+        except Exception as exc: _record_module_exception("trajectory-radiation-stokes-map",exc,profile); st.warning(f"Physical Lab Trajectory Radiation & Stokes Map could not load: {exc}")
 
     if profile in {"nonlinear-chaos","oscillation-integration","numerical-methods"}:
         try: _load_deep_science_ui_module().render_deep_science_workspace(st,profile)

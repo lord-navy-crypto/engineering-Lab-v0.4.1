@@ -22,6 +22,21 @@ def _load_core():
         return core
 
 
+def _load_requirements():
+    try:
+        import physical_lab_radiation_requirements as mod
+        return mod
+    except ModuleNotFoundError:
+        path = Path(__file__).with_name("physical_lab_radiation_requirements.py")
+        spec = importlib.util.spec_from_file_location("physical_lab_radiation_requirements", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load {path}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault("physical_lab_radiation_requirements", mod)
+        spec.loader.exec_module(mod)
+        return mod
+
+
 def render_radiation_response_surface_workspace(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
     if profile != "radia-magnet-studio" or not namespace:
         return
@@ -77,11 +92,11 @@ def render_radiation_response_surface_workspace(st: Any, profile: str, namespace
         return
 
     overview = []
-    for metric, surface in surfaces.items():
-        coeff = surface.get("coefficients") or {}
-        fit = surface.get("fit") or {}
+    for metric_name, surface_row in surfaces.items():
+        coeff = surface_row.get("coefficients") or {}
+        fit = surface_row.get("fit") or {}
         overview.append({
-            "metric": metric,
+            "metric": metric_name,
             "R2": fit.get("r2"),
             "RMSE": fit.get("rmse"),
             "linearA": coeff.get("linearA"),
@@ -115,3 +130,55 @@ def render_radiation_response_surface_workspace(st: Any, profile: str, namespace
     fit = surface.get("fit") or {}
     st.json({"coefficients": coeff, "fitDiagnostics": fit}, expanded=False)
     st.caption(result.get("boundary", ""))
+
+    st.markdown("#### Local Requirement / Constraint Contour")
+    st.caption(
+        "Classify this same local surrogate against explicit engineering bounds. PASS area is geometric area in the sampled tolerance box only—not manufacturing yield."
+    )
+    req = _load_requirements()
+    vals = [float(p["value"]) for p in (surface.get("points") or []) if p.get("value") is not None]
+    default_min = min(vals) if vals else 0.0
+    default_max = max(vals) if vals else 1.0
+    rc1, rc2, rc3 = st.columns(3)
+    with rc1:
+        use_lower = st.checkbox("Use lower bound", value=False, key="pl_rad_req_use_lower")
+        lower = st.number_input("Lower requirement", value=float(default_min), key="pl_rad_req_lower")
+    with rc2:
+        use_upper = st.checkbox("Use upper bound", value=True, key="pl_rad_req_use_upper")
+        upper = st.number_input("Upper requirement", value=float(default_max), key="pl_rad_req_upper")
+    with rc3:
+        grid_points = st.selectbox("Requirement grid", [41, 81, 121], index=1, key="pl_rad_req_grid")
+
+    if use_lower or use_upper:
+        try:
+            contour = req.classify_requirement_surface(
+                surface,
+                lower=float(lower) if use_lower else None,
+                upper=float(upper) if use_upper else None,
+                points=int(grid_points),
+            )
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Center status", contour["centerStatus"])
+            m2.metric("PASS grid area", f"{100.0*contour['passGridFraction']:.1f}%")
+            nearest = contour.get("nearestClassificationBoundaryFromCenterCoded")
+            m3.metric("Nearest boundary (coded)", "none in box" if nearest is None else f"{nearest:.3f}")
+
+            pass_fig = go.Figure(data=go.Contour(
+                x=contour["codedA"], y=contour["codedB"], z=contour["margin"],
+                contours=dict(start=0.0, end=0.0, size=1.0, coloring="heatmap", showlabels=True),
+                colorbar=dict(title="requirement margin"),
+            ))
+            pass_fig.add_scatter(
+                x=[p["codedA"] for p in pts], y=[p["codedB"] for p in pts],
+                mode="markers", name="simulated design points",
+            )
+            pass_fig.update_layout(
+                title=f"Local requirement margin → {metric}  (zero contour = PASS/REVIEW boundary)",
+                xaxis_title=f"coded {result.get('factorA')}",
+                yaxis_title=f"coded {result.get('factorB')}",
+                height=560,
+            )
+            st.plotly_chart(pass_fig, width="stretch")
+            st.caption(contour.get("boundary", ""))
+        except Exception as exc:
+            st.warning(f"Requirement contour could not be formed: {exc}")

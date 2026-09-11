@@ -48,6 +48,8 @@
       "resources/ui/physical_lab_radiation_quality.py": "ui/physical_lab_radiation_quality.py",
       "resources/ui/physical_lab_radiation_quality_ui.py": "ui/physical_lab_radiation_quality_ui.py",
       "resources/ui/physical_lab_radiation_sensitivity.py": "ui/physical_lab_radiation_sensitivity.py",
+      "resources/ui/physical_lab_radiation_interactions.py": "ui/physical_lab_radiation_interactions.py",
+      "resources/ui/physical_lab_radiation_interactions_ui.py": "ui/physical_lab_radiation_interactions_ui.py",
       "resources/ui/physical_lab_radiation_seed_compare.py": "ui/physical_lab_radiation_seed_compare.py",
       "resources/ui/physical_lab_radiation_seed_compare_ui.py": "ui/physical_lab_radiation_seed_compare_ui.py",
       "resources/ui/physical_lab_experiment_kernel.py": "ui/physical_lab_experiment_kernel.py",

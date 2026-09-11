@@ -5,12 +5,16 @@ on:
     branches: [ main ]
     paths:
       - 'src-tauri/resources/ui/physical_lab_frequency_response.py'
+      - 'src-tauri/resources/ui/physical_lab_frequency_response_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'scripts/frequency_response_simulation_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
   pull_request:
     paths:
       - 'src-tauri/resources/ui/physical_lab_frequency_response.py'
+      - 'src-tauri/resources/ui/physical_lab_frequency_response_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'scripts/frequency_response_simulation_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
@@ -28,11 +32,16 @@ jobs:
           python-version: '3.12'
       - name: Install numerical dependency
         run: python -m pip install --disable-pip-version-check numpy
-      - name: Syntax
+      - name: Syntax and UI wiring
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_frequency_response.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_frequency_response_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_engineering.py
           python -m py_compile scripts/frequency_response_simulation_validation.py
           python -m py_compile scripts/physical_lab_frequency_response_cli.py
+          grep -q 'render_frequency_response_workspace' src-tauri/resources/ui/physical_lab_engineering.py
+          grep -q 'nonlinear-chaos' src-tauri/resources/ui/physical_lab_frequency_response_ui.py
+          grep -q 'oscillation-integration' src-tauri/resources/ui/physical_lab_frequency_response_ui.py
       - name: Frequency-response deterministic validation
         run: python scripts/frequency_response_simulation_validation.py
       - name: CLI smoke checks

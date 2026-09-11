@@ -78,6 +78,11 @@ def _load_kerr_shadow_sweep_ui_module():
     return _load("physical_lab_kerr_shadow_sweep_ui","physical_lab_kerr_shadow_sweep_ui.py")
 
 
+def _load_remaining_science_ui_module():
+    _load("physical_lab_remaining_science","physical_lab_remaining_science.py")
+    return _load("physical_lab_remaining_science_ui","physical_lab_remaining_science_ui.py")
+
+
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:
     try: _load_diagnostics_module().record_exception(source,exc,profile=profile,code="PLATFORM_MODULE_ERROR")
     except Exception: pass
@@ -102,6 +107,10 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile=="oscillation-integration":
         try: _load_lattice_ui_module().render_lattice_workspace(st,profile)
         except Exception as exc: _record_module_exception("multilayer-honeycomb-lattice",exc,profile); st.warning(f"Physical Lab Multilayer Honeycomb Lattice Dynamics could not load: {exc}")
+
+    if profile in {"ising-monte-carlo","random-walk-monte-carlo","nonlinear-chaos","oscillation-integration"}:
+        try: _load_remaining_science_ui_module().render_remaining_science_workspace(st,profile)
+        except Exception as exc: _record_module_exception("advanced-model-science",exc,profile); st.warning(f"Physical Lab Advanced Model Science could not load: {exc}")
 
     if profile in {"nonlinear-chaos","oscillation-integration","numerical-methods"}:
         try: _load_deep_science_ui_module().render_deep_science_workspace(st,profile)

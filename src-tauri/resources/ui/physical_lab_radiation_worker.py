@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Run pinned Radiation Platform scalar physics on one Physical Lab 3-D field map.
+"""Run pinned Radiation Platform physics on one Physical Lab 3-D field map.
 
-This worker is intentionally executed with the managed Radiation Platform .venv,
-not the RADIA Magnet Studio .venv. It preserves Physical Lab's per-Lab dependency
-isolation while allowing an explicit, provenance-recorded cross-model workflow.
+The worker executes inside the managed Radiation Platform environment so Physical
+Lab can preserve per-Lab dependency isolation. Scalar trajectory/radiation
+observables are always returned. A bounded trajectory-based far-field angular
+map is optional because it is substantially more expensive and should not be
+silently repeated for every manufacturing realization.
 """
 from __future__ import annotations
 
@@ -37,6 +39,25 @@ def _observer_vector(distance_m: float, theta_x_mrad: float, theta_y_mrad: float
     ], dtype=float)
 
 
+def _extract_stokes(result: dict[str, Any]) -> dict[str, Any]:
+    st = result.get("Stokes") if isinstance(result.get("Stokes"), dict) else {}
+    out = {key: _finite(st.get(key)) for key in ("I", "Q", "U", "V", "P_lin", "P_circ")}
+    plin = out.get("P_lin")
+    pcirc = out.get("P_circ")
+    out["polarization_degree"] = (
+        math.sqrt(plin * plin + pcirc * pcirc)
+        if plin is not None and pcirc is not None else None
+    )
+    out["basis_convention"] = st.get("basis_convention")
+    out["V_convention"] = st.get("V_convention")
+    return out
+
+
+def _extract_harmonics(result: dict[str, Any]) -> dict[str, Any]:
+    harm = result.get("harmonic_ratios") if isinstance(result.get("harmonic_ratios"), dict) else {}
+    return {str(key): _finite(value) for key, value in harm.items() if _finite(value) is not None}
+
+
 def _extract_result(result: dict[str, Any]) -> dict[str, Any]:
     photon = result.get("photon_energy") if isinstance(result.get("photon_energy"), dict) else {}
     kcomp = result.get("K_components") if isinstance(result.get("K_components"), dict) else {}
@@ -48,17 +69,74 @@ def _extract_result(result: dict[str, Any]) -> dict[str, Any]:
         "frequency_relative_residual",
     ]
     out = {name: _finite(result.get(name)) for name in names}
-    # The pinned V11 source contains both nested scalar-result and flattened
-    # reporting paths. Prefer the canonical nested photon-energy payload, but
-    # accept the flattened scalar key returned by the active run_sim_scalar
-    # definition so the adapter follows the pinned engine's runtime schema.
     photon_energy_eV = _finite(photon.get("eV"))
     if photon_energy_eV is None:
         photon_energy_eV = _finite(result.get("photon_energy_eV"))
     out["photon_energy_eV"] = photon_energy_eV
     for key in ("K0", "Kx", "Ky", "K_eff_rms"):
         out[f"K_{key}"] = _finite(kcomp.get(key))
+    st = _extract_stokes(result)
+    out["P_lin"] = st.get("P_lin")
+    out["P_circ"] = st.get("P_circ") if st.get("P_circ") is not None else out.get("P_circ")
+    out["polarization_degree"] = st.get("polarization_degree")
     return out
+
+
+def _json_safe_matrix(values):
+    import numpy as np
+
+    arr = np.asarray(values)
+    if arr.ndim != 2:
+        raise ValueError("angular-map quantity must be a 2-D array")
+    rows = []
+    for row in arr:
+        rows.append([_finite(x) for x in row])
+    return rows
+
+
+def _extract_angular_map(v11, result: dict[str, Any], cfg: dict[str, Any], gamma: float) -> dict[str, Any] | None:
+    if not bool(cfg.get("includeAngularMap", False)):
+        return None
+    grid_points = int(cfg.get("angularGridPoints", 9))
+    if grid_points < 5 or grid_points > 15 or grid_points % 2 == 0:
+        raise ValueError("angularGridPoints must be an odd integer from 5 through 15")
+    extent = float(cfg.get("angularExtentGammaTheta", 3.0))
+    if not (0.25 <= extent <= 8.0):
+        raise ValueError("angularExtentGammaTheta must be between 0.25 and 8")
+    n_obs = int(cfg.get("angularObserverSamples", 1200))
+    if n_obs < 400 or n_obs > 6000:
+        raise ValueError("angularObserverSamples must be between 400 and 6000")
+    distance = float(cfg.get("observerDistanceM", 100.0))
+
+    angular = v11.angular_map_2d(
+        result,
+        gamma_for_grid=gamma,
+        grid_points=grid_points,
+        extent_gamma_theta=extent,
+        observer_distance=distance,
+        n_obs=n_obs,
+    )
+    axis = (np.linspace(-extent, extent, grid_points) / gamma).tolist()
+    return {
+        "theta_x_rad": [float(x) for x in axis],
+        "theta_y_rad": [float(x) for x in axis],
+        "fluence_J_m2": _json_safe_matrix(angular.get("fluence")),
+        "P_circ": _json_safe_matrix(angular.get("P_circ")),
+        "P_lin": _json_safe_matrix(angular.get("P_lin")),
+        "f_peak_hz": _json_safe_matrix(angular.get("f_peak_hz")),
+        "f_expected_hz": _json_safe_matrix(angular.get("f_expected_hz")),
+        "valid_mask": [[bool(x) for x in row] for row in np.asarray(angular.get("valid_mask"), dtype=bool)],
+        "failure_count": int(angular.get("failure_count", 0)),
+        "failures": list(angular.get("failures", []))[:25],
+        "mean_theta_x_rad": _finite(angular.get("mean_theta_x_rad")),
+        "mean_theta_y_rad": _finite(angular.get("mean_theta_y_rad")),
+        "rms_divergence_x_rad": _finite(angular.get("rms_divergence_x_rad")),
+        "rms_divergence_y_rad": _finite(angular.get("rms_divergence_y_rad")),
+        "grid_points": grid_points,
+        "extent_gamma_theta": extent,
+        "observer_samples": n_obs,
+        "boundary": "Each valid pixel is recomputed from the pinned single-electron trajectory/radiation solver. Failed pixels remain null rather than being silently replaced by zero. This is not a bunch-emittance, beamline-optics or detector map.",
+    }
 
 
 def run(config_path: Path, output_path: Path) -> None:
@@ -88,9 +166,6 @@ def run(config_path: Path, output_path: Path) -> None:
     if not np.all(np.isfinite(field)):
         raise ValueError("field map contains non-finite values")
 
-    # RADIA sample_3d is (Nz, Ny, Nx, 3); V11 regular field maps are indexed
-    # as (Nx, Ny, Nz). Build a dataframe and let the pinned V11 field-map
-    # constructor enforce regular-grid ordering and SI-unit conventions.
     bt = np.transpose(field, (2, 1, 0, 3))
     X, Y, Z = np.meshgrid(x_mm * 1e-3, y_mm * 1e-3, z_mm * 1e-3, indexing="ij")
     frame = pd.DataFrame({
@@ -134,8 +209,9 @@ def run(config_path: Path, output_path: Path) -> None:
     if not result:
         raise RuntimeError("Radiation Platform returned no scalar result")
 
+    angular_map = _extract_angular_map(v11, result, cfg, gamma)
     payload = {
-        "schema": "physical-lab-radia-radiation-worker-v1",
+        "schema": "physical-lab-radia-radiation-worker-v2",
         "radiationPlatformRevision": RADIATION_PLATFORM_REVISION,
         "fieldMap": {
             "nx": int(len(x_mm)), "ny": int(len(y_mm)), "nz": int(len(z_mm)),
@@ -150,7 +226,10 @@ def run(config_path: Path, output_path: Path) -> None:
             "thetaYMrad": float(cfg.get("thetaYMrad", 0.0)),
         },
         "observables": _extract_result(result),
-        "boundary": "These observables come from the pinned Radiation Platform single-electron field-map solver. They do not include bunch emittance, energy spread, coherent effects, beamline optics or detector response.",
+        "stokes": _extract_stokes(result),
+        "harmonicRatios": _extract_harmonics(result),
+        "angularMap": angular_map,
+        "boundary": "Scalar and optional angular observables come from the pinned Radiation Platform single-electron field-map trajectory/radiation solver. They do not include bunch emittance, energy spread, coherent effects, beamline optics or detector response.",
     }
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
 

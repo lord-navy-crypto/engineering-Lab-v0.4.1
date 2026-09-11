@@ -72,6 +72,12 @@ def _load_deep_science_ui_module():
     _load("physical_lab_deep_science","physical_lab_deep_science.py"); return _load("physical_lab_deep_science_ui","physical_lab_deep_science_ui.py")
 
 
+def _load_kerr_shadow_sweep_ui_module():
+    _load("physical_lab_deep_science","physical_lab_deep_science.py")
+    _load("physical_lab_kerr_shadow_sweep","physical_lab_kerr_shadow_sweep.py")
+    return _load("physical_lab_kerr_shadow_sweep_ui","physical_lab_kerr_shadow_sweep_ui.py")
+
+
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:
     try: _load_diagnostics_module().record_exception(source,exc,profile=profile,code="PLATFORM_MODULE_ERROR")
     except Exception: pass
@@ -100,6 +106,10 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile in {"nonlinear-chaos","oscillation-integration","numerical-methods"}:
         try: _load_deep_science_ui_module().render_deep_science_workspace(st,profile)
         except Exception as exc: _record_module_exception("deep-science-studio",exc,profile); st.warning(f"Physical Lab Deep Science Studio could not load: {exc}")
+
+    if profile=="nonlinear-chaos":
+        try: _load_kerr_shadow_sweep_ui_module().render_kerr_shadow_morphology_workspace(st,profile)
+        except Exception as exc: _record_module_exception("kerr-shadow-morphology",exc,profile); st.warning(f"Physical Lab Kerr Shadow Morphology Lab could not load: {exc}")
 
     if profile in {"nonlinear-chaos","oscillation-integration"}:
         try: _load_frequency_response_ui_module().render_frequency_response_workspace(st,profile)

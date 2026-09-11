@@ -42,46 +42,34 @@ def _load_project_kernel_module(): return _load("physical_lab_project_kernel","p
 def _load_measurement_registry_module(): return _load("physical_lab_measurement_registry","physical_lab_measurement_registry.py")
 def _load_diagnostics_module(): return _load("physical_lab_diagnostics","physical_lab_diagnostics.py")
 def _load_compute_engine_module(): return _load("physical_lab_compute_engine","physical_lab_compute_engine.py")
-
 def _load_kerr_ui_module():
     _load("physical_lab_kerr_geodesics","physical_lab_kerr_geodesics.py"); return _load("physical_lab_kerr_ui","physical_lab_kerr_ui.py")
-
 def _load_kerr_platform_ui_module():
     _load("physical_lab_kerr_geodesics","physical_lab_kerr_geodesics.py"); _load("physical_lab_experiment_kernel","physical_lab_experiment_kernel.py"); _load("physical_lab_kerr_workflow","physical_lab_kerr_workflow.py"); return _load("physical_lab_kerr_platform_ui","physical_lab_kerr_platform_ui.py")
-
 def _load_solar_system_ui_module():
     _load("physical_lab_solar_system_dynamics","physical_lab_solar_system_dynamics.py"); _load("physical_lab_experiment_kernel","physical_lab_experiment_kernel.py"); _load("physical_lab_solar_system_workflow","physical_lab_solar_system_workflow.py"); return _load("physical_lab_solar_system_ui","physical_lab_solar_system_ui.py")
-
 def _load_lattice_ui_module():
     _load("physical_lab_lattice_dynamics","physical_lab_lattice_dynamics.py"); _load("physical_lab_lattice_phonons","physical_lab_lattice_phonons.py"); _load("physical_lab_experiment_kernel","physical_lab_experiment_kernel.py"); _load("physical_lab_lattice_workflow","physical_lab_lattice_workflow.py"); return _load("physical_lab_lattice_ui","physical_lab_lattice_ui.py")
-
 def _load_new_model_refinement_ui_module():
     _load("physical_lab_new_model_refinements","physical_lab_new_model_refinements.py"); return _load("physical_lab_new_model_refinement_ui","physical_lab_new_model_refinement_ui.py")
-
 def _load_frequency_response_ui_module():
     _load("physical_lab_frequency_response","physical_lab_frequency_response.py"); return _load("physical_lab_frequency_response_ui","physical_lab_frequency_response_ui.py")
-
 def _load_deep_science_ui_module():
     _load("physical_lab_deep_science","physical_lab_deep_science.py"); return _load("physical_lab_deep_science_ui","physical_lab_deep_science_ui.py")
-
 def _load_kerr_shadow_sweep_ui_module():
     _load("physical_lab_deep_science","physical_lab_deep_science.py"); _load("physical_lab_kerr_shadow_sweep","physical_lab_kerr_shadow_sweep.py"); return _load("physical_lab_kerr_shadow_sweep_ui","physical_lab_kerr_shadow_sweep_ui.py")
-
 def _load_remaining_science_ui_module():
     _load("physical_lab_remaining_science","physical_lab_remaining_science.py"); return _load("physical_lab_remaining_science_ui","physical_lab_remaining_science_ui.py")
-
 def _load_model_depth_ui_module():
     _load("physical_lab_model_depth","physical_lab_model_depth.py"); return _load("physical_lab_model_depth_ui","physical_lab_model_depth_ui.py")
-
+def _load_model_depth_v_ui_module():
+    _load("physical_lab_model_depth_v","physical_lab_model_depth_v.py"); return _load("physical_lab_model_depth_v_ui","physical_lab_model_depth_v_ui.py")
 def _load_undulator_spectrum_ui_module():
     _load("physical_lab_undulator_spectrum","physical_lab_undulator_spectrum.py"); return _load("physical_lab_undulator_spectrum_ui","physical_lab_undulator_spectrum_ui.py")
-
 def _load_radiation_stokes_ui_module():
     _load("physical_lab_radia_radiation_propagation","physical_lab_radia_radiation_propagation.py"); return _load("physical_lab_radiation_stokes_ui","physical_lab_radiation_stokes_ui.py")
-
 def _load_radiation_quality_ui_module():
     _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radiation_sensitivity","physical_lab_radiation_sensitivity.py"); return _load("physical_lab_radiation_quality_ui","physical_lab_radiation_quality_ui.py")
-
 def _load_radiation_seed_compare_ui_module():
     _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radia_radiation_propagation","physical_lab_radia_radiation_propagation.py"); _load("physical_lab_radiation_seed_compare","physical_lab_radiation_seed_compare.py"); return _load("physical_lab_radiation_seed_compare_ui","physical_lab_radiation_seed_compare_ui.py")
 
@@ -116,6 +104,10 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile in {"ising-monte-carlo","nonlinear-chaos","oscillation-integration","numerical-methods"}:
         try: _load_model_depth_ui_module().render_model_depth_workspace(st,profile)
         except Exception as exc: _record_module_exception("model-depth",exc,profile); st.warning(f"Physical Lab Model Depth workspace could not load: {exc}")
+
+    if profile in {"random-walk-monte-carlo","oscillation-integration"}:
+        try: _load_model_depth_v_ui_module().render_model_depth_v_workspace(st,profile)
+        except Exception as exc: _record_module_exception("model-depth-v",exc,profile); st.warning(f"Physical Lab Model Depth V could not load: {exc}")
 
     if profile in {"radia-magnet-studio","radiation-platform"}:
         try: _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st,namespace)

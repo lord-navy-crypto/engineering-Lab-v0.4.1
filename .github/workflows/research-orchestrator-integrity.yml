@@ -1,0 +1,36 @@
+name: Research Orchestrator Integrity
+
+on:
+  pull_request:
+    paths:
+      - "src-tauri/resources/ui/physical_lab_research_orchestrator.py"
+      - "src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py"
+      - "src-tauri/resources/ui/physical_lab_engineering.py"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/research_orchestrator_validation.py"
+      - ".github/workflows/research-orchestrator-integrity.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime
+        run: python -m pip install --upgrade pip numpy
+      - name: Compile orchestrator and facade
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_engineering.py
+          python -m py_compile scripts/research_orchestrator_validation.py
+      - name: Validate sweep, table, convergence, and comparison logic
+        run: python scripts/research_orchestrator_validation.py
+      - name: Verify global wiring and DMG resources
+        run: |
+          grep -q 'render_research_orchestrator' src-tauri/resources/ui/physical_lab_engineering.py
+          grep -q 'physical_lab_research_orchestrator.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_research_orchestrator_ui.py' src-tauri/tauri.conf.json

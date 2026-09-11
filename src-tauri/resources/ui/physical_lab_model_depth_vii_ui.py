@@ -33,3 +33,8 @@ def render_model_depth_vii_workspace(st:Any,profile:str)->None:
     if profile not in {'oscillation-integration','numerical-methods'}: return
     st.markdown('---'); st.markdown('## Physical Lab · Model Depth VII')
     _render_inverse(st)
+    try:
+        from physical_lab_model_depth_viii_ui import render_model_depth_viii_workspace
+        render_model_depth_viii_workspace(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Model Depth VIII could not load: {exc}")

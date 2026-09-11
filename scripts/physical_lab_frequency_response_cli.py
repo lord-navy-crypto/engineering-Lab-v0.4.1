@@ -31,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     linear.add_argument("--settle-cycles", type=int, default=24)
     linear.add_argument("--observe-cycles", type=int, default=8)
     linear.add_argument("--points-per-cycle", type=int, default=72)
+    linear.add_argument("--out", type=Path, help="optional JSON output path")
 
     duffing = sub.add_parser("duffing", help="hardening Duffing forward/reverse continuation sweep")
     duffing.add_argument("--omega-0", type=float, default=1.0)
@@ -43,8 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     duffing.add_argument("--settle-cycles", type=int, default=35)
     duffing.add_argument("--observe-cycles", type=int, default=8)
     duffing.add_argument("--points-per-cycle", type=int, default=60)
-
-    parser.add_argument("--out", type=Path, help="optional JSON output path")
+    duffing.add_argument("--out", type=Path, help="optional JSON output path")
     return parser
 
 

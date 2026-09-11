@@ -1,0 +1,30 @@
+name: Model Depth VII Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_model_depth_vii.py'
+      - 'src-tauri/resources/ui/physical_lab_model_depth_vii_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_model_depth_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/model_depth_vii_validation.py'
+      - '.github/workflows/model-depth-vii-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  inverse-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip numpy scipy
+      - name: Compile inverse modules
+        run: python -m py_compile src-tauri/resources/ui/physical_lab_model_depth_vii.py src-tauri/resources/ui/physical_lab_model_depth_vii_ui.py src-tauri/resources/ui/physical_lab_model_depth_ui.py
+      - name: Check bundled resources
+        run: |
+          grep -q 'physical_lab_model_depth_vii.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_model_depth_vii_ui.py' src-tauri/tauri.conf.json
+      - name: Run inverse-problem validation
+        run: python scripts/model_depth_vii_validation.py

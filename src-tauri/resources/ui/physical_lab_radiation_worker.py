@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Run pinned Radiation Platform physics on one Physical Lab 3-D field map.
 
-The worker executes inside the managed Radiation Platform environment so Physical
-Lab can preserve per-Lab dependency isolation. Scalar trajectory/radiation
-observables are always returned. A bounded trajectory-based far-field angular
-map is optional because it is substantially more expensive and should not be
-silently repeated for every manufacturing realization.
+The worker preserves per-Lab dependency isolation. Ordinary manufacturing
+ensembles use the lighter scalar solver. When an angular map is explicitly
+requested, the worker upgrades to the full trajectory result because the pinned
+Radiation Platform angular-map routine requires fitted trajectory splines.
 """
 from __future__ import annotations
 
@@ -40,27 +39,41 @@ def _observer_vector(distance_m: float, theta_x_mrad: float, theta_y_mrad: float
 
 
 def _extract_stokes(result: dict[str, Any]) -> dict[str, Any]:
-    st = result.get("Stokes") if isinstance(result.get("Stokes"), dict) else {}
-    out = {key: _finite(st.get(key)) for key in ("I", "Q", "U", "V", "P_lin", "P_circ")}
+    nested = result.get("Stokes") if isinstance(result.get("Stokes"), dict) else {}
+    out = {key: _finite(nested.get(key)) for key in ("I", "Q", "U", "V", "P_lin", "P_circ")}
+    # run_sim_scalar intentionally flattens the two polarization fractions.
+    if out["P_lin"] is None:
+        out["P_lin"] = _finite(result.get("P_lin"))
+    if out["P_circ"] is None:
+        out["P_circ"] = _finite(result.get("P_circ"))
     plin = out.get("P_lin")
     pcirc = out.get("P_circ")
     out["polarization_degree"] = (
         math.sqrt(plin * plin + pcirc * pcirc)
         if plin is not None and pcirc is not None else None
     )
-    out["basis_convention"] = st.get("basis_convention")
-    out["V_convention"] = st.get("V_convention")
+    out["basis_convention"] = nested.get("basis_convention")
+    out["V_convention"] = nested.get("V_convention")
     return out
 
 
 def _extract_harmonics(result: dict[str, Any]) -> dict[str, Any]:
-    harm = result.get("harmonic_ratios") if isinstance(result.get("harmonic_ratios"), dict) else {}
-    return {str(key): _finite(value) for key, value in harm.items() if _finite(value) is not None}
+    nested = result.get("harmonic_ratios") if isinstance(result.get("harmonic_ratios"), dict) else {}
+    out = {str(key): _finite(value) for key, value in nested.items() if _finite(value) is not None}
+    # Scalar runtime schema exposes these at top level.
+    for key in ("H3_over_H1", "H5_over_H1", "radiation_H3_over_H1", "radiation_H5_over_H1"):
+        value = _finite(result.get(key))
+        if value is not None:
+            canonical = key.replace("radiation_", "")
+            out.setdefault(canonical, value)
+    return out
 
 
 def _extract_result(result: dict[str, Any]) -> dict[str, Any]:
     photon = result.get("photon_energy") if isinstance(result.get("photon_energy"), dict) else {}
     kcomp = result.get("K_components") if isinstance(result.get("K_components"), dict) else {}
+    traj_phase = result.get("trajectory_phase") if isinstance(result.get("trajectory_phase"), dict) else {}
+    residuals = result.get("theory_residuals") if isinstance(result.get("theory_residuals"), dict) else {}
     names = [
         "f0", "P_larmor", "relative_linewidth", "spectral_fwhm_hz",
         "spectral_quality_factor", "P_circ", "gamma_avg",
@@ -69,16 +82,30 @@ def _extract_result(result: dict[str, Any]) -> dict[str, Any]:
         "frequency_relative_residual",
     ]
     out = {name: _finite(result.get(name)) for name in names}
+    for key in ("max_transverse_excursion_m", "period_repeatability_rms_m", "orbit_phase_error_rms_rad", "exit_xprime_rad", "exit_yprime_rad"):
+        if out.get(key) is None:
+            out[key] = _finite(traj_phase.get(key))
+    if out.get("frequency_relative_residual") is None:
+        out["frequency_relative_residual"] = _finite(residuals.get("frequency_relative_residual"))
+
     photon_energy_eV = _finite(photon.get("eV"))
     if photon_energy_eV is None:
         photon_energy_eV = _finite(result.get("photon_energy_eV"))
     out["photon_energy_eV"] = photon_energy_eV
+
     for key in ("K0", "Kx", "Ky", "K_eff_rms"):
-        out[f"K_{key}"] = _finite(kcomp.get(key))
+        value = _finite(kcomp.get(key))
+        if value is None:
+            value = _finite(result.get(key))
+        out[f"K_{key}"] = value
+
     st = _extract_stokes(result)
     out["P_lin"] = st.get("P_lin")
     out["P_circ"] = st.get("P_circ") if st.get("P_circ") is not None else out.get("P_circ")
     out["polarization_degree"] = st.get("polarization_degree")
+    harmonics = _extract_harmonics(result)
+    out["H3_over_H1"] = harmonics.get("H3_over_H1")
+    out["H5_over_H1"] = harmonics.get("H5_over_H1")
     return out
 
 
@@ -96,6 +123,8 @@ def _extract_angular_map(v11, result: dict[str, Any], cfg: dict[str, Any], gamma
 
     if not bool(cfg.get("includeAngularMap", False)):
         return None
+    if "splines" not in result:
+        raise RuntimeError("Angular radiation requires a full trajectory result with fitted splines")
     grid_points = int(cfg.get("angularGridPoints", 9))
     if grid_points < 5 or grid_points > 15 or grid_points % 2 == 0:
         raise ValueError("angularGridPoints must be an odd integer from 5 through 15")
@@ -115,11 +144,12 @@ def _extract_angular_map(v11, result: dict[str, Any], cfg: dict[str, Any], gamma
         observer_distance=distance,
         n_obs=n_obs,
     )
-    axis = (np.linspace(-extent, extent, grid_points) / gamma).tolist()
+    theta_x = np.asarray(angular.get("theta_x"), dtype=float)
+    theta_y = np.asarray(angular.get("theta_y"), dtype=float)
     return {
-        "theta_x_rad": [float(x) for x in axis],
-        "theta_y_rad": [float(x) for x in axis],
-        "fluence_J_m2": _json_safe_matrix(angular.get("fluence")),
+        "theta_x_rad": [float(x) for x in theta_x],
+        "theta_y_rad": [float(x) for x in theta_y],
+        "fluence_J_m2": _json_safe_matrix(angular.get("fluence_J_m2")),
         "P_circ": _json_safe_matrix(angular.get("P_circ")),
         "P_lin": _json_safe_matrix(angular.get("P_lin")),
         "f_peak_hz": _json_safe_matrix(angular.get("f_peak_hz")),
@@ -195,7 +225,10 @@ def run(config_path: Path, output_path: Path) -> None:
         float(cfg.get("thetaXMrad", 0.0)),
         float(cfg.get("thetaYMrad", 0.0)),
     )
-    result = v11.run_sim_scalar(
+
+    include_angular = bool(cfg.get("includeAngularMap", False))
+    solver = v11.run_sim if include_angular else v11.run_sim_scalar
+    result = solver(
         device,
         None,
         span,
@@ -206,12 +239,13 @@ def run(config_path: Path, output_path: Path) -> None:
         atol=float(cfg.get("atol", 1e-11)),
     )
     if not result:
-        raise RuntimeError("Radiation Platform returned no scalar result")
+        raise RuntimeError("Radiation Platform returned no result")
 
     angular_map = _extract_angular_map(v11, result, cfg, gamma)
     payload = {
         "schema": "physical-lab-radia-radiation-worker-v2",
         "radiationPlatformRevision": RADIATION_PLATFORM_REVISION,
+        "solverMode": "full-trajectory" if include_angular else "scalar",
         "fieldMap": {
             "nx": int(len(x_mm)), "ny": int(len(y_mm)), "nz": int(len(z_mm)),
             "points": int(len(x_mm) * len(y_mm) * len(z_mm)),

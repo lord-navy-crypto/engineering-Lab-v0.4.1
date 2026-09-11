@@ -37,6 +37,28 @@ def _load_sensitivity():
         return mod
 
 
+def _load_interactions_ui():
+    try:
+        import physical_lab_radiation_interactions_ui as mod
+        return mod
+    except ModuleNotFoundError:
+        core_path = Path(__file__).with_name("physical_lab_radiation_interactions.py")
+        core_spec = importlib.util.spec_from_file_location("physical_lab_radiation_interactions", core_path)
+        if core_spec is None or core_spec.loader is None:
+            raise ImportError(f"Unable to load {core_path}")
+        core = importlib.util.module_from_spec(core_spec)
+        sys.modules.setdefault("physical_lab_radiation_interactions", core)
+        core_spec.loader.exec_module(core)
+        path = Path(__file__).with_name("physical_lab_radiation_interactions_ui.py")
+        spec = importlib.util.spec_from_file_location("physical_lab_radiation_interactions_ui", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load {path}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault("physical_lab_radiation_interactions_ui", mod)
+        spec.loader.exec_module(mod)
+        return mod
+
+
 def _render_sensitivity(st: Any, namespace: Mapping[str, Any] | None) -> None:
     if not namespace:
         return
@@ -165,3 +187,7 @@ def render_radiation_quality_workspace(st: Any, profile: str, namespace: Mapping
     st.caption(summary.get("boundary", ""))
     st.markdown("---")
     _render_sensitivity(st, namespace)
+    try:
+        _load_interactions_ui().render_radiation_interactions_workspace(st, profile, namespace)
+    except Exception as exc:
+        st.warning(f"Pairwise manufacturing-radiation interaction workspace could not load: {exc}")

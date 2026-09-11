@@ -83,6 +83,11 @@ def _load_remaining_science_ui_module():
     return _load("physical_lab_remaining_science_ui","physical_lab_remaining_science_ui.py")
 
 
+def _load_model_depth_ui_module():
+    _load("physical_lab_model_depth","physical_lab_model_depth.py")
+    return _load("physical_lab_model_depth_ui","physical_lab_model_depth_ui.py")
+
+
 def _load_undulator_spectrum_ui_module():
     _load("physical_lab_undulator_spectrum","physical_lab_undulator_spectrum.py")
     return _load("physical_lab_undulator_spectrum_ui","physical_lab_undulator_spectrum_ui.py")
@@ -134,6 +139,10 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile in {"ising-monte-carlo","random-walk-monte-carlo","nonlinear-chaos","oscillation-integration"}:
         try: _load_remaining_science_ui_module().render_remaining_science_workspace(st,profile)
         except Exception as exc: _record_module_exception("advanced-model-science",exc,profile); st.warning(f"Physical Lab Advanced Model Science could not load: {exc}")
+
+    if profile in {"ising-monte-carlo","nonlinear-chaos","oscillation-integration"}:
+        try: _load_model_depth_ui_module().render_model_depth_workspace(st,profile)
+        except Exception as exc: _record_module_exception("model-depth-iii",exc,profile); st.warning(f"Physical Lab Model Depth III could not load: {exc}")
 
     if profile in {"radia-magnet-studio","radiation-platform"}:
         try: _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st,namespace)

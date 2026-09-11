@@ -93,6 +93,14 @@ def _render_depth_iv(st: Any, profile: str) -> None:
         st.warning(f"Physical Lab Model Depth IV could not load: {exc}")
 
 
+def _render_depth_vii(st: Any, profile: str) -> None:
+    try:
+        from physical_lab_model_depth_vii_ui import render_model_depth_vii_workspace
+        render_model_depth_vii_workspace(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Model Depth VII could not load: {exc}")
+
+
 def render_model_depth_workspace(st: Any, profile: str) -> None:
     if profile not in {'ising-monte-carlo','nonlinear-chaos','oscillation-integration','numerical-methods'}: return
     if profile in {'ising-monte-carlo','nonlinear-chaos','oscillation-integration'}:
@@ -102,3 +110,5 @@ def render_model_depth_workspace(st: Any, profile: str) -> None:
         else: _render_lattice(st)
     if profile in {'nonlinear-chaos','numerical-methods'}:
         _render_depth_iv(st, profile)
+    if profile in {'oscillation-integration','numerical-methods'}:
+        _render_depth_vii(st, profile)

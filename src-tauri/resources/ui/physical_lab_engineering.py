@@ -64,6 +64,8 @@ def _load_model_depth_ui_module():
     _load("physical_lab_model_depth","physical_lab_model_depth.py"); return _load("physical_lab_model_depth_ui","physical_lab_model_depth_ui.py")
 def _load_model_depth_v_ui_module():
     _load("physical_lab_model_depth_v","physical_lab_model_depth_v.py"); return _load("physical_lab_model_depth_v_ui","physical_lab_model_depth_v_ui.py")
+def _load_model_depth_vi_ui_module():
+    _load("physical_lab_model_depth_vi","physical_lab_model_depth_vi.py"); return _load("physical_lab_model_depth_vi_ui","physical_lab_model_depth_vi_ui.py")
 def _load_undulator_spectrum_ui_module():
     _load("physical_lab_undulator_spectrum","physical_lab_undulator_spectrum.py"); return _load("physical_lab_undulator_spectrum_ui","physical_lab_undulator_spectrum_ui.py")
 def _load_radiation_stokes_ui_module():
@@ -71,7 +73,7 @@ def _load_radiation_stokes_ui_module():
 def _load_radiation_quality_ui_module():
     _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radiation_sensitivity","physical_lab_radiation_sensitivity.py"); return _load("physical_lab_radiation_quality_ui","physical_lab_radiation_quality_ui.py")
 def _load_radiation_seed_compare_ui_module():
-    _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radia_radiation_propagation","physical_lab_radia_radiation_propagation.py"); _load("physical_lab_radiation_seed_compare","physical_lab_radiation_seed_compare.py"); return _load("physical_lab_radiation_seed_compare_ui","physical_lab_radiation_seed_compare_ui.py")
+    _load("physical_lab_radiation_quality","physical_lab_radia_radiation_propagation.py"); _load("physical_lab_radiation_quality","physical_lab_radiation_quality.py"); _load("physical_lab_radiation_seed_compare","physical_lab_radiation_seed_compare.py"); return _load("physical_lab_radiation_seed_compare_ui","physical_lab_radiation_seed_compare_ui.py")
 
 
 def _record_module_exception(source:str,exc:Exception,profile:str)->None:
@@ -108,6 +110,8 @@ def render_engineering_vvuq(st, profile:str, namespace:dict|None=None)->None:
     if profile in {"random-walk-monte-carlo","oscillation-integration"}:
         try: _load_model_depth_v_ui_module().render_model_depth_v_workspace(st,profile)
         except Exception as exc: _record_module_exception("model-depth-v",exc,profile); st.warning(f"Physical Lab Model Depth V could not load: {exc}")
+        try: _load_model_depth_vi_ui_module().render_model_depth_vi_workspace(st,profile)
+        except Exception as exc: _record_module_exception("model-depth-vi",exc,profile); st.warning(f"Physical Lab Model Depth VI could not load: {exc}")
 
     if profile in {"radia-magnet-studio","radiation-platform"}:
         try: _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st,namespace)

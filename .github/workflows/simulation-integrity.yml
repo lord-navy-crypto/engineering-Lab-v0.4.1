@@ -10,11 +10,14 @@ on:
       - 'src-tauri/resources/ui/physical_lab_deep_science_ui.py'
       - 'src-tauri/resources/ui/physical_lab_kerr_shadow_sweep.py'
       - 'src-tauri/resources/ui/physical_lab_kerr_shadow_sweep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_remaining_science.py'
+      - 'src-tauri/resources/ui/physical_lab_remaining_science_ui.py'
       - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/frequency_response_simulation_validation.py'
       - 'scripts/deep_science_validation.py'
       - 'scripts/kerr_shadow_sweep_validation.py'
+      - 'scripts/remaining_science_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
   pull_request:
@@ -25,11 +28,14 @@ on:
       - 'src-tauri/resources/ui/physical_lab_deep_science_ui.py'
       - 'src-tauri/resources/ui/physical_lab_kerr_shadow_sweep.py'
       - 'src-tauri/resources/ui/physical_lab_kerr_shadow_sweep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_remaining_science.py'
+      - 'src-tauri/resources/ui/physical_lab_remaining_science_ui.py'
       - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/frequency_response_simulation_validation.py'
       - 'scripts/deep_science_validation.py'
       - 'scripts/kerr_shadow_sweep_validation.py'
+      - 'scripts/remaining_science_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
 
@@ -54,27 +60,35 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_deep_science_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_kerr_shadow_sweep.py
           python -m py_compile src-tauri/resources/ui/physical_lab_kerr_shadow_sweep_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_remaining_science.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_remaining_science_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_engineering.py
           python -m py_compile scripts/frequency_response_simulation_validation.py
           python -m py_compile scripts/deep_science_validation.py
           python -m py_compile scripts/kerr_shadow_sweep_validation.py
+          python -m py_compile scripts/remaining_science_validation.py
           python -m py_compile scripts/physical_lab_frequency_response_cli.py
           python -m json.tool src-tauri/tauri.conf.json >/dev/null
           grep -q 'render_frequency_response_workspace' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'render_deep_science_workspace' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'render_kerr_shadow_morphology_workspace' src-tauri/resources/ui/physical_lab_engineering.py
+          grep -q 'render_remaining_science_workspace' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'physical_lab_frequency_response.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_deep_science.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_kerr_shadow_sweep.py' src-tauri/tauri.conf.json
-          grep -q 'numerical-methods' src-tauri/resources/ui/physical_lab_deep_science_ui.py
-          grep -q 'nonlinear-chaos' src-tauri/resources/ui/physical_lab_deep_science_ui.py
-          grep -q 'oscillation-integration' src-tauri/resources/ui/physical_lab_deep_science_ui.py
+          grep -q 'physical_lab_remaining_science.py' src-tauri/tauri.conf.json
+          grep -q 'ising-monte-carlo' src-tauri/resources/ui/physical_lab_remaining_science_ui.py
+          grep -q 'random-walk-monte-carlo' src-tauri/resources/ui/physical_lab_remaining_science_ui.py
+          grep -q 'nonlinear-chaos' src-tauri/resources/ui/physical_lab_remaining_science_ui.py
+          grep -q 'oscillation-integration' src-tauri/resources/ui/physical_lab_remaining_science_ui.py
       - name: Frequency-response deterministic validation
         run: python scripts/frequency_response_simulation_validation.py
       - name: Deep-science deterministic validation
         run: python scripts/deep_science_validation.py
       - name: Kerr shadow morphology validation
         run: python scripts/kerr_shadow_sweep_validation.py
+      - name: Advanced remaining-science validation
+        run: python scripts/remaining_science_validation.py
       - name: CLI smoke checks
         run: |
           python scripts/physical_lab_frequency_response_cli.py linear --points 7 --settle-cycles 8 --observe-cycles 3 --points-per-cycle 40 --out /tmp/linear-response.json

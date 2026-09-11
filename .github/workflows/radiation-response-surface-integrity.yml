@@ -9,6 +9,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_radiation_interactions_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/radiation_response_surface_validation.py'
+      - 'scripts/radiation_requirement_contour_validation.py'
       - '.github/workflows/radiation-response-surface-integrity.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_radiation_interactions_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/radiation_response_surface_validation.py'
+      - 'scripts/radiation_requirement_contour_validation.py'
       - '.github/workflows/radiation-response-surface-integrity.yml'
 
 permissions:
@@ -38,9 +40,13 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_radiation_response_surface_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_radiation_interactions_ui.py
           python -m py_compile scripts/radiation_response_surface_validation.py
+          python -m py_compile scripts/radiation_requirement_contour_validation.py
           python -m json.tool src-tauri/tauri.conf.json >/dev/null
           grep -q 'physical_lab_radiation_response_surface.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_radiation_response_surface_ui.py' src-tauri/tauri.conf.json
           grep -q 'render_radiation_response_surface_workspace' src-tauri/resources/ui/physical_lab_radiation_interactions_ui.py
+          grep -q '_classify_requirement_surface' src-tauri/resources/ui/physical_lab_radiation_response_surface_ui.py
       - name: Exact quadratic coefficient recovery
         run: python scripts/radiation_response_surface_validation.py
+      - name: Local requirement contour validation
+        run: python scripts/radiation_requirement_contour_validation.py

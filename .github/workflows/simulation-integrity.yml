@@ -18,6 +18,8 @@ on:
       - 'src-tauri/resources/ui/physical_lab_radiation_stokes_ui.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_quality.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_quality_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_seed_compare.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_seed_compare_ui.py'
       - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/frequency_response_simulation_validation.py'
@@ -27,6 +29,7 @@ on:
       - 'scripts/undulator_spectrum_validation.py'
       - 'scripts/radiation_worker_stokes_validation.py'
       - 'scripts/radiation_quality_validation.py'
+      - 'scripts/radiation_seed_compare_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
   pull_request:
@@ -45,6 +48,8 @@ on:
       - 'src-tauri/resources/ui/physical_lab_radiation_stokes_ui.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_quality.py'
       - 'src-tauri/resources/ui/physical_lab_radiation_quality_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_seed_compare.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_seed_compare_ui.py'
       - 'src-tauri/resources/ui/physical_lab_engineering.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/frequency_response_simulation_validation.py'
@@ -54,6 +59,7 @@ on:
       - 'scripts/undulator_spectrum_validation.py'
       - 'scripts/radiation_worker_stokes_validation.py'
       - 'scripts/radiation_quality_validation.py'
+      - 'scripts/radiation_seed_compare_validation.py'
       - 'scripts/physical_lab_frequency_response_cli.py'
       - '.github/workflows/simulation-integrity.yml'
 
@@ -86,6 +92,8 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_radiation_stokes_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_radiation_quality.py
           python -m py_compile src-tauri/resources/ui/physical_lab_radiation_quality_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_radiation_seed_compare.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_radiation_seed_compare_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_engineering.py
           python -m py_compile scripts/frequency_response_simulation_validation.py
           python -m py_compile scripts/deep_science_validation.py
@@ -94,6 +102,7 @@ jobs:
           python -m py_compile scripts/undulator_spectrum_validation.py
           python -m py_compile scripts/radiation_worker_stokes_validation.py
           python -m py_compile scripts/radiation_quality_validation.py
+          python -m py_compile scripts/radiation_seed_compare_validation.py
           python -m py_compile scripts/physical_lab_frequency_response_cli.py
           python -m json.tool src-tauri/tauri.conf.json >/dev/null
           grep -q 'render_frequency_response_workspace' src-tauri/resources/ui/physical_lab_engineering.py
@@ -103,6 +112,7 @@ jobs:
           grep -q 'render_undulator_spectrum_workspace' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'render_radiation_stokes_workspace' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'render_radiation_quality_workspace' src-tauri/resources/ui/physical_lab_engineering.py
+          grep -q 'render_seed_radiation_comparison' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'physical_lab_frequency_response.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_deep_science.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_kerr_shadow_sweep.py' src-tauri/tauri.conf.json
@@ -110,6 +120,7 @@ jobs:
           grep -q 'physical_lab_undulator_spectrum.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_radiation_stokes_ui.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_radiation_quality.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_radiation_seed_compare.py' src-tauri/tauri.conf.json
           grep -q 'radia-magnet-studio' src-tauri/resources/ui/physical_lab_engineering.py
           grep -q 'radiation-platform' src-tauri/resources/ui/physical_lab_engineering.py
       - name: Frequency-response deterministic validation
@@ -126,6 +137,8 @@ jobs:
         run: python scripts/radiation_worker_stokes_validation.py
       - name: Radiation quality degradation validation
         run: python scripts/radiation_quality_validation.py
+      - name: Radiation seed-map comparison validation
+        run: python scripts/radiation_seed_compare_validation.py
       - name: CLI smoke checks
         run: |
           python scripts/physical_lab_frequency_response_cli.py linear --points 7 --settle-cycles 8 --observe-cycles 3 --points-per-cycle 40 --out /tmp/linear-response.json

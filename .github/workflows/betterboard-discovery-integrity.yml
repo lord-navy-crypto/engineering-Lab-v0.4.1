@@ -6,6 +6,7 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_betterboard_discovery.py'
       - 'src-tauri/resources/ui/physical_lab_betterboard_discovery_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_betterboard_inbox.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'scripts/betterboard_discovery_validation.py'
       - 'src-tauri/tauri.conf.json'
@@ -24,11 +25,13 @@ jobs:
           python -m py_compile \
             src-tauri/resources/ui/physical_lab_betterboard_discovery.py \
             src-tauri/resources/ui/physical_lab_betterboard_discovery_ui.py \
+            src-tauri/resources/ui/physical_lab_betterboard_inbox.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
             scripts/betterboard_discovery_validation.py
-      - name: Validate discovery and integrity rejection
+      - name: Validate discovery, integrity rejection and inbox states
         run: python scripts/betterboard_discovery_validation.py
       - name: Verify bundle resources
         run: |
           grep -q 'physical_lab_betterboard_discovery.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_betterboard_discovery_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_betterboard_inbox.py' src-tauri/tauri.conf.json

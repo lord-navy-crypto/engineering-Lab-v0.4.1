@@ -69,6 +69,7 @@ def main() -> int:
         os.environ["PHYSICAL_LAB_DATA_DIR"] = tmp
         import physical_lab_project_kernel as projects
         from physical_lab_betterboard_discovery import discover_betterboard_measurements, load_discovered_measurement
+        from physical_lab_betterboard_inbox import inbox_counts, load_inbox, set_disposition, sync_discovery
         from physical_lab_labbridge import finalize_packet, ingest_measurement_asset
 
         project_dir, _ = projects.create_project("BetterBoard Discovery Validation")
@@ -90,6 +91,18 @@ def main() -> int:
         require(not by_name["analog-tampered"]["labbridge_valid"], "tampered BetterBoard data.csv was accepted")
         require(not by_name["analog-valid"]["already_ingested"], "fresh source incorrectly marked already ingested")
 
+        sync_discovery(project_dir, rows)
+        valid_sha = by_name["analog-valid"]["packet_sha256"]
+        tampered_sha = by_name["analog-tampered"]["packet_sha256"]
+        inbox = load_inbox(project_dir)
+        require(inbox["packets"][valid_sha]["disposition"] == "new", "fresh valid packet did not enter NEW state")
+        require(inbox["packets"][tampered_sha]["disposition"] == "new", "fresh invalid packet should still be visible as NEW evidence inbox item")
+        require(inbox_counts(project_dir)["new"] == 2, "initial inbox NEW count mismatch")
+
+        set_disposition(project_dir, tampered_sha, "ignored", note="Integrity failure; do not ingest.")
+        inbox = load_inbox(project_dir)
+        require(inbox["packets"][tampered_sha]["disposition"] == "ignored", "ignore disposition not persisted")
+
         packet, data = load_discovered_measurement(by_name["analog-valid"])
         require(packet["packet_id"] == valid_packet["packet_id"], "loaded packet identity changed")
         ingest_measurement_asset(project_dir, packet=packet, dataset_bytes=data, profile="validation")
@@ -99,7 +112,14 @@ def main() -> int:
         require(by_name_after["analog-valid"]["already_ingested"], "ingested source was not recognized by packet SHA")
         require(not by_name_after["analog-tampered"]["already_ingested"], "tampered source incorrectly marked ingested")
 
-    print("PASS: BetterBoard local discovery, integrity rejection and packet-SHA deduplication")
+        sync_discovery(project_dir, rows_after)
+        inbox_after = load_inbox(project_dir)
+        require(inbox_after["packets"][valid_sha]["disposition"] == "ingested", "sync did not promote imported source to INGESTED")
+        require(inbox_after["packets"][tampered_sha]["disposition"] == "ignored", "sync overwrote explicit ignored disposition")
+        counts = inbox_counts(project_dir)
+        require(counts["ingested"] == 1 and counts["ignored"] == 1 and counts["new"] == 0, f"final inbox counts wrong: {counts}")
+
+    print("PASS: BetterBoard discovery, integrity rejection, packet-SHA deduplication and evidence inbox states")
     return 0
 
 

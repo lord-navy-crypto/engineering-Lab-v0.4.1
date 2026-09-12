@@ -1,4 +1,4 @@
-"""UI for project data bridge, result inspection/comparison, coupling, workflow DAGs and reproducibility."""
+"""UI for Engineering Lab project data, LabBridge, results, coupling, workflows and reproducibility."""
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
@@ -21,13 +21,13 @@ def render_project_interop(st: Any, profile: str) -> None:
         return
 
     st.markdown("---")
-    with st.expander("Physical Lab · Project Data, Results, Coupling & Reproducibility", expanded=False):
+    with st.expander("Engineering Lab · Project Data, LabBridge, Results & Reproducibility", expanded=False):
         st.caption(
-            "Promote numeric tables into reusable project datasets, inspect/materialize and compare persisted results, map data explicitly "
-            "into downstream model parameters, compose acyclic workflows, and export portable provenance packs."
+            "Engineering Lab is the scientific computation/evidence core. Ingest BetterBoard real-world measurements through LabBridge, "
+            "record the Lab Journey, inspect/compare results, compose model workflows, and exchange bounded advisory context with OpenPenguin."
         )
-        tab_data, tab_results, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
-            "Data Bridge", "Result Inspector", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        tab_data, tab_labbridge, tab_results, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "LabBridge / Journey", "Result Inspector", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
         ])
 
         with tab_data:
@@ -71,6 +71,13 @@ def render_project_interop(st: Any, profile: str) -> None:
             else:
                 st.caption("No canonical project datasets yet.")
 
+        with tab_labbridge:
+            try:
+                from physical_lab_labbridge_ui import render_labbridge
+                render_labbridge(st, profile)
+            except Exception as exc:
+                st.warning(f"LabBridge / Lab Journey could not load: {exc}")
+
         with tab_results:
             try:
                 from physical_lab_result_inspector_ui import render_result_inspector
@@ -102,7 +109,10 @@ def render_project_interop(st: Any, profile: str) -> None:
         with tab_pack:
             st.markdown("#### Portable reproducibility package")
             include_assets = st.checkbox("Include raw measurement assets up to 8 MB each", value=False, key=f"pl_repro_assets_{profile}")
-            st.caption("Default pack includes measurement/calibration metadata, experiments, result references, evidence/provenance, project datasets, result materializations, software environments, saved coupling pipelines/workflows, and a generated project report. Large external solver artifacts are not embedded.")
+            st.caption(
+                "Default pack includes measurement/calibration metadata, experiments, result references, LabBridge provenance, Lab Journey events, "
+                "project datasets, result materializations, software environments, saved coupling pipelines/workflows, frozen run snapshots, and a generated project report."
+            )
             if st.button("Build reproducibility ZIP", type="primary", key=f"pl_repro_build_{profile}"):
                 st.session_state[f"pl_repro_pack_{profile}"] = build_reproducibility_pack(project_path, include_measurement_assets=include_assets)
             pack = st.session_state.get(f"pl_repro_pack_{profile}")

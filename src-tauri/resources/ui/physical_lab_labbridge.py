@@ -128,7 +128,10 @@ def ingest_measurement_asset(
     if not check["valid"]:
         raise ValueError("invalid LabBridge MeasurementAsset: " + "; ".join(check["errors"]))
 
-    parsed = parse_numeric_table(dataset_bytes, str((packet.get("dataset") or {}).get("path") or "data.csv"))
+    parsed = parse_numeric_table(
+        dataset_bytes,
+        filename=str((packet.get("dataset") or {}).get("path") or "data.csv"),
+    )
     packet_columns = list((packet.get("dataset") or {}).get("columns") or [])
     declared_names = [str(row.get("name")) for row in packet_columns if isinstance(row, Mapping)]
     missing = [name for name in declared_names if name not in parsed.get("column_data", {})]

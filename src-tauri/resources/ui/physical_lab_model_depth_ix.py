@@ -36,7 +36,7 @@ def pid_step_response(*, mass:float=1.0, damping:float=0.8, stiffness:float=4.0,
     outside=np.where(np.abs(err)>tol)[0]
     if len(outside)==0: settling=0.0
     elif outside[-1] < len(t)-1: settling=float(t[outside[-1]+1])
-    return _plain({'schema':'physical-lab-pid-step-v1','time_s':t,'position':x,'velocity':v,'control':u,'reference':reference,'overshoot_pct':overshoot,'settling_time_s':settling,'iae':float(np.trapz(np.abs(err),t)),'control_rms':float(np.sqrt(np.mean(u*u))),'boundary':'Linear SDOF plant with ideal continuous PID and no actuator saturation, delay, quantization, or derivative filtering. Performance metrics are model-local, not hardware guarantees.'})
+    return _plain({'schema':'physical-lab-pid-step-v1','time_s':t,'position':x,'velocity':v,'control':u,'reference':reference,'overshoot_pct':overshoot,'settling_time_s':settling,'iae':float(np.trapezoid(np.abs(err),t)),'control_rms':float(np.sqrt(np.mean(u*u))),'boundary':'Linear SDOF plant with ideal continuous PID and no actuator saturation, delay, quantization, or derivative filtering. Performance metrics are model-local, not hardware guarantees.'})
 
 
 def lqr_kalman_demo(*, mass:float=1.0, damping:float=0.5, stiffness:float=2.0, dt:float=0.02, duration:float=12.0, process_noise:float=0.02, measurement_noise:float=0.08, seed:int=20260911)->dict[str,Any]:

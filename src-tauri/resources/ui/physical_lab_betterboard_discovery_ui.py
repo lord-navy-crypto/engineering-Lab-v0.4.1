@@ -1,4 +1,4 @@
-"""Engineering Lab UI for local BetterBoard measurement discovery."""
+"""Engineering Lab UI for local BetterBoard measurement discovery and evidence inbox."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,6 +10,7 @@ from physical_lab_betterboard_discovery import (
     discover_betterboard_measurements,
     load_discovered_measurement,
 )
+from physical_lab_betterboard_inbox import inbox_counts, load_inbox, set_disposition, sync_discovery
 from physical_lab_labbridge import ingest_measurement_asset
 
 
@@ -22,20 +23,19 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
     if not (project_path / "project.json").exists():
         return
 
-    st.markdown("#### BetterBoard local discovery")
+    st.markdown("#### BetterBoard Evidence Inbox")
     st.caption(
-        "Scans the local BetterBoard measurement directory on this machine. Discovery is read-only; Engineering Lab only writes to its own project when you explicitly ingest a validated session."
+        "Scans the local BetterBoard measurement directory on this machine. BetterBoard remains read-only from this view; Engineering Lab stores only project-local inbox disposition and scientific ingest provenance."
     )
     default_root = str(default_betterboard_measurement_root())
-    root_text = st.text_input(
-        "BetterBoard measurement root",
-        value=default_root,
-        key=f"pl_bb_discovery_root_{profile}",
-    )
+    root_text = st.text_input("BetterBoard measurement root", value=default_root, key=f"pl_bb_discovery_root_{profile}")
     limit = st.slider("Sessions to inspect", 10, 200, 60, 10, key=f"pl_bb_discovery_limit_{profile}")
 
     try:
         sessions = discover_betterboard_measurements(project_path, root=root_text, limit=limit)
+        sync_discovery(project_path, sessions)
+        inbox = load_inbox(project_path)
+        counts = inbox_counts(project_path)
     except Exception as exc:
         st.error(f"BetterBoard discovery failed: {exc}")
         return
@@ -45,14 +45,15 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
         return
 
     ready = sum(1 for s in sessions if s.get("labbridge_valid"))
-    imported = sum(1 for s in sessions if s.get("already_ingested"))
     legacy = sum(1 for s in sessions if not s.get("labbridge_ready"))
-    a, b, c, d = st.columns(4)
+    a, b, c, d, e = st.columns(5)
     a.metric("Discovered", len(sessions))
     b.metric("LabBridge valid", ready)
-    c.metric("Already ingested", imported)
-    d.metric("Legacy-only", legacy)
+    c.metric("NEW", counts.get("new", 0))
+    d.metric("Ingested", counts.get("ingested", 0))
+    e.metric("Legacy-only", legacy)
 
+    inbox_packets = inbox.get("packets") if isinstance(inbox.get("packets"), dict) else {}
     st.dataframe([
         {
             "created": row.get("created_at_utc"),
@@ -60,7 +61,7 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
             "board": row.get("board_profile"),
             "samples": row.get("sample_count"),
             "packet": "valid" if row.get("labbridge_valid") else ("invalid" if row.get("labbridge_ready") else "legacy-only"),
-            "imported": bool(row.get("already_ingested")),
+            "inbox": (inbox_packets.get(str(row.get("packet_sha256") or "")) or {}).get("disposition", "—"),
             "data_sha": str(row.get("data_sha256") or "")[:12],
             "session": row.get("session_name"),
         }
@@ -73,7 +74,19 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
     ]
     selected_label = st.selectbox("Inspect discovered session", labels, key=f"pl_bb_discovery_pick_{profile}")
     row = sessions[labels.index(selected_label)]
-    st.json({k: v for k, v in row.items() if k not in {"validation_errors", "validation_warnings"}})
+    packet_sha = str(row.get("packet_sha256") or "")
+    inbox_entry = inbox_packets.get(packet_sha) if isinstance(inbox_packets.get(packet_sha), dict) else {}
+
+    x1, x2, x3 = st.columns(3)
+    x1.metric("Inbox state", str(inbox_entry.get("disposition") or "—").upper())
+    x2.metric("Packet SHA", packet_sha[:14] if packet_sha else "—")
+    x3.metric("Source status", "INGESTED" if row.get("already_ingested") else "PENDING")
+
+    with st.expander("Session / packet details", expanded=False):
+        st.json({k: v for k, v in row.items() if k not in {"validation_errors", "validation_warnings"}})
+        if inbox_entry:
+            st.markdown("**Project-local inbox record**")
+            st.json(inbox_entry)
     if row.get("validation_errors"):
         st.error("; ".join(row["validation_errors"]))
     if row.get("validation_warnings"):
@@ -91,8 +104,16 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
         st.success("This exact source packet SHA has already been ingested into the active Engineering Lab project.")
         return
 
-    notes = st.text_input("Discovery ingest notes", value="Auto-discovered from local BetterBoard measurement store.", key=f"pl_bb_discovery_notes_{profile}")
-    if st.button("Ingest discovered BetterBoard measurement", type="primary", key=f"pl_bb_discovery_ingest_{profile}"):
+    note = st.text_input("Inbox note", value=str(inbox_entry.get("note") or ""), key=f"pl_bb_inbox_note_{profile}")
+    i1, i2, i3 = st.columns(3)
+    if i1.button("Acknowledge", key=f"pl_bb_ack_{profile}"):
+        set_disposition(project_path, packet_sha, "acknowledged", note=note)
+        st.rerun()
+    if i2.button("Ignore for this project", key=f"pl_bb_ignore_{profile}"):
+        set_disposition(project_path, packet_sha, "ignored", note=note)
+        st.rerun()
+    notes = st.text_input("Scientific ingest notes", value="Auto-discovered from local BetterBoard measurement store.", key=f"pl_bb_discovery_notes_{profile}")
+    if i3.button("Ingest evidence", type="primary", key=f"pl_bb_discovery_ingest_{profile}"):
         try:
             packet, data = load_discovered_measurement(row)
             out = ingest_measurement_asset(
@@ -102,6 +123,7 @@ def render_betterboard_discovery(st: Any, profile: str) -> None:
                 profile=profile or "betterboard-ingress",
                 notes=notes,
             )
+            set_disposition(project_path, packet_sha, "ingested", note=note)
         except Exception as exc:
             st.error(f"Ingest failed: {exc}")
             return

@@ -1,10 +1,11 @@
-"""Project-level data bridge and reproducibility packaging for Physical Lab.
+"""Project-level data bridge and reproducibility packaging for Engineering Lab.
 
 Provides cross-cutting project features:
 - canonical numeric datasets stored inside a .physlab project and reusable across profiles;
 - deterministic reproducibility ZIP packs containing project metadata, manifests,
-  references, selected provenance metadata, frozen run snapshots, saved coupling
-  pipelines/workflows, software environment snapshots, a generated report, and SHA-256 checksums.
+  references, selected provenance metadata, Lab Journey events, frozen run snapshots,
+  saved coupling pipelines/workflows, software environment snapshots, a generated
+  report, and SHA-256 checksums.
 
 This module does not reinterpret units or scientific meaning and never executes code.
 """
@@ -138,7 +139,11 @@ def dataset_csv_bytes(dataset: Mapping[str, Any]) -> bytes:
 
 
 def _candidate_pack_files(project_dir: Path, *, include_measurement_assets: bool) -> list[Path]:
-    roots = ["project.json", "experiments", "results", "calibration", "provenance", "datasets", "pipelines", "workflows", "environments", "run-snapshots", "reports"]
+    roots = [
+        "project.json", "experiments", "results", "calibration", "provenance",
+        "datasets", "pipelines", "workflows", "environments", "run-snapshots",
+        "journey", "reports",
+    ]
     if include_measurement_assets:
         roots.append("measurements")
     else:

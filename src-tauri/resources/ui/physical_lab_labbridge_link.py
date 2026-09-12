@@ -1,7 +1,7 @@
 """Live local coordinator for BetterBoard -> Engineering Lab -> OpenPenguin.
 
-This module deliberately coordinates existing LabBridge components instead of
-inventing another protocol family.
+This module coordinates the canonical LabBridge components. It intentionally does
+not introduce another transport or schema family.
 
 Authority boundaries:
 - BetterBoard MeasurementAsset packets are immutable acquisition evidence.
@@ -24,8 +24,7 @@ from physical_lab_labbridge import (
     record_ai_advisory,
 )
 from physical_lab_local_ai import ask_local_model, discover_local_ai_engines
-
-OPENPENGUIN_LABEL = "OpenPenguin private runtime"
+from physical_lab_openguin_adapter import OPENPENGUIN_BASE, probe_openguin, request_advisory
 
 
 def sync_betterboard_link(
@@ -36,9 +35,8 @@ def sync_betterboard_link(
 ) -> dict[str, Any]:
     """Refresh local BetterBoard evidence discovery and the Engineering Lab inbox.
 
-    This is intentionally read-only toward BetterBoard. A valid packet becomes
-    visible as NEW/known evidence; it is not promoted into a canonical dataset
-    until a separate explicit ingest action is performed.
+    This is read-only toward BetterBoard. A valid packet becomes visible as NEW or
+    known evidence; canonical dataset ingest remains a separate explicit action.
     """
     sessions = discover_betterboard_measurements(
         project_dir,
@@ -66,28 +64,61 @@ def sync_betterboard_link(
 
 
 def openpenguin_status() -> dict[str, Any]:
-    """Return bounded local runtime status, preferring the private OpenPenguin runtime."""
-    engines = discover_local_ai_engines()
-    preferred = next((row for row in engines if row.get("label") == OPENPENGUIN_LABEL), None)
-    return {
-        "openpenguin": preferred or {"label": OPENPENGUIN_LABEL, "running": False, "models": []},
-        "local_engines": engines,
-    }
+    """Return the normalized OpenPenguin LabBridge capability record."""
+    return probe_openguin()
 
 
-def _select_engine(*, allow_ollama_fallback: bool) -> Mapping[str, Any]:
-    engines = discover_local_ai_engines()
-    preferred = next(
-        (row for row in engines if row.get("label") == OPENPENGUIN_LABEL and row.get("running")),
-        None,
+def _external_ollama_fallback() -> Mapping[str, Any]:
+    """Resolve a non-OpenPenguin loopback runtime only when the caller opted in."""
+    for engine in discover_local_ai_engines():
+        label = str(engine.get("label") or "")
+        if engine.get("running") and not label.startswith("OpenPenguin"):
+            return engine
+    raise RuntimeError("No explicit external Ollama fallback is available")
+
+
+def _fallback_advisory(
+    context: Mapping[str, Any],
+    *,
+    question: str,
+    model: str,
+    temperature: float,
+) -> dict[str, Any]:
+    engine = _external_ollama_fallback()
+    models = [str(item) for item in engine.get("models", []) if str(item).strip()]
+    selected_model = str(model).strip() or (models[0] if models else "")
+    if not selected_model:
+        raise RuntimeError("external Ollama fallback has no installed model")
+    if models and selected_model not in models:
+        raise ValueError("requested model is not installed in the external Ollama fallback")
+    answer = ask_local_model(
+        str(engine.get("base") or ""),
+        selected_model,
+        question,
+        context,
+        temperature=float(temperature),
     )
-    if preferred is not None:
-        return preferred
-    if allow_ollama_fallback:
-        fallback = next((row for row in engines if row.get("running")), None)
-        if fallback is not None:
-            return fallback
-    raise RuntimeError("OpenPenguin private runtime is not available on loopback port 11435")
+    return finalize_packet(
+        {
+            "schema": AI_SUGGESTION_SCHEMA,
+            "bridge_version": "1.0",
+            "packet_type": "ai_suggestion",
+            "source_app": {
+                "name": "External Ollama",
+                "role": "local-ai-advisory-fallback",
+                "model": selected_model,
+                "runtime": str(engine.get("base") or ""),
+            },
+            "intended_consumer": {"name": "Engineering Lab", "role": "scientific-computation-and-evidence-core"},
+            "title": f"External local advisory · {question[:80]}",
+            "summary": answer[:200000],
+            "question": question,
+            "evidence_refs": [str(context.get("packet_id") or "")],
+            "executed": False,
+            "scientific_boundary": "Fallback AI output is advisory only and cannot mutate Engineering Lab evidence or execute an experiment.",
+        },
+        prefix="ai-suggestion",
+    )
 
 
 def ask_openguin_about_project(
@@ -102,58 +133,67 @@ def ask_openguin_about_project(
     record: bool = False,
     allow_ollama_fallback: bool = False,
 ) -> dict[str, Any]:
-    """Ask OpenPenguin using canonical Engineering Lab LabBridge context.
+    """Ask OpenPenguin using canonical Engineering Lab AIContext.
 
-    Recording is opt-in. Even when recorded, the response is persisted only as an
-    ``labbridge.ai-suggestion/v1`` advisory packet and Lab Journey event.
+    The dedicated OpenPenguin adapter is authoritative for runtime negotiation: it
+    prefers the native LabBridge API and falls back to OpenPenguin's current
+    Ollama-compatible loopback surface at 127.0.0.1:11435. External Ollama is used
+    only when ``allow_ollama_fallback`` is explicitly enabled.
+
+    Recording is opt-in; recorded output remains an AISuggestion/Lab Journey event,
+    never a measurement or solver result.
     """
     question = str(question).strip()
     if not question:
         raise ValueError("question is required")
 
     context = build_ai_context_packet(project_dir, profile=profile, focus=focus)
-    engine = _select_engine(allow_ollama_fallback=allow_ollama_fallback)
-    models = [str(item) for item in engine.get("models", []) if str(item).strip()]
-    selected_model = str(model).strip()
-    if selected_model:
-        if selected_model not in models:
-            raise ValueError("requested model is not installed in the selected local runtime")
+    status = probe_openguin()
+    if status.get("available"):
+        models = [str(item) for item in status.get("models", []) if str(item).strip()]
+        selected_model = str(model).strip() or (models[0] if models else "")
+        if not selected_model:
+            raise RuntimeError("OpenPenguin is available but reports no installed model")
+        if models and selected_model not in models:
+            raise ValueError("requested model is not installed in OpenPenguin")
+        packet = request_advisory(
+            context,
+            question=question,
+            model=selected_model,
+            temperature=float(temperature),
+        )
+        runtime = {
+            "provider": "OpenPenguin",
+            "mode": status.get("mode"),
+            "base": status.get("base") or OPENPENGUIN_BASE,
+            "model": selected_model,
+        }
+    elif allow_ollama_fallback:
+        packet = _fallback_advisory(
+            context,
+            question=question,
+            model=model,
+            temperature=float(temperature),
+        )
+        runtime = {"provider": "external-ollama-fallback"}
     else:
-        if not models:
-            raise RuntimeError("selected local AI runtime has no installed model")
-        selected_model = models[0]
+        raise RuntimeError("OpenPenguin private runtime is unavailable; external Ollama fallback was not authorized")
 
-    answer = ask_local_model(
-        str(engine.get("base") or ""),
-        selected_model,
-        question,
-        context,
-        temperature=float(temperature),
-    )
-    stable = {
-        "schema": AI_SUGGESTION_SCHEMA,
-        "bridge_version": "1.0",
-        "packet_type": "ai_suggestion",
-        "source_app": {"name": "OpenPenguin", "role": "local-ai-advisory-layer"},
-        "intended_consumer": {"name": "Engineering Lab", "role": "scientific-computation-and-evidence-core"},
-        "title": "OpenPenguin LabBridge suggestion",
-        "summary": answer,
-        "question": question,
-        "context_packet_id": context.get("packet_id"),
-        "context_sha256": context.get("content_sha256"),
-        "evidence_refs": list(evidence_refs or []),
-        "runtime": {"label": engine.get("label"), "base": engine.get("base"), "model": selected_model},
-        "executed": False,
-        "scientific_boundary": (
-            "OpenPenguin output is advisory. It is not a measurement, solver result, fitted quantity, "
-            "uncertainty statement, verification result, or validation claim."
-        ),
-    }
-    packet = finalize_packet(stable, prefix="ai-suggestion")
+    if evidence_refs:
+        refs = list(packet.get("evidence_refs") or [])
+        refs.extend(str(ref) for ref in evidence_refs if str(ref).strip())
+        packet["evidence_refs"] = list(dict.fromkeys(refs))[:200]
+        packet = finalize_packet(
+            {key: value for key, value in packet.items() if key not in {"packet_id", "content_sha256"}},
+            prefix="ai-suggestion",
+        )
+
+    packet["executed"] = False
     recorded = record_ai_advisory(project_dir, packet) if record else None
     return {
         "context": context,
         "suggestion": packet,
+        "runtime": runtime,
         "recorded": recorded,
         "recording_policy": "explicit-opt-in",
     }

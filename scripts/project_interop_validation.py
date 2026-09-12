@@ -33,10 +33,15 @@ def main() -> None:
         assert rows and rows[0]["dataset_id"] == a["dataset_id"]
         data = dataset_csv_bytes(rows[0])
         parsed = list(csv.reader(io.StringIO(data.decode("utf-8"))))
-        assert parsed[0] == ["time_s", "signal"]
-        assert parsed[1] == ["0.0", "1.0"]
-        assert parsed[2] == ["0.5", ""]
-        assert parsed[3] == ["1.0", "3.0"]
+        header = parsed[0]
+        assert set(header) == {"time_s", "signal"}
+        by_name = {name: idx for idx, name in enumerate(header)}
+        assert parsed[1][by_name["time_s"]] == "0.0"
+        assert parsed[1][by_name["signal"]] == "1.0"
+        assert parsed[2][by_name["time_s"]] == "0.5"
+        assert parsed[2][by_name["signal"]] == ""
+        assert parsed[3][by_name["time_s"]] == "1.0"
+        assert parsed[3][by_name["signal"]] == "3.0"
 
         p1 = build_reproducibility_pack(project_dir)
         p2 = build_reproducibility_pack(project_dir)

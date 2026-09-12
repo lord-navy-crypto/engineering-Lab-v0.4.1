@@ -63,17 +63,10 @@ def _render_sweep(st: Any, profile: str) -> None:
 def _result_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
     for point in result.get("points") or []:
-        row = {
-            "design_index": point.get("design_index"),
-            "status": point.get("status"),
-            "cached": point.get("cached"),
-        }
-        for key, value in (point.get("parameters") or {}).items():
-            row[f"param::{key}"] = value
-        for key, value in (point.get("metrics") or {}).items():
-            row[f"metric::{key}"] = value
-        if point.get("error"):
-            row["error"] = point.get("error")
+        row = {"design_index": point.get("design_index"), "status": point.get("status"), "cached": point.get("cached")}
+        for key, value in (point.get("parameters") or {}).items(): row[f"param::{key}"] = value
+        for key, value in (point.get("metrics") or {}).items(): row[f"metric::{key}"] = value
+        if point.get("error"): row["error"] = point.get("error")
         rows.append(row)
     return rows
 
@@ -86,51 +79,35 @@ def _render_executor(st: Any, profile: str) -> None:
     if not adapters:
         st.info("No allow-listed sweep adapter is registered for this profile yet. The executor registry is intentionally explicit rather than accepting arbitrary Python callables.")
         return
-    if not design:
-        st.info("Build a parameter sweep design first.")
-    ids = [x["id"] for x in adapters]
-    labels = {x["id"]: x["label"] for x in adapters}
+    if not design: st.info("Build a parameter sweep design first.")
+    ids = [x["id"] for x in adapters]; labels = {x["id"]: x["label"] for x in adapters}
     adapter = st.selectbox("Model adapter", ids, format_func=lambda x: f"{labels[x]} · {x}", key=f"pl_orch_adapter_{profile}")
     st.caption("Axis names must match the selected model function's numeric parameter names. Invalid points are recorded as failed rather than silently altered.")
     a,b = st.columns(2)
     if a.button("Create & start sweep campaign", type="primary", disabled=design is None, key=f"pl_orch_exec_start_{profile}"):
-        job = create_sweep_job(profile, adapter, design["rows"])
-        job = start_sweep_job(job["id"])
-        st.session_state[f"pl_orch_active_job_{profile}"] = job["id"]
-        st.rerun()
-    if b.button("Refresh campaign status", key=f"pl_orch_exec_refresh_{profile}"):
-        st.rerun()
-
+        job = create_sweep_job(profile, adapter, design["rows"]); job = start_sweep_job(job["id"])
+        st.session_state[f"pl_orch_active_job_{profile}"] = job["id"]; st.rerun()
+    if b.button("Refresh campaign status", key=f"pl_orch_exec_refresh_{profile}"): st.rerun()
     jobs = list_sweep_jobs(profile=profile, limit=20)
     if not jobs:
-        st.caption("No sweep campaigns for this profile yet.")
-        return
-    active_default = st.session_state.get(f"pl_orch_active_job_{profile}")
-    job_ids = [j["id"] for j in jobs]
+        st.caption("No sweep campaigns for this profile yet."); return
+    active_default = st.session_state.get(f"pl_orch_active_job_{profile}"); job_ids = [j["id"] for j in jobs]
     default_index = job_ids.index(active_default) if active_default in job_ids else 0
     selected = st.selectbox("Campaign", job_ids, index=default_index, key=f"pl_orch_exec_job_{profile}")
     job = next(j for j in jobs if j["id"] == selected)
     c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Status", str(job.get("status") or "—"))
-    c2.metric("Progress", f"{100.0*float(job.get('progress') or 0.0):.1f}%")
-    c3.metric("Failed points", int(job.get("failed_points") or 0))
-    c4.metric("Cache hits", int(job.get("cached_points") or 0))
+    c1.metric("Status", str(job.get("status") or "—")); c2.metric("Progress", f"{100.0*float(job.get('progress') or 0.0):.1f}%")
+    c3.metric("Failed points", int(job.get("failed_points") or 0)); c4.metric("Cache hits", int(job.get("cached_points") or 0))
     st.progress(max(0.0, min(float(job.get("progress") or 0.0), 1.0)))
     st.caption(f"{job.get('adapter_label')} · {job.get('completed_points',0)}/{job.get('point_count',0)} points · stage={job.get('stage')}")
-    if job.get("error"):
-        st.error(str(job.get("error")))
+    if job.get("error"): st.error(str(job.get("error")))
     if job.get("status") in {"queued","running","interrupted"}:
-        if st.button("Cancel selected campaign", key=f"pl_orch_exec_cancel_{profile}"):
-            cancel_sweep_job(selected); st.rerun()
+        if st.button("Cancel selected campaign", key=f"pl_orch_exec_cancel_{profile}"): cancel_sweep_job(selected); st.rerun()
     elif job.get("status") in {"failed","cancelled","interrupted"}:
-        if st.button("Restart selected campaign", key=f"pl_orch_exec_restart_{profile}"):
-            start_sweep_job(selected); st.rerun()
-
+        if st.button("Restart selected campaign", key=f"pl_orch_exec_restart_{profile}"): start_sweep_job(selected); st.rerun()
     result = read_sweep_result(selected)
     if result:
-        rows = _result_rows(result)
-        st.markdown("#### Campaign result table")
-        st.dataframe(rows[:500], hide_index=True, width="stretch")
+        rows = _result_rows(result); st.markdown("#### Campaign result table"); st.dataframe(rows[:500], hide_index=True, width="stretch")
         st.download_button("Download campaign result CSV", data=_csv_bytes(rows), file_name=f"{selected}.csv", mime="text/csv", key=f"pl_orch_exec_download_{profile}_{selected}")
         st.caption(result.get("boundary", ""))
 
@@ -141,34 +118,25 @@ def _render_table_and_convergence(st: Any, profile: str) -> None:
     if upload is not None and st.button("Parse numeric table", key=f"pl_orch_parse_{profile}"):
         st.session_state[f"pl_orch_table_{profile}"] = parse_numeric_table(upload.getvalue(), filename=upload.name)
     r = st.session_state.get(f"pl_orch_table_{profile}")
-    if not r:
-        return
+    if not r: return
     a,b,c = st.columns(3); a.metric("Rows", r["row_count"]); b.metric("Columns", len(r["columns"])); c.metric("Numeric columns", len(r["numeric_columns"]))
     st.dataframe(r["summaries"], hide_index=True, width="stretch")
     if r["preview"]: st.dataframe(r["preview"], hide_index=True, width="stretch")
     st.caption(r["boundary"])
-
     numeric = list(r["numeric_columns"])
     if len(numeric) >= 2:
-        st.markdown("#### Automatic convergence study")
-        c1,c2 = st.columns(2)
+        st.markdown("#### Automatic convergence study"); c1,c2 = st.columns(2)
         hx = c1.selectbox("Resolution / step-size column", numeric, key=f"pl_orch_h_{profile}")
         ey = c2.selectbox("Positive error column", numeric, index=min(1,len(numeric)-1), key=f"pl_orch_e_{profile}")
         if st.button("Estimate observed convergence order", key=f"pl_orch_conv_{profile}"):
             h=[]; e=[]
             for hv,ev in zip(r["column_data"][hx], r["column_data"][ey]):
-                if hv is not None and ev is not None:
-                    h.append(hv); e.append(ev)
+                if hv is not None and ev is not None: h.append(hv); e.append(ev)
             st.session_state[f"pl_orch_conv_result_{profile}"] = convergence_diagnostics(h,e)
         conv = st.session_state.get(f"pl_orch_conv_result_{profile}")
         if conv:
-            a,b,c = st.columns(3)
-            a.metric("Observed order p", f"{conv['observed_order']:.5g}")
-            b.metric("log-log R²", f"{conv['loglog_r2']:.5f}")
-            c.metric("Finest error", f"{conv['finest_error']:.4e}")
-            st.dataframe([{"resolution":h,"error":e} for h,e in zip(conv["resolution"],conv["error"])], hide_index=True, width="stretch")
-            st.caption(conv["boundary"])
-
+            a,b,c = st.columns(3); a.metric("Observed order p", f"{conv['observed_order']:.5g}"); b.metric("log-log R²", f"{conv['loglog_r2']:.5f}"); c.metric("Finest error", f"{conv['finest_error']:.4e}")
+            st.dataframe([{"resolution":h,"error":e} for h,e in zip(conv["resolution"],conv["error"])], hide_index=True, width="stretch"); st.caption(conv["boundary"])
     if len(numeric) >= 1 and r["row_count"] >= 2:
         st.markdown("#### Baseline run comparison")
         selected = st.multiselect("Metrics to compare", numeric, default=numeric[:min(4,len(numeric))], key=f"pl_orch_metrics_{profile}")
@@ -179,12 +147,9 @@ def _render_table_and_convergence(st: Any, profile: str) -> None:
                 row={k:r["column_data"][k][i] for k in selected}
                 if all(v is not None for v in row.values()): rows.append(row)
             if len(rows) >= 2:
-                bidx = min(baseline, len(rows)-1)
-                st.session_state[f"pl_orch_compare_result_{profile}"] = compare_numeric_runs(rows, baseline_index=bidx)
+                st.session_state[f"pl_orch_compare_result_{profile}"] = compare_numeric_runs(rows, baseline_index=min(baseline, len(rows)-1))
         comp = st.session_state.get(f"pl_orch_compare_result_{profile}")
-        if comp:
-            st.dataframe(comp["rows"], hide_index=True, width="stretch")
-            st.caption(comp["boundary"])
+        if comp: st.dataframe(comp["rows"], hide_index=True, width="stretch"); st.caption(comp["boundary"])
 
 
 def render_research_orchestrator(st: Any, profile: str) -> None:
@@ -195,3 +160,8 @@ def render_research_orchestrator(st: Any, profile: str) -> None:
         with tabs[0]: _render_sweep(st, profile)
         with tabs[1]: _render_executor(st, profile)
         with tabs[2]: _render_table_and_convergence(st, profile)
+    try:
+        from physical_lab_project_interop_ui import render_project_interop
+        render_project_interop(st, profile)
+    except Exception as exc:
+        st.warning(f"Physical Lab Project Data Bridge/Reproducibility could not load: {exc}")

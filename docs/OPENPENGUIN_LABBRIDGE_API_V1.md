@@ -1,6 +1,6 @@
 # OpenPenguin LabBridge API v1
 
-This document defines the minimal native adapter that lets OpenPenguin connect to Engineering Lab without changing OpenPenguin's model/runtime core.
+This document defines the native OpenPenguin adapter used by Engineering Lab without changing OpenPenguin's model/runtime core.
 
 ## Roles
 
@@ -10,48 +10,55 @@ This document defines the minimal native adapter that lets OpenPenguin connect t
 
 OpenPenguin is advisory. It must never silently mutate BetterBoard measurements or Engineering Lab scientific state.
 
-## Base URL
-
-Default local endpoint:
+## Port ownership
 
 ```text
-http://127.0.0.1:11435
+http://127.0.0.1:11436  OpenPenguin native LabBridge API
+http://127.0.0.1:11435  OpenPenguin private Ollama runtime / compatibility fallback
 ```
 
-Loopback-only is the recommended default.
+The separation is deliberate: port 11435 remains Ollama-compatible, while port 11436 belongs to the OpenPenguin application-level bridge.
 
-## 1. Capability discovery
+## 1. Health
 
 ```http
-GET /labbridge/v1/capabilities
+GET http://127.0.0.1:11436/labbridge/v1/health
 ```
 
-Response:
+This reports the native bridge service itself and does not imply that a model is loaded.
+
+## 2. Capability discovery
+
+```http
+GET http://127.0.0.1:11436/labbridge/v1/capabilities
+```
+
+Response includes:
 
 ```json
 {
   "api_version": "labbridge-openguin-api/v1",
+  "service": "OpenPenguin LabBridge",
+  "runtime_base": "http://127.0.0.1:11435",
   "models": ["model-name"],
   "capabilities": [
     "text-advisory",
     "labbridge.ai-context/v1",
-    "labbridge.ai-suggestion/v1"
-  ]
+    "labbridge.ai-suggestion/v1",
+    "read-only-scientific-advisory"
+  ],
+  "advisory_only": true
 }
 ```
 
-Engineering Lab accepts native mode only when:
+Engineering Lab accepts native mode only when the API version is supported, `models` is an array, and required capabilities include both `labbridge.ai-context/v1` and `labbridge.ai-suggestion/v1`.
 
-- `api_version` is a supported LabBridge/OpenPenguin API version;
-- `models` is an array;
-- required capabilities include both `labbridge.ai-context/v1` and `labbridge.ai-suggestion/v1`.
+If discovery is missing, malformed, unsupported, or incomplete, Engineering Lab falls back to the existing local Ollama-compatible runtime on port 11435 when available.
 
-If discovery is missing, malformed, unsupported, or incomplete, Engineering Lab does not break the OpenPenguin connection. It falls back to the existing local Ollama-compatible runtime when available.
-
-## 2. Advisory request
+## 3. Advisory request
 
 ```http
-POST /labbridge/v1/advisory
+POST http://127.0.0.1:11436/labbridge/v1/advisory
 Content-Type: application/json
 ```
 
@@ -61,7 +68,8 @@ Request:
 {
   "api_version": "labbridge-openguin-api/v1",
   "context": {
-    "schema": "labbridge.ai-context/v1"
+    "schema": "labbridge.ai-context/v1",
+    "packet_id": "ai-context-..."
   },
   "question": "What is the strongest unresolved uncertainty?",
   "model": "model-name",
@@ -70,125 +78,56 @@ Request:
 }
 ```
 
-The full `context` object is an Engineering Lab content-addressed AI Context packet. OpenPenguin should preserve its `packet_id` as an evidence reference in the response.
+OpenPenguin validates version, context schema, request size, question size, model name, temperature and response-schema request before forwarding a bounded advisory prompt to its private Ollama runtime on port 11435.
 
-Preferred response:
+The current native implementation may return bounded advisory text plus model/runtime metadata rather than calculating the final content-addressed packet itself. Engineering Lab then wraps the response into canonical `labbridge.ai-suggestion/v1` using the same packet hashing implementation used throughout the project. This avoids duplicate canonical-JSON/SHA implementations across Rust and Python.
 
-```json
-{
-  "schema": "labbridge.ai-suggestion/v1",
-  "bridge_version": "1.0",
-  "packet_type": "ai_suggestion",
-  "source_app": {
-    "name": "OpenPenguin",
-    "role": "local-ai-advisory-layer",
-    "model": "model-name"
-  },
-  "intended_consumer": {
-    "name": "Engineering Lab",
-    "role": "scientific-computation-and-evidence-core"
-  },
-  "title": "...",
-  "summary": "...",
-  "question": "...",
-  "evidence_refs": ["ai-context-..."],
-  "executed": false,
-  "packet_id": "ai-suggestion-...",
-  "content_sha256": "..."
-}
-```
-
-If OpenPenguin does not want to implement content-addressing internally, it may initially return:
-
-```json
-{"answer": "..."}
-```
-
-Engineering Lab will wrap that answer into a valid `labbridge.ai-suggestion/v1` packet.
-
-## 3. Rolling-upgrade compatibility
+## 4. Rolling-upgrade compatibility
 
 Native LabBridge is a preferred path, not a single point of failure.
 
-OpenPenguin may be upgraded gradually:
-
 ```text
-Stage 0: existing /api/tags + /api/chat only
-Stage 1: add GET /labbridge/v1/capabilities
-Stage 2: add POST /labbridge/v1/advisory
+Stage 0: OpenPenguin private /api/tags + /api/chat on 11435
+Stage 1: native GET /labbridge/v1/capabilities on 11436
+Stage 2: native POST /labbridge/v1/advisory on 11436
 ```
 
-Engineering Lab must continue working during every stage.
+If native discovery or advisory fails, Engineering Lab may downgrade locally to `http://127.0.0.1:11435/api/chat`. The resulting AISuggestion records `adapter_mode`, `fallback_used`, and a bounded `native_error` so the downgrade is visible in provenance.
 
-If capability discovery succeeds but the native advisory endpoint later:
+A native failure must never trigger a cloud fallback automatically.
 
-- returns 404/5xx;
-- becomes temporarily unavailable;
-- returns invalid JSON;
-- returns an incompatible packet;
-- returns neither a valid AISuggestion nor advisory text;
+## 5. Action proposals
 
-Engineering Lab safely falls back to the existing local `/api/chat` route when available.
+A future OpenPenguin implementation may produce `labbridge.action-proposal/v1`, but the bridge does not execute it. Approval must be a separate Engineering Lab provenance event before any new experiment manifest is created.
 
-The resulting `labbridge.ai-suggestion/v1` records compatibility provenance in `source_app`, for example:
-
-```json
-{
-  "adapter_mode": "ollama-compat",
-  "fallback_used": true,
-  "native_error": "OpenPenguin LabBridge API returned HTTP 503: ..."
-}
-```
-
-This makes fallback visible and auditable instead of silently hiding an interface problem.
-
-A native failure must never cause Engineering Lab to send the scientific context to a cloud fallback. Compatibility fallback remains local to the explicitly allow-listed OpenPenguin loopback runtime.
-
-## 4. Action proposals
-
-A future OpenPenguin implementation may return:
-
-```text
-labbridge.action-proposal/v1
-```
-
-An ActionProposal must include:
-
-- `target`
-- `rationale`
-- `expected_effect`
-- `falsification_observable`
-- `executed: false`
-
-The LabBridge adapter does not execute it. Human/system approval must be a separate Engineering Lab provenance event.
+An ActionProposal remains `executed: false` at this layer.
 
 ## Security and scientific boundaries
 
-OpenPenguin native LabBridge should preserve these rules:
-
-1. Bind to loopback by default.
-2. Bound request and response sizes.
-3. Do not execute code supplied in context.
-4. Do not mutate measurement, solver, UQ, validation or provenance state.
-5. Do not claim an ActionProposal has executed.
-6. Do not relabel simulated data as measured data.
-7. Do not infer missing units or validation status.
-8. Preserve the source AI Context packet ID as evidence provenance.
-9. Keep compatibility fallback local; never silently redirect scientific context to a cloud endpoint.
-10. Expose API version and capabilities explicitly so Engineering Lab can negotiate compatibility rather than guess.
+1. Native and compatibility endpoints remain loopback-only by default.
+2. Request and response sizes are bounded.
+3. Context is evidence, not executable code.
+4. OpenPenguin does not mutate measurement, solver, UQ, validation or provenance state.
+5. OpenPenguin does not claim that an ActionProposal executed.
+6. OpenPenguin does not relabel simulated data as measured data.
+7. OpenPenguin does not infer missing units, calibration or validation status.
+8. Engineering Lab preserves the source AI Context packet ID in advisory provenance.
+9. Compatibility fallback remains local to port 11435.
+10. API version and capabilities are explicit rather than inferred.
 
 ## Compatibility architecture
 
-OpenPenguin does **not** need to replace its existing Ollama-compatible endpoints.
-
-Recommended architecture:
-
 ```text
-OpenPenguin model/runtime core
-        │
-        ├── existing /api/tags + /api/chat
-        │
-        └── thin /labbridge/v1 adapter
+OpenPenguin.app
+    │
+    ├── native LabBridge API · 127.0.0.1:11436
+    │       ├── /health
+    │       ├── /capabilities
+    │       └── /advisory
+    │
+    └── private Ollama · 127.0.0.1:11435
+            ├── /api/tags
+            └── /api/chat
 ```
 
-Engineering Lab automatically detects the native adapter and otherwise falls back to `/api/chat`. If a partially upgraded native adapter fails at request time, Engineering Lab may downgrade to `/api/chat` for that advisory and records the downgrade reason in provenance.
+Engineering Lab prefers 11436 and safely falls back to 11435 when required.

@@ -34,6 +34,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install LabBridge validation runtime
+        run: python3 -m pip install --disable-pip-version-check numpy
       - name: Validate BetterBoard / Engineering Lab / OpenPenguin boundaries
         run: python3 scripts/labbridge_link_validation.py
       - name: Validate three-product LabBridge data flow

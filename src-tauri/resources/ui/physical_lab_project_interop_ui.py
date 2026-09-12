@@ -1,4 +1,4 @@
-"""UI for project-level data bridge, model coupling, and reproducibility packaging."""
+"""UI for project-level data bridge, model coupling, workflow DAGs, and reproducibility packaging."""
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
@@ -24,9 +24,11 @@ def render_project_interop(st: Any, profile: str) -> None:
     with st.expander("Physical Lab · Project Data Bridge, Coupling & Reproducibility", expanded=False):
         st.caption(
             "Promote numeric tables into reusable project datasets, map them explicitly into downstream model parameters, "
-            "and export portable provenance packs. Transport/coupling provenance does not by itself validate scientific compatibility."
+            "compose saved mappings into acyclic workflows, and export portable provenance packs."
         )
-        tab_data, tab_coupling, tab_pack = st.tabs(["Data Bridge", "Model Coupling", "Reproducibility Pack"])
+        tab_data, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        ])
 
         with tab_data:
             parsed = st.session_state.get(f"pl_orch_table_{profile}")
@@ -76,10 +78,17 @@ def render_project_interop(st: Any, profile: str) -> None:
             except Exception as exc:
                 st.warning(f"Model-to-Model Coupling could not load: {exc}")
 
+        with tab_dag:
+            try:
+                from physical_lab_pipeline_graph_ui import render_pipeline_graph
+                render_pipeline_graph(st, profile)
+            except Exception as exc:
+                st.warning(f"Pipeline DAG could not load: {exc}")
+
         with tab_pack:
             st.markdown("#### Portable reproducibility package")
             include_assets = st.checkbox("Include raw measurement assets up to 8 MB each", value=False, key=f"pl_repro_assets_{profile}")
-            st.caption("Default pack includes measurement/calibration metadata, experiments, result references, evidence/provenance, project datasets, saved coupling pipelines, and a generated project report. Large external solver artifacts are not embedded.")
+            st.caption("Default pack includes measurement/calibration metadata, experiments, result references, evidence/provenance, project datasets, saved coupling pipelines/workflows, and a generated project report. Large external solver artifacts are not embedded.")
             if st.button("Build reproducibility ZIP", type="primary", key=f"pl_repro_build_{profile}"):
                 st.session_state[f"pl_repro_pack_{profile}"] = build_reproducibility_pack(project_path, include_measurement_assets=include_assets)
             pack = st.session_state.get(f"pl_repro_pack_{profile}")

@@ -1,0 +1,33 @@
+name: OpenPenguin LabBridge Adapter Integrity
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_labbridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_labbridge.py'
+      - 'src-tauri/resources/ui/physical_lab_local_ai.py'
+      - 'docs/OPENPENGUIN_LABBRIDGE_API_V1.md'
+      - 'scripts/openguin_adapter_validation.py'
+      - 'src-tauri/tauri.conf.json'
+      - '.github/workflows/openguin-labbridge-adapter-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile adapter modules
+        run: |
+          python -m py_compile \
+            src-tauri/resources/ui/physical_lab_openguin_adapter.py \
+            src-tauri/resources/ui/physical_lab_labbridge_ui.py \
+            scripts/openguin_adapter_validation.py
+      - name: Validate native and compatibility adapter modes
+        run: python scripts/openguin_adapter_validation.py
+      - name: Verify bundle resource
+        run: grep -q 'physical_lab_openguin_adapter.py' src-tauri/tauri.conf.json

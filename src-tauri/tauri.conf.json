@@ -37,6 +37,8 @@
       "resources/ui/physical_lab_research_orchestrator.py": "ui/physical_lab_research_orchestrator.py",
       "resources/ui/physical_lab_research_orchestrator_ui.py": "ui/physical_lab_research_orchestrator_ui.py",
       "resources/ui/physical_lab_sweep_executor.py": "ui/physical_lab_sweep_executor.py",
+      "resources/ui/physical_lab_project_interop.py": "ui/physical_lab_project_interop.py",
+      "resources/ui/physical_lab_project_interop_ui.py": "ui/physical_lab_project_interop_ui.py",
       "resources/ui/physical_lab_frequency_response.py": "ui/physical_lab_frequency_response.py",
       "resources/ui/physical_lab_frequency_response_ui.py": "ui/physical_lab_frequency_response_ui.py",
       "resources/ui/physical_lab_deep_science.py": "ui/physical_lab_deep_science.py",

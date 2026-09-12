@@ -1,4 +1,4 @@
-"""UI for project-level data bridge, model coupling, workflow DAGs, and reproducibility packaging."""
+"""UI for project data bridge, result inspection, coupling, workflow DAGs and reproducibility."""
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
@@ -21,13 +21,13 @@ def render_project_interop(st: Any, profile: str) -> None:
         return
 
     st.markdown("---")
-    with st.expander("Physical Lab · Project Data Bridge, Coupling & Reproducibility", expanded=False):
+    with st.expander("Physical Lab · Project Data, Results, Coupling & Reproducibility", expanded=False):
         st.caption(
-            "Promote numeric tables into reusable project datasets, map them explicitly into downstream model parameters, "
-            "compose saved mappings into acyclic workflows, and export portable provenance packs."
+            "Promote numeric tables into reusable project datasets, inspect/materialize persisted results, map data explicitly "
+            "into downstream model parameters, compose acyclic workflows, and export portable provenance packs."
         )
-        tab_data, tab_coupling, tab_dag, tab_pack = st.tabs([
-            "Data Bridge", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        tab_data, tab_results, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "Result Inspector", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
         ])
 
         with tab_data:
@@ -71,6 +71,13 @@ def render_project_interop(st: Any, profile: str) -> None:
             else:
                 st.caption("No canonical project datasets yet.")
 
+        with tab_results:
+            try:
+                from physical_lab_result_inspector_ui import render_result_inspector
+                render_result_inspector(st, profile)
+            except Exception as exc:
+                st.warning(f"Unified Result Inspector/Materializer could not load: {exc}")
+
         with tab_coupling:
             try:
                 from physical_lab_model_coupling_ui import render_model_coupling
@@ -88,7 +95,7 @@ def render_project_interop(st: Any, profile: str) -> None:
         with tab_pack:
             st.markdown("#### Portable reproducibility package")
             include_assets = st.checkbox("Include raw measurement assets up to 8 MB each", value=False, key=f"pl_repro_assets_{profile}")
-            st.caption("Default pack includes measurement/calibration metadata, experiments, result references, evidence/provenance, project datasets, saved coupling pipelines/workflows, and a generated project report. Large external solver artifacts are not embedded.")
+            st.caption("Default pack includes measurement/calibration metadata, experiments, result references, evidence/provenance, project datasets, result materializations, saved coupling pipelines/workflows, and a generated project report. Large external solver artifacts are not embedded.")
             if st.button("Build reproducibility ZIP", type="primary", key=f"pl_repro_build_{profile}"):
                 st.session_state[f"pl_repro_pack_{profile}"] = build_reproducibility_pack(project_path, include_measurement_assets=include_assets)
             pack = st.session_state.get(f"pl_repro_pack_{profile}")

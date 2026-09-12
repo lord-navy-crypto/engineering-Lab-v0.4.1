@@ -1,0 +1,52 @@
+name: Model Coupling Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_model_coupling.py'
+      - 'src-tauri/resources/ui/physical_lab_model_coupling_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
+      - 'src-tauri/resources/ui/physical_lab_units.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/model_coupling_validation.py'
+      - '.github/workflows/model-coupling-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  model-coupling-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific dependencies
+        run: python -m pip install --upgrade pip numpy scipy
+      - name: Compile coupling and project interop modules
+        run: |
+          python -m py_compile \
+            src-tauri/resources/ui/physical_lab_model_coupling.py \
+            src-tauri/resources/ui/physical_lab_model_coupling_ui.py \
+            src-tauri/resources/ui/physical_lab_project_interop.py \
+            src-tauri/resources/ui/physical_lab_project_interop_ui.py \
+            scripts/model_coupling_validation.py
+      - name: Validate deterministic coupling and provenance
+        run: python scripts/model_coupling_validation.py
+      - name: Verify bundled coupling resources
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg=json.loads(Path('src-tauri/tauri.conf.json').read_text())
+          resources=cfg['bundle']['resources']
+          required={
+              'resources/ui/physical_lab_model_coupling.py',
+              'resources/ui/physical_lab_model_coupling_ui.py',
+          }
+          missing=sorted(required-set(resources))
+          if missing:
+              raise SystemExit('missing bundled coupling resources: '+', '.join(missing))
+          print('PASS: coupling resources bundled')
+          PY

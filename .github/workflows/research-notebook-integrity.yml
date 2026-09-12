@@ -1,0 +1,43 @@
+name: Research Notebook Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_research_notebook.py'
+      - 'src-tauri/resources/ui/physical_lab_labbridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/research_notebook_validation.py'
+      - '.github/workflows/research-notebook-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  research-notebook-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific dependencies
+        run: python -m pip install --upgrade pip numpy scipy pandas streamlit matplotlib
+      - name: Compile notebook modules
+        run: |
+          python -m py_compile \
+            src-tauri/resources/ui/physical_lab_research_notebook.py \
+            src-tauri/resources/ui/physical_lab_labbridge_ui.py \
+            src-tauri/resources/ui/physical_lab_project_interop.py \
+            scripts/research_notebook_validation.py
+      - name: Validate notebook and annotation semantics
+        run: python scripts/research_notebook_validation.py
+      - name: Verify bundled notebook resource
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg=json.loads(Path('src-tauri/tauri.conf.json').read_text())
+          key='resources/ui/physical_lab_research_notebook.py'
+          if key not in cfg['bundle']['resources']:
+              raise SystemExit('missing bundled research notebook resource')
+          print('PASS: research notebook resource bundled')
+          PY

@@ -42,6 +42,7 @@
       "resources/ui/physical_lab_lab_journey.py": "ui/physical_lab_lab_journey.py",
       "resources/ui/physical_lab_labbridge.py": "ui/physical_lab_labbridge.py",
       "resources/ui/physical_lab_labbridge_ui.py": "ui/physical_lab_labbridge_ui.py",
+      "resources/ui/physical_lab_research_notebook.py": "ui/physical_lab_research_notebook.py",
       "resources/ui/physical_lab_model_coupling.py": "ui/physical_lab_model_coupling.py",
       "resources/ui/physical_lab_model_coupling_ui.py": "ui/physical_lab_model_coupling_ui.py",
       "resources/ui/physical_lab_pipeline_graph.py": "ui/physical_lab_pipeline_graph.py",

@@ -46,7 +46,8 @@ def main() -> int:
 
         job = queue_packet(packet1)
         assert job["profile"] == "oscillation-integration"
-        assert job["runner_config"]["adapter"] == "pid-step"
+        assert job["adapter"] == "pid-step"
+        assert job["point_count"] == 1
 
         pack = build_reproducibility_pack(project_path)
         paths = {row["path"] for row in pack["manifest"]["files"]}

@@ -23,11 +23,11 @@ def render_project_interop(st: Any, profile: str) -> None:
     st.markdown("---")
     with st.expander("Engineering Lab · Project Data, LabBridge, Results & Reproducibility", expanded=False):
         st.caption(
-            "Engineering Lab is the scientific computation/evidence core. Ingest BetterBoard real-world measurements through LabBridge, "
+            "Engineering Lab is the scientific computation/evidence core. Discover or ingest BetterBoard real-world measurements through LabBridge, "
             "record the Lab Journey, inspect/compare results, compose model workflows, and exchange bounded advisory context with OpenPenguin."
         )
-        tab_data, tab_labbridge, tab_results, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
-            "Data Bridge", "LabBridge / Journey", "Result Inspector", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        tab_data, tab_discovery, tab_labbridge, tab_results, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
         ])
 
         with tab_data:
@@ -71,6 +71,13 @@ def render_project_interop(st: Any, profile: str) -> None:
             else:
                 st.caption("No canonical project datasets yet.")
 
+        with tab_discovery:
+            try:
+                from physical_lab_betterboard_discovery_ui import render_betterboard_discovery
+                render_betterboard_discovery(st, profile)
+            except Exception as exc:
+                st.warning(f"BetterBoard local discovery could not load: {exc}")
+
         with tab_labbridge:
             try:
                 from physical_lab_labbridge_ui import render_labbridge
@@ -111,7 +118,7 @@ def render_project_interop(st: Any, profile: str) -> None:
             include_assets = st.checkbox("Include raw measurement assets up to 8 MB each", value=False, key=f"pl_repro_assets_{profile}")
             st.caption(
                 "Default pack includes measurement/calibration metadata, experiments, result references, LabBridge provenance, Lab Journey events, "
-                "project datasets, result materializations, software environments, saved coupling pipelines/workflows, frozen run snapshots, and a generated project report."
+                "Experiment Notebook/annotations, project datasets, result materializations, software environments, saved coupling pipelines/workflows, frozen run snapshots, and a generated project report."
             )
             if st.button("Build reproducibility ZIP", type="primary", key=f"pl_repro_build_{profile}"):
                 st.session_state[f"pl_repro_pack_{profile}"] = build_reproducibility_pack(project_path, include_measurement_assets=include_assets)

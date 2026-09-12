@@ -1,0 +1,31 @@
+name: Sweep Executor Integrity
+
+on:
+  pull_request:
+    paths:
+      - "src-tauri/resources/ui/physical_lab_sweep_executor.py"
+      - "src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/sweep_executor_validation.py"
+      - ".github/workflows/sweep-executor-integrity.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scientific runtime
+        run: python -m pip install --upgrade pip numpy scipy
+      - name: Compile sweep executor sources
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_executor.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py
+          python -m py_compile scripts/sweep_executor_validation.py
+      - name: Validate cache and partial-failure semantics
+        run: python scripts/sweep_executor_validation.py
+      - name: Verify DMG resource wiring
+        run: grep -q 'physical_lab_sweep_executor.py' src-tauri/tauri.conf.json

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engineering-lab.local/schemas/labbridge/action-proposal-v1.json",
+  "title": "LabBridge v1 OpenPenguin ActionProposal",
+  "type": "object",
+  "required": [
+    "schema", "bridge_version", "packet_type", "source_app", "intended_consumer",
+    "title", "summary", "target", "rationale", "expected_effect",
+    "falsification_observable", "executed", "packet_id", "content_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "labbridge.action-proposal/v1"},
+    "bridge_version": {"const": "1.0"},
+    "packet_type": {"const": "action_proposal"},
+    "source_app": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"const": "OpenPenguin"},
+        "role": {"const": "local-ai-advisory-layer"}
+      },
+      "additionalProperties": true
+    },
+    "intended_consumer": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"const": "Engineering Lab"},
+        "role": {"const": "scientific-computation-and-evidence-core"}
+      },
+      "additionalProperties": true
+    },
+    "title": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1},
+    "expected_effect": {"type": "string", "minLength": 1},
+    "falsification_observable": {"type": "string", "minLength": 1},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "executed": {"const": false},
+    "packet_id": {"type": "string", "pattern": "^action-proposal-[0-9a-f]{20}$"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

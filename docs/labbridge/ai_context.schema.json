@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engineering-lab.local/schemas/labbridge/ai-context-v1.json",
+  "title": "LabBridge v1 AI Context",
+  "type": "object",
+  "required": ["schema", "bridge_version", "packet_type", "source_app", "intended_consumer", "project", "authority", "packet_id", "content_sha256"],
+  "properties": {
+    "schema": {"const": "labbridge.ai-context/v1"},
+    "bridge_version": {"const": "1.0"},
+    "packet_type": {"const": "ai_context"},
+    "source_app": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"const": "Engineering Lab"},
+        "role": {"const": "scientific-computation-and-evidence-core"}
+      },
+      "additionalProperties": true
+    },
+    "intended_consumer": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"const": "OpenPenguin"},
+        "role": {"const": "local-ai-advisory-layer"}
+      },
+      "additionalProperties": true
+    },
+    "project": {"type": "object"},
+    "active_profile": {"type": "string"},
+    "focus": {"type": "string"},
+    "datasets": {"type": "array", "items": {"type": "object"}},
+    "journey_events": {"type": "array", "items": {"type": "object"}},
+    "environment": {"type": ["object", "null"]},
+    "authority": {
+      "type": "object",
+      "required": ["measurements", "scientific_record", "ai_output"]
+    },
+    "boundary": {"type": "string"},
+    "packet_id": {"type": "string", "pattern": "^ai-context-[0-9a-f]{20}$"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

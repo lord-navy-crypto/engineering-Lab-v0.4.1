@@ -1,0 +1,33 @@
+name: Project Interop Integrity
+
+on:
+  pull_request:
+    paths:
+      - "src-tauri/resources/ui/physical_lab_project_interop.py"
+      - "src-tauri/resources/ui/physical_lab_project_interop_ui.py"
+      - "src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/project_interop_validation.py"
+      - ".github/workflows/project-interop-integrity.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile project interop sources
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py
+          python -m py_compile scripts/project_interop_validation.py
+      - name: Validate project datasets and reproducibility pack
+        run: python scripts/project_interop_validation.py
+      - name: Verify DMG resource wiring
+        run: |
+          grep -q 'physical_lab_project_interop.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_project_interop_ui.py' src-tauri/tauri.conf.json

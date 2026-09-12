@@ -1,0 +1,137 @@
+name: Radiation Trajectory Integrity
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_stokes_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_quality.py'
+      - '.github/workflows/radiation-trajectory-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_radiation_worker.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_stokes_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_radiation_quality.py'
+      - '.github/workflows/radiation-trajectory-integrity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-radiation-angular-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Physical Lab
+        uses: actions/checkout@v7
+
+      - name: Checkout pinned Radiation Platform
+        uses: actions/checkout@v7
+        with:
+          repository: lord-navy-crypto/simulator-radiation-planfotm
+          ref: 6d19b36304c9d30f9b608214f7cfb9fcbaf941d4
+          path: radiation-platform
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned-engine numerical dependencies
+        run: python -m pip install --disable-pip-version-check numpy scipy pandas matplotlib
+
+      - name: Build deterministic regular 3-D undulator field map
+        run: |
+          python - <<'PY'
+          import json
+          import numpy as np
+          from pathlib import Path
+
+          x_mm = np.array([-1.0, 0.0, 1.0])
+          y_mm = np.array([-1.0, 0.0, 1.0])
+          z_mm = np.linspace(0.0, 80.0, 97)
+          phase = 2.0 * np.pi * z_mm[:, None, None] / 20.0
+          field = np.zeros((len(z_mm), len(y_mm), len(x_mm), 3), dtype=float)
+          field[..., 1] = 0.05 * np.cos(phase)
+          np.savez_compressed('angular-acceptance-field.npz', x_mm=x_mm, y_mm=y_mm, z_mm=z_mm, B_T=field)
+
+          cfg = {
+              'radiationPlatformSource': str(Path('radiation-platform').resolve()),
+              'fieldMapNpz': str(Path('angular-acceptance-field.npz').resolve()),
+              'periodMm': 20.0,
+              'deviceName': 'trajectory-angular-acceptance-map',
+              'sourceLabel': 'Physical Lab deterministic angular-map CI field',
+              'gamma': 80.0,
+              'nPeriods': 4,
+              'pointsPerPeriod': 32,
+              'observerDistanceM': 50.0,
+              'thetaXMrad': 0.0,
+              'thetaYMrad': 0.0,
+              'includeAngularMap': True,
+              'angularGridPoints': 5,
+              'angularExtentGammaTheta': 1.5,
+              'angularObserverSamples': 400,
+          }
+          Path('angular-worker-config.json').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+          PY
+
+      - name: Run pinned trajectory radiation and Stokes map
+        run: |
+          python src-tauri/resources/ui/physical_lab_radiation_worker.py \
+            --config angular-worker-config.json \
+            --output angular-worker-output.json
+
+      - name: Validate trajectory-derived angular radiation evidence
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+
+          data = json.loads(Path('angular-worker-output.json').read_text(encoding='utf-8'))
+          assert data['schema'] == 'physical-lab-radia-radiation-worker-v2'
+          obs = data['observables']
+          st = data['stokes']
+          angular = data['angularMap']
+          assert angular is not None
+          assert angular['grid_points'] == 5
+          assert len(angular['theta_x_rad']) == 5 and len(angular['theta_y_rad']) == 5
+          for key in ('fluence_J_m2', 'P_circ', 'P_lin', 'f_peak_hz', 'valid_mask'):
+              matrix = angular[key]
+              assert len(matrix) == 5 and all(len(row) == 5 for row in matrix), key
+
+          valid = angular['valid_mask']
+          valid_count = sum(sum(bool(x) for x in row) for row in valid)
+          assert valid_count >= 20, valid_count
+          assert angular['failure_count'] <= 5
+
+          for key in ('photon_energy_eV', 'f0', 'relative_linewidth'):
+              value = obs.get(key)
+              assert value is not None and math.isfinite(float(value)), (key, value)
+          assert float(obs['photon_energy_eV']) > 0.0
+
+          plin = st.get('P_lin')
+          pcirc = st.get('P_circ')
+          pdeg = st.get('polarization_degree')
+          assert plin is not None and pcirc is not None and pdeg is not None
+          assert math.isfinite(float(pdeg)) and float(pdeg) <= 1.0 + 1e-8
+
+          finite_fluence = [
+              float(angular['fluence_J_m2'][iy][ix])
+              for iy in range(5) for ix in range(5)
+              if angular['valid_mask'][iy][ix] and angular['fluence_J_m2'][iy][ix] is not None
+          ]
+          assert finite_fluence and max(finite_fluence) > 0.0
+
+          print('Pinned trajectory radiation angular-map acceptance: PASS')
+          print(f'- valid angular pixels: {valid_count}/25')
+          print(f'- photon energy: {float(obs["photon_energy_eV"]):.6g} eV')
+          print(f'- P_lin={float(plin):.6g}, P_circ={float(pcirc):.6g}, degree={float(pdeg):.6g}')
+          print('Boundary: single-electron synthetic-field acceptance only; no bunch, beamline, detector, or experimental-validation claim.')
+          PY
+
+      - name: Upload trajectory-radiation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: trajectory-radiation-angular-acceptance
+          path: angular-worker-output.json
+          if-no-files-found: error

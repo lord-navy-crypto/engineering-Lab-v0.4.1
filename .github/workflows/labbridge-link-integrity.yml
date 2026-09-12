@@ -1,0 +1,48 @@
+name: LabBridge three-product link integrity
+
+on:
+  push:
+    branches:
+      - integration/labbridge-link-v1
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_labbridge.py'
+      - 'src-tauri/resources/ui/physical_lab_labbridge_link.py'
+      - 'src-tauri/resources/ui/physical_lab_betterboard_discovery.py'
+      - 'src-tauri/resources/ui/physical_lab_betterboard_inbox.py'
+      - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_action_approval.py'
+      - 'scripts/labbridge_link.py'
+      - 'scripts/labbridge_link_validation.py'
+      - 'scripts/labbridge_end_to_end_validation.py'
+      - 'scripts/labbridge_action_approval_validation.py'
+      - '.github/workflows/labbridge-link-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_labbridge.py'
+      - 'src-tauri/resources/ui/physical_lab_labbridge_link.py'
+      - 'src-tauri/resources/ui/physical_lab_betterboard_discovery.py'
+      - 'src-tauri/resources/ui/physical_lab_betterboard_inbox.py'
+      - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_action_approval.py'
+      - 'scripts/labbridge_link.py'
+      - 'scripts/labbridge_link_validation.py'
+      - 'scripts/labbridge_end_to_end_validation.py'
+      - 'scripts/labbridge_action_approval_validation.py'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install LabBridge validation runtime
+        run: python3 -m pip install --disable-pip-version-check numpy
+      - name: Validate BetterBoard / Engineering Lab / OpenPenguin boundaries
+        run: python3 scripts/labbridge_link_validation.py
+      - name: Validate three-product LabBridge data flow
+        run: python3 scripts/labbridge_end_to_end_validation.py
+      - name: Validate ActionProposal human approval boundary
+        run: python3 scripts/labbridge_action_approval_validation.py

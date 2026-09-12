@@ -159,6 +159,26 @@ def annotate_inventory(result_schema: str | None, inventory: list[dict[str, Any]
     }
 
 
+def validate_contract_inventory(result_schema: str | None, inventory: list[dict[str, Any]]) -> dict[str, Any]:
+    contract = get_contract(result_schema)
+    if contract is None:
+        return {"registered": False, "status": "UNREGISTERED", "issues": [], "boundary": "Unknown schemas remain inspectable without inferred scientific metadata."}
+    by_path = {str(row.get("path") or ""): row for row in inventory}
+    issues = []
+    shape_map = {"scalar": "scalar", "vector": "series", "matrix": "matrix"}
+    for path, meta in (contract.get("fields") or {}).items():
+        row = by_path.get(str(path))
+        if row is None:
+            issues.append({"severity": "review", "code": "CONTRACT_FIELD_MISSING", "path": path, "message": "Registered result field is absent."})
+            continue
+        expected = str(meta.get("shape") or "")
+        actual = shape_map.get(str(row.get("kind") or ""), str(row.get("kind") or ""))
+        if expected in {"scalar", "series", "matrix"} and actual != expected:
+            issues.append({"severity": "fail", "code": "CONTRACT_SHAPE_MISMATCH", "path": path, "message": f"Expected {expected}, observed {actual}."})
+    status = "FAIL" if any(x["severity"] == "fail" for x in issues) else ("REVIEW" if issues else "PASS")
+    return {"registered": True, "status": status, "issues": issues, "contract_sha256": contract["contract_sha256"], "boundary": "Contract conformance checks schema-declared structure only; it is not physical validation."}
+
+
 def make_uncertainty(
     *,
     estimate: float,
@@ -225,3 +245,19 @@ def validate_uncertainty(value: Mapping[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         errors.append(str(exc))
     return {"valid": not errors, "errors": errors, "boundary": "Structural uncertainty-object validation only; it does not establish completeness or correctness of the uncertainty model."}
+
+
+def find_uncertainty_objects(value: Any, prefix: str = "") -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if isinstance(value, Mapping):
+        if value.get("schema") == UNCERTAINTY_SCHEMA:
+            rows.append({"path": prefix or "$", "value": plain(dict(value)), "validation": validate_uncertainty(value)})
+            return rows
+        for key, item in value.items():
+            path = f"{prefix}.{key}" if prefix else str(key)
+            rows.extend(find_uncertainty_objects(item, path))
+    elif isinstance(value, (list, tuple)):
+        for i, item in enumerate(value):
+            path = f"{prefix}[{i}]" if prefix else f"[{i}]"
+            rows.extend(find_uncertainty_objects(item, path))
+    return rows

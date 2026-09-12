@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import physical_lab_project_kernel as projects
-from physical_lab_experiment_kernel import plain, sha256_json, utc_now, validate_manifest
+from physical_lab_experiment_kernel import plain, utc_now, validate_manifest
 from physical_lab_lab_journey import append_event
 from physical_lab_labbridge import ACTION_PROPOSAL_SCHEMA, validate_ai_advisory
 
@@ -102,12 +102,13 @@ def review_action_proposal(
 
     event = append_event(
         path,
-        event_type="action_proposal_review",
+        event_type="decision",
         source_role="human",
         title=f"ActionProposal {normalized_decision}: {proposal.get('title') or proposal.get('summary') or proposal_id}",
         body=reason,
         evidence_refs=[proposal_id, proposal_sha, record["approval_id"]],
         payload={
+            "decision_kind": "action_proposal_review",
             "decision": normalized_decision,
             "reviewer": reviewer,
             "approval_sha256": digest,
@@ -199,11 +200,16 @@ def authorize_experiment_manifest(
 
     event = append_event(
         path,
-        event_type="experiment_manifest_authorized",
+        event_type="decision",
         source_role="human",
         title=f"Approved ActionProposal linked to Experiment Manifest · {manifest.get('profile')}",
         body="Human approval was linked to a specific validated Experiment Manifest fingerprint. No execution occurred.",
         evidence_refs=[proposal_id, record["approval_id"], manifest_sha, record["authorization_id"]],
-        payload={"profile": manifest.get("profile"), "experiment_sha256": manifest_sha, "executed": False},
+        payload={
+            "decision_kind": "experiment_manifest_authorization",
+            "profile": manifest.get("profile"),
+            "experiment_sha256": manifest_sha,
+            "executed": False,
+        },
     )
     return {"authorization": record, "journey_event": event, "executed": False}

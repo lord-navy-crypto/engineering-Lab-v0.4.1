@@ -40,7 +40,13 @@ Response:
 }
 ```
 
-Engineering Lab will prefer this native API when it is available. If this endpoint is absent, it falls back to the existing Ollama-compatible API on the same OpenPenguin runtime.
+Engineering Lab accepts native mode only when:
+
+- `api_version` is a supported LabBridge/OpenPenguin API version;
+- `models` is an array;
+- required capabilities include both `labbridge.ai-context/v1` and `labbridge.ai-suggestion/v1`.
+
+If discovery is missing, malformed, unsupported, or incomplete, Engineering Lab does not break the OpenPenguin connection. It falls back to the existing local Ollama-compatible runtime when available.
 
 ## 2. Advisory request
 
@@ -100,7 +106,45 @@ If OpenPenguin does not want to implement content-addressing internally, it may 
 
 Engineering Lab will wrap that answer into a valid `labbridge.ai-suggestion/v1` packet.
 
-## 3. Action proposals
+## 3. Rolling-upgrade compatibility
+
+Native LabBridge is a preferred path, not a single point of failure.
+
+OpenPenguin may be upgraded gradually:
+
+```text
+Stage 0: existing /api/tags + /api/chat only
+Stage 1: add GET /labbridge/v1/capabilities
+Stage 2: add POST /labbridge/v1/advisory
+```
+
+Engineering Lab must continue working during every stage.
+
+If capability discovery succeeds but the native advisory endpoint later:
+
+- returns 404/5xx;
+- becomes temporarily unavailable;
+- returns invalid JSON;
+- returns an incompatible packet;
+- returns neither a valid AISuggestion nor advisory text;
+
+Engineering Lab safely falls back to the existing local `/api/chat` route when available.
+
+The resulting `labbridge.ai-suggestion/v1` records compatibility provenance in `source_app`, for example:
+
+```json
+{
+  "adapter_mode": "ollama-compat",
+  "fallback_used": true,
+  "native_error": "OpenPenguin LabBridge API returned HTTP 503: ..."
+}
+```
+
+This makes fallback visible and auditable instead of silently hiding an interface problem.
+
+A native failure must never cause Engineering Lab to send the scientific context to a cloud fallback. Compatibility fallback remains local to the explicitly allow-listed OpenPenguin loopback runtime.
+
+## 4. Action proposals
 
 A future OpenPenguin implementation may return:
 
@@ -130,8 +174,10 @@ OpenPenguin native LabBridge should preserve these rules:
 6. Do not relabel simulated data as measured data.
 7. Do not infer missing units or validation status.
 8. Preserve the source AI Context packet ID as evidence provenance.
+9. Keep compatibility fallback local; never silently redirect scientific context to a cloud endpoint.
+10. Expose API version and capabilities explicitly so Engineering Lab can negotiate compatibility rather than guess.
 
-## Compatibility
+## Compatibility architecture
 
 OpenPenguin does **not** need to replace its existing Ollama-compatible endpoints.
 
@@ -145,4 +191,4 @@ OpenPenguin model/runtime core
         └── thin /labbridge/v1 adapter
 ```
 
-Engineering Lab automatically detects the native adapter and otherwise falls back to `/api/chat`.
+Engineering Lab automatically detects the native adapter and otherwise falls back to `/api/chat`. If a partially upgraded native adapter fails at request time, Engineering Lab may downgrade to `/api/chat` for that advisory and records the downgrade reason in provenance.

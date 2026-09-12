@@ -11,9 +11,11 @@ on:
       - 'src-tauri/resources/ui/physical_lab_betterboard_discovery.py'
       - 'src-tauri/resources/ui/physical_lab_betterboard_inbox.py'
       - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_action_approval.py'
       - 'scripts/labbridge_link.py'
       - 'scripts/labbridge_link_validation.py'
       - 'scripts/labbridge_end_to_end_validation.py'
+      - 'scripts/labbridge_action_approval_validation.py'
       - '.github/workflows/labbridge-link-integrity.yml'
   pull_request:
     paths:
@@ -22,9 +24,11 @@ on:
       - 'src-tauri/resources/ui/physical_lab_betterboard_discovery.py'
       - 'src-tauri/resources/ui/physical_lab_betterboard_inbox.py'
       - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_action_approval.py'
       - 'scripts/labbridge_link.py'
       - 'scripts/labbridge_link_validation.py'
       - 'scripts/labbridge_end_to_end_validation.py'
+      - 'scripts/labbridge_action_approval_validation.py'
 
 jobs:
   validate:
@@ -40,3 +44,5 @@ jobs:
         run: python3 scripts/labbridge_link_validation.py
       - name: Validate three-product LabBridge data flow
         run: python3 scripts/labbridge_end_to_end_validation.py
+      - name: Validate ActionProposal human approval boundary
+        run: python3 scripts/labbridge_action_approval_validation.py

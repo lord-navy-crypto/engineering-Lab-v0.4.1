@@ -75,11 +75,13 @@ def save_canonical_dataset(
         vals: list[float | None] = []
         for value in seq:
             if value is None:
-                vals.append(None); continue
+                vals.append(None)
+                continue
             try:
                 x = float(value)
             except Exception:
-                vals.append(None); continue
+                vals.append(None)
+                continue
             vals.append(x if math.isfinite(x) else None)
         normalized[str(key)] = vals
     stable = {
@@ -141,7 +143,6 @@ def _candidate_pack_files(project_dir: Path, *, include_measurement_assets: bool
     if include_measurement_assets:
         roots.append("measurements")
     else:
-        # Measurement metadata only, not potentially large raw assets.
         roots.append("measurements/index.json")
     files: list[Path] = []
     for rel in roots:
@@ -156,7 +157,7 @@ def _candidate_pack_files(project_dir: Path, *, include_measurement_assets: bool
 def build_reproducibility_pack(project_dir: str | Path, *, include_measurement_assets: bool = False) -> dict[str, Any]:
     path = Path(project_dir).expanduser().resolve()
     project = projects.open_project(path)
-    report = projects.render_project_report_markdown(path)
+    report = projects.render_project_report_markdown(path, generated_at=str(project.get("updated_at") or project.get("created_at") or ""))
     selected = []
     omitted = []
     for file in _candidate_pack_files(path, include_measurement_assets=include_measurement_assets):
@@ -188,9 +189,11 @@ def build_reproducibility_pack(project_dir: str | Path, *, include_measurement_a
             info = zipfile.ZipInfo(file.relative_to(path).as_posix(), date_time=(1980,1,1,0,0,0))
             info.compress_type = zipfile.ZIP_DEFLATED
             zf.writestr(info, file.read_bytes())
-        info = zipfile.ZipInfo("PROJECT_REPORT.md", date_time=(1980,1,1,0,0,0)); info.compress_type = zipfile.ZIP_DEFLATED
+        info = zipfile.ZipInfo("PROJECT_REPORT.md", date_time=(1980,1,1,0,0,0))
+        info.compress_type = zipfile.ZIP_DEFLATED
         zf.writestr(info, report.encode("utf-8"))
-        info = zipfile.ZipInfo("REPRODUCIBILITY_MANIFEST.json", date_time=(1980,1,1,0,0,0)); info.compress_type = zipfile.ZIP_DEFLATED
+        info = zipfile.ZipInfo("REPRODUCIBILITY_MANIFEST.json", date_time=(1980,1,1,0,0,0))
+        info.compress_type = zipfile.ZIP_DEFLATED
         zf.writestr(info, json.dumps(stable_manifest, indent=2, sort_keys=True).encode("utf-8"))
     payload = bio.getvalue()
     return {

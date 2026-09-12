@@ -23,7 +23,11 @@ def make_packet(finalize_packet, measurement_dir: Path, *, tamper: bool = False)
     (measurement_dir / "data.csv").write_bytes(csv_bytes if not tamper else csv_bytes + b"0.3,9.9\n")
     metadata = {
         "schema": "betterboard.measurement/0.2",
-        "created_at_utc": "2026-09-12T00:00:00+00:00",
+        # Keep the corrupted fixture a distinct MeasurementAsset identity while
+        # deliberately retaining a stale dataset digest below. The inbox is keyed
+        # by immutable packet SHA, so two byte-identical packet manifests would be
+        # one evidence identity even when copied into two session directories.
+        "created_at_utc": "2026-09-12T00:00:01+00:00" if tamper else "2026-09-12T00:00:00+00:00",
         "producer": "BetterBoard Studio test",
         "acquisition_mode": "serial-capture",
         "recipe_id": "analog",
@@ -94,6 +98,7 @@ def main() -> int:
         sync_discovery(project_dir, rows)
         valid_sha = by_name["analog-valid"]["packet_sha256"]
         tampered_sha = by_name["analog-tampered"]["packet_sha256"]
+        require(valid_sha != tampered_sha, "validation fixtures must represent distinct immutable packet identities")
         inbox = load_inbox(project_dir)
         require(inbox["packets"][valid_sha]["disposition"] == "new", "fresh valid packet did not enter NEW state")
         require(inbox["packets"][tampered_sha]["disposition"] == "new", "fresh invalid packet should still be visible as NEW evidence inbox item")

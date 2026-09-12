@@ -240,7 +240,7 @@ def lattice_dynamic_structure_factor(
     window = np.hanning(nsteps)
     for qi,(m1,m2,q) in enumerate(qs):
         fluct = rho[qi]-np.mean(rho[qi])
-        spec = np.abs(np.fft.rfft(fluct*window))**2
+        spec = np.abs(np.fft.fft(fluct*window)[:len(freq)])**2
         if len(spec)>0: spec[0]=0.0
         norm = float(np.max(spec)) if np.max(spec)>0 else 1.0
         sn = spec/norm

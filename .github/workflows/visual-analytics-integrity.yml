@@ -64,5 +64,7 @@ jobs:
           grep -q 'standardized_sensitivity' src-tauri/resources/ui/physical_lab_visual_analytics.py
           grep -q 'elasticity_sensitivity' src-tauri/resources/ui/physical_lab_visual_analytics.py
           grep -q 'response_surface_slice' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'Save Science Analysis Recipe' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'What are you trying to understand?' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
           grep -q 'Native UQ' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
           grep -q 'Sensitivity + Surface' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py

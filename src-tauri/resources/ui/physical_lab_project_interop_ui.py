@@ -24,10 +24,11 @@ def render_project_interop(st: Any, profile: str) -> None:
     with st.expander("Engineering Lab · Project Data, Visualization, LabBridge, Results & Reproducibility", expanded=False):
         st.caption(
             "Engineering Lab is the scientific computation/evidence core. Discover or ingest BetterBoard real-world measurements through LabBridge, "
-            "inspect and visualize results with model-independent DIY views, use ModelSpec to guide safe model controls, record the Lab Journey, compare runs, compose model workflows, and exchange bounded advisory context with OpenPenguin."
+            "inspect and visualize results with model-independent DIY views, use uncertainty-aware visual analytics and ModelSpec-guided safe model controls, "
+            "record the Lab Journey, compare runs, compose model workflows, and exchange bounded advisory context with OpenPenguin."
         )
-        tab_data, tab_discovery, tab_labbridge, tab_results, tab_visual, tab_modelspec, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
-            "Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector", "Visualization Studio", "ModelSpec DIY", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        tab_data, tab_discovery, tab_labbridge, tab_results, tab_visual, tab_analytics, tab_modelspec, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector", "Visualization Studio", "Visual Analytics", "ModelSpec DIY", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
         ])
 
         with tab_data:
@@ -99,6 +100,13 @@ def render_project_interop(st: Any, profile: str) -> None:
             except Exception as exc:
                 st.warning(f"Visualization Studio could not load: {exc}")
 
+        with tab_analytics:
+            try:
+                from physical_lab_visual_analytics_ui import render_visual_analytics
+                render_visual_analytics(st, profile)
+            except Exception as exc:
+                st.warning(f"Visual Analytics Workbench could not load: {exc}")
+
         with tab_modelspec:
             try:
                 from physical_lab_modelspec_diy_ui import render_modelspec_diy
@@ -132,7 +140,8 @@ def render_project_interop(st: Any, profile: str) -> None:
             include_assets = st.checkbox("Include raw measurement assets up to 8 MB each", value=False, key=f"pl_repro_assets_{profile}")
             st.caption(
                 "Default pack includes measurement/calibration metadata, experiments, result references, LabBridge provenance, Lab Journey events, "
-                "Experiment Notebook/annotations, project datasets, result materializations, software environments, saved coupling pipelines/workflows, frozen run snapshots, visualization recipes, and a generated project report."
+                "Experiment Notebook/annotations, project datasets, result materializations, software environments, saved coupling pipelines/workflows, "
+                "frozen run snapshots, visualization recipes, visual-analytics dashboards, and a generated project report."
             )
             if st.button("Build reproducibility ZIP", type="primary", key=f"pl_repro_build_{profile}"):
                 st.session_state[f"pl_repro_pack_{profile}"] = build_reproducibility_pack(project_path, include_measurement_assets=include_assets)

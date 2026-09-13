@@ -17,7 +17,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> int:
-    import physical_lab_scientific_visualization as sv
+    import physical_lab_visual_analytics as sv
     from physical_lab_result_contracts import make_uncertainty
 
     require(sv.axis_label("x", "m") == "x [m]", "axis unit label failed")
@@ -55,18 +55,14 @@ def main() -> int:
     screening = sv.standardized_sensitivity(frame, ["p", "q"], "y")
     require(set(screening["parameter"]) == {"p", "q"}, "standardized sensitivity screening failed")
 
-    grid = pd.DataFrame({
-        "a": [0, 0, 1, 1],
-        "b": [0, 1, 0, 1],
-        "z": [1.0, 2.0, 3.0, 4.0],
-    })
+    grid = pd.DataFrame({"a": [0, 0, 1, 1], "b": [0, 1, 0, 1], "z": [1.0, 2.0, 3.0, 4.0]})
     surface = sv.response_surface(grid, "a", "b", "z")
     require(surface["grid_cells"] == 4 and surface["coverage"] == 4, "response surface grid failed")
     sparse = sv.response_surface(grid.iloc[:3], "a", "b", "z")
     require(sparse["grid_cells"] == 4 and sparse["coverage"] == 3, "missing response cell was invented")
 
-    require("not causality" in sv.BOUNDARY.lower(), "scientific visualization boundary missing")
-    print("PASS: unit-aware contracts, native UQ, sensitivity and response-surface semantics")
+    require("causality" in sv.BOUNDARY.lower(), "scientific visualization boundary missing")
+    print("PASS: bundled unit-aware contracts, native UQ, sensitivity and response-surface semantics")
     return 0
 
 

@@ -25,6 +25,7 @@ from physical_lab_visualization_studio import (
     matrix_by_path,
     numeric_columns,
     numeric_inventory,
+    research_table_frame,
     result_frame,
     summary,
     sweep_frame,
@@ -53,11 +54,49 @@ def _adapter_signature(adapter: str) -> tuple[list[str], dict[str, Any]]:
     return names, defaults
 
 
+def _field_match(fields: list[str], declared: str | None) -> str | None:
+    name = str(declared or "").strip()
+    if not name:
+        return None
+    candidates = [name, f"$.{name}", f"result:$.{name}", f"metric:{name}", f"param:{name}"]
+    for candidate in candidates:
+        if candidate in fields:
+            return candidate
+    suffixes = (f".{name}", f":{name}")
+    return next((field for field in fields if field.endswith(suffixes)), None)
+
+
+def _guidance_defaults(st: Any, profile: str, fields: list[str]) -> dict[str, Any]:
+    guidance = st.session_state.get(f"pl_modelspec_guidance_{profile}")
+    if not isinstance(guidance, dict):
+        return {}
+    hints = list(guidance.get("visualizations") or [])
+    hint = hints[0] if hints and isinstance(hints[0], dict) else {}
+    outputs = list(hint.get("outputs") or []) if isinstance(hint.get("outputs"), list) else []
+    declared_x = hint.get("x") or (outputs[0] if outputs else None)
+    declared_y = hint.get("y") or (outputs[1] if len(outputs) > 1 else outputs[0] if outputs else None)
+    declared_z = hint.get("z") or (outputs[2] if len(outputs) > 2 else None)
+    kind = str(hint.get("kind") or "").lower()
+    chart = {
+        "line": "Line", "scatter": "Scatter", "bar": "Bar", "histogram": "Histogram",
+        "heatmap": "Heatmap", "image": "Heatmap", "surface": "Heatmap", "3d": "3D Scatter",
+    }.get(kind)
+    return {
+        "model": guidance.get("name"),
+        "chart": chart,
+        "x": _field_match(fields, declared_x),
+        "y": _field_match(fields, declared_y),
+        "z": _field_match(fields, declared_z),
+        "hint": hint,
+    }
+
+
 def _select_source(st: Any, project_path: Path, profile: str):
     doc = projects.open_project(project_path)
     project_results = dict(doc.get("results") or {})
     sweep_jobs = [j for j in list_sweep_jobs(limit=100) if j.get("status") == "succeeded" and read_sweep_result(str(j.get("id"))) is not None]
     datasets = list_canonical_datasets(project_path)
+    parsed = st.session_state.get(f"pl_orch_table_{profile}")
     choices = []
     if project_results:
         choices.append("Project result")
@@ -65,8 +104,10 @@ def _select_source(st: Any, project_path: Path, profile: str):
         choices.append("Sweep campaign")
     if datasets:
         choices.append("Canonical dataset")
+    if isinstance(parsed, dict) and parsed.get("column_data"):
+        choices.append("Research table")
     if not choices:
-        st.info("No project result, completed sweep, or canonical dataset is available yet.")
+        st.info("No project result, completed sweep, canonical dataset, or parsed Research Orchestrator table is available yet.")
         return None
     source = st.radio("Visualization source", choices, horizontal=True, key=f"pl_vizstudio_source_{profile}")
     if source == "Project result":
@@ -78,6 +119,9 @@ def _select_source(st: Any, project_path: Path, profile: str):
         job_id = st.selectbox("Sweep campaign", ids, key=f"pl_vizstudio_sweep_{profile}")
         result = read_sweep_result(job_id) or {}
         return {"kind": "sweep", "label": job_id, "frame": sweep_frame(result), "raw": result, "identity": {"sweep_job_id": job_id}}
+    if source == "Research table":
+        label = str(parsed.get("filename") or "research-table")
+        return {"kind": "research-table", "label": label, "frame": research_table_frame(parsed), "raw": parsed, "identity": {"filename": label, "numeric_columns": list(parsed.get("numeric_columns") or [])}}
     ids = [str(d.get("dataset_id")) for d in datasets]
     dataset_id = st.selectbox("Canonical dataset", ids, key=f"pl_vizstudio_dataset_{profile}")
     dataset = next(d for d in datasets if str(d.get("dataset_id")) == dataset_id)
@@ -130,9 +174,10 @@ def _derived_variable(st: Any, frame: pd.DataFrame, profile: str) -> tuple[pd.Da
 
 def _save_recipe(project_path: Path, recipe: dict[str, Any]) -> dict[str, Any]:
     payload = dict(recipe)
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    semantic = {k: v for k, v in payload.items() if k != "created_at_unix"}
+    canonical = json.dumps(semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     digest = hashlib.sha256(canonical).hexdigest()
-    record = {**payload, "recipe_id": f"viz-{digest[:20]}", "sha256": digest}
+    record = {**payload, "recipe_id": f"viz-{digest[:20]}", "sha256": digest, "semantic_digest": True}
     root = project_path / "reports" / "visualization-recipes"
     root.mkdir(parents=True, exist_ok=True)
     path = root / f"{record['recipe_id']}.json"
@@ -153,27 +198,38 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
         st.warning("The current filter removed all rows.")
         return
 
+    guidance = _guidance_defaults(st, profile, numeric)
+    chart_options = ["Line", "Scatter", "Bar", "Histogram", "Heatmap", "3D Scatter"]
+    chart_default = chart_options.index(guidance["chart"]) if guidance.get("chart") in chart_options else 0
+    x_default = numeric.index(guidance["x"]) if guidance.get("x") in numeric else 0
+    if guidance:
+        st.caption(f"ModelSpec guidance active: {guidance.get('model')}. Suggestions are non-binding and only applied when declared outputs match visible fields.")
+
     c1, c2, c3 = st.columns([1.2, 1.3, 1.0])
-    chart_type = c1.selectbox("Chart", ["Line", "Scatter", "Bar", "Histogram", "Heatmap", "3D Scatter"], key=f"pl_vizstudio_chart_{profile}")
-    x = c2.selectbox("X axis", numeric, index=0, key=f"pl_vizstudio_x_{profile}")
+    chart_type = c1.selectbox("Chart", chart_options, index=chart_default, key=f"pl_vizstudio_chart_{profile}")
+    x = c2.selectbox("X axis", numeric, index=x_default, key=f"pl_vizstudio_x_{profile}")
     transform_mode = c3.selectbox("Y transform", ["raw", "absolute", "z-score", "min-max"], key=f"pl_vizstudio_transform_{profile}")
 
     available_y = [c for c in numeric if c != x] or [x]
+    hinted_y = guidance.get("y") if guidance.get("y") in available_y else available_y[0]
     z_field = None
     if chart_type == "Histogram":
-        ys = [st.selectbox("Histogram field", numeric, key=f"pl_vizstudio_hist_y_{profile}")]
+        hist_default = numeric.index(hinted_y) if hinted_y in numeric else 0
+        ys = [st.selectbox("Histogram field", numeric, index=hist_default, key=f"pl_vizstudio_hist_y_{profile}")]
     elif chart_type == "Heatmap":
-        y = st.selectbox("Y axis", available_y, key=f"pl_vizstudio_heat_y_{profile}")
+        y = st.selectbox("Y axis", available_y, index=available_y.index(hinted_y), key=f"pl_vizstudio_heat_y_{profile}")
         colors = [c for c in numeric if c not in {x, y}] or [y]
-        color = st.selectbox("Cell value", colors, key=f"pl_vizstudio_heat_z_{profile}")
+        hinted_z = guidance.get("z") if guidance.get("z") in colors else colors[0]
+        color = st.selectbox("Cell value", colors, index=colors.index(hinted_z), key=f"pl_vizstudio_heat_z_{profile}")
         ys = [y, color]
     elif chart_type == "3D Scatter":
-        y = st.selectbox("Y axis", available_y, key=f"pl_vizstudio_3d_y_{profile}")
+        y = st.selectbox("Y axis", available_y, index=available_y.index(hinted_y), key=f"pl_vizstudio_3d_y_{profile}")
         z_options = [c for c in numeric if c not in {x, y}] or [y]
-        z_field = st.selectbox("Z axis", z_options, key=f"pl_vizstudio_3d_z_{profile}")
+        hinted_z = guidance.get("z") if guidance.get("z") in z_options else z_options[0]
+        z_field = st.selectbox("Z axis", z_options, index=z_options.index(hinted_z), key=f"pl_vizstudio_3d_z_{profile}")
         ys = [y, z_field]
     else:
-        ys = st.multiselect("Y axis / series", available_y, default=available_y[:1], key=f"pl_vizstudio_y_{profile}")
+        ys = st.multiselect("Y axis / series", available_y, default=[hinted_y], key=f"pl_vizstudio_y_{profile}")
         if not ys:
             st.info("Select at least one Y field.")
             return
@@ -181,7 +237,7 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
     c4, c5, c6 = st.columns(3)
     x_log = c4.toggle("Log X", value=False, key=f"pl_vizstudio_logx_{profile}")
     y_log = c5.toggle("Log Y", value=False, key=f"pl_vizstudio_logy_{profile}")
-    title = c6.text_input("Title", value="DIY result view", key=f"pl_vizstudio_title_{profile}")
+    title = c6.text_input("Title", value=str((guidance.get("hint") or {}).get("title") or "DIY result view"), key=f"pl_vizstudio_title_{profile}")
 
     plot_frame = transform(frame, ys, transform_mode)
     fig = None
@@ -231,6 +287,7 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
         "created_at_unix": time.time(),
         "profile": profile,
         "source": {"kind": source.get("kind"), "label": source.get("label"), "identity": source.get("identity")},
+        "model_guidance": {"model": guidance.get("model"), "hint": guidance.get("hint")} if guidance else None,
         "view": {"chart_type": chart_type, "x": x, "y": ys, "z": z_field, "transform": transform_mode, "log_x": bool(x_log), "log_y": bool(y_log), "title": title, "filter": filter_spec, "derived": derived_spec},
         "boundary": BOUNDARY,
     }
@@ -275,8 +332,12 @@ def _render_scan_builder(st: Any, profile: str) -> None:
         st.caption("Accepted model parameters: " + ", ".join(parameters))
         with st.expander("Numeric defaults", expanded=False): st.json(defaults)
 
+    preferred = str(st.session_state.get(f"pl_modelspec_preferred_scan_parameter_{profile}") or "")
+    default_param = preferred if preferred in parameters else (parameters[0] if parameters else "parameter")
+    if preferred and preferred in parameters:
+        st.caption(f"ModelSpec suggests scanning `{preferred}`; you can replace it freely.")
     c1, c2, c3, c4, c5 = st.columns([1.5, 1, 1, 0.8, 1])
-    param_a = c1.text_input("Parameter A", value=(parameters[0] if parameters else "parameter"), key=f"pl_diy_scan_a_{profile}")
+    param_a = c1.text_input("Parameter A", value=default_param, key=f"pl_diy_scan_a_{profile}")
     start_a = c2.number_input("A start", value=float(defaults.get(param_a, 0.0)), key=f"pl_diy_scan_a0_{profile}")
     stop_a = c3.number_input("A stop", value=float(defaults.get(param_a, 1.0) or 1.0), key=f"pl_diy_scan_a1_{profile}")
     count_a = c4.number_input("A points", min_value=1, max_value=500, value=21, step=1, key=f"pl_diy_scan_an_{profile}")
@@ -325,6 +386,10 @@ def render_visualization_studio(st: Any, profile: str) -> None:
     project_path = Path(active)
     st.markdown("### Visualization Studio")
     st.caption("Choose what to look at after computation: axes, fields, filters, transforms, safe derived variables, chart type, matrix view and parameter scans are independent from the model implementation.")
+    guidance = st.session_state.get(f"pl_modelspec_guidance_{profile}")
+    if isinstance(guidance, dict):
+        with st.expander(f"ModelSpec guidance · {guidance.get('name', 'Research model')}", expanded=False):
+            st.json({"parameters": guidance.get("parameters"), "outputs": guidance.get("outputs"), "visualizations": guidance.get("visualizations"), "boundary": guidance.get("boundary")})
     tab_plot, tab_scan = st.tabs(["DIY Plot Builder", "DIY Scan Builder"])
     with tab_plot:
         selected = _select_source(st, project_path, profile)

@@ -20,7 +20,6 @@ from physical_lab_visual_analytics import (
     convertible_units,
     elasticity_sensitivity,
     field_metadata,
-    local_sensitivity,
     response_surface,
     response_surface_slice,
     save_science_analysis_recipe,
@@ -51,6 +50,35 @@ def _save_recipe(st: Any, project_path: Path, source: dict[str, Any], analysis: 
             st.success(f"Saved {saved['recipe_id']} · sha256 {saved['sha256'][:16]}…")
         except Exception as exc:
             st.error(f"Could not save analysis recipe: {exc}")
+
+
+def _analysis_recommendations(question: str, source_kind: str, numeric_count: int, has_native_uq: bool) -> list[dict[str, str]]:
+    text = str(question or "").lower().strip()
+    rows: list[dict[str, str]] = []
+    def add(tab: str, tool: str, reason: str) -> None:
+        if not any(r["tool"] == tool for r in rows):
+            rows.append({"tab": tab, "tool": tool, "reason": reason})
+    if any(k in text for k in ("uncert", "confidence", "interval", "error bar", "误差", "不确定")):
+        add("Scientific Semantics", "Native UQ", "Inspect explicit physical-lab-uncertainty-v1 objects instead of reinterpreting residual/error fields.")
+    if any(k in text for k in ("unit", "convert", "dimension", "单位", "换算")):
+        add("Scientific Semantics", "Units & contracts", "Read schema-declared quantity/unit metadata and use only compatible conversions.")
+    if any(k in text for k in ("sensitive", "sensitivity", "influence", "affect", "important parameter", "影响", "敏感")):
+        add("Sensitivity + Surface", "Sensitivity screening", "Compare standardized slopes, rank association, local slopes and elasticity across candidate parameters.")
+    if any(k in text for k in ("surface", "heatmap", "interaction", "2d", "grid", "响应面", "交互")):
+        add("Sensitivity + Surface", "Response Surface", "Inspect observed two-parameter response structure without inventing missing grid cells.")
+    if any(k in text for k in ("trade", "pareto", "balance", "compromise", "optimum", "optimal", "权衡", "最优")):
+        add("Pareto Frontier", "Pareto analysis", "Find non-dominated candidates for two explicitly chosen objective directions.")
+    if any(k in text for k in ("correl", "relationship", "association", "related", "相关", "关系")):
+        add("Correlation Matrix", "Correlation", "Inspect descriptive Pearson/Spearman association; correlation is not causality.")
+    if not rows:
+        if source_kind == "sweep" and numeric_count >= 3:
+            add("Sensitivity + Surface", "Sensitivity + Response Surface", "Completed sweeps are naturally suited to parameter screening and response-surface inspection.")
+            add("Pareto Frontier", "Pareto analysis", "A sweep can also be screened for two-objective trade-offs.")
+        elif source_kind == "result":
+            add("Scientific Semantics", "Contracts + Native UQ", "Start by checking explicit result semantics, units and uncertainty objects.")
+        elif numeric_count >= 2:
+            add("Correlation Matrix", "Correlation", "A numeric table can be explored descriptively before choosing a stronger scientific interpretation.")
+    return rows[:4]
 
 
 def _render_semantics(st: Any, project_path: Path, source: dict[str, Any], profile: str) -> None:
@@ -173,7 +201,6 @@ def _render_sensitivity_surface(st: Any, project_path: Path, source: dict[str, A
         st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
         coverage = surface["coverage"] / max(surface["grid_cells"], 1)
         st.caption(f"Grid coverage: {coverage:.1%}. Missing parameter combinations are not interpolated or invented.")
-
         s1, s2 = st.columns(2)
         slice_axis = s1.radio("Slice axis", ["x", "y"], horizontal=True, key=f"pl_science_slice_axis_{profile}")
         count = len(surface[slice_axis])
@@ -209,6 +236,16 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
     if len(numeric) < 1:
         st.warning("This source does not contain numeric fields.")
         return
+
+    question = st.text_input("What are you trying to understand?", placeholder="e.g. Which parameter most affects the output?", key=f"pl_science_question_{profile}")
+    raw = _raw_result(project_path, source)
+    has_native_uq = bool(uncertainty_records(raw)) if raw is not None else False
+    recommendations = _analysis_recommendations(question, str(source.get("kind") or ""), len(numeric), has_native_uq)
+    if recommendations:
+        with st.expander("Recommended analysis path", expanded=bool(question.strip())):
+            st.dataframe(recommendations, hide_index=True, width="stretch")
+            st.caption("Recommendations route you to existing analytical views. They do not infer scientific conclusions or validate the data.")
+
     tab_sem, tab_sens, tab_corr, tab_pareto = st.tabs(["Scientific Semantics", "Sensitivity + Surface", "Correlation Matrix", "Pareto Frontier"])
     with tab_sem:
         _render_semantics(st, project_path, source, profile)

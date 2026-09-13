@@ -8,19 +8,27 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_applied_analysis.py'
       - 'src-tauri/resources/ui/physical_lab_applied_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/applied_analysis_validation.py'
+      - 'scripts/applied_analysis_advanced_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
   pull_request:
     paths:
       - 'src-tauri/resources/ui/physical_lab_applied_analysis.py'
       - 'src-tauri/resources/ui/physical_lab_applied_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/applied_analysis_validation.py'
+      - 'scripts/applied_analysis_advanced_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
 
 jobs:
@@ -37,21 +45,35 @@ jobs:
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis.py
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/applied_analysis_validation.py
+          python -m py_compile scripts/applied_analysis_advanced_validation.py
       - name: Validate Tauri configuration
         run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
       - name: Validate applied mathematics and statistics core
         run: python scripts/applied_analysis_validation.py
+      - name: Validate advanced applied analysis and queue boundary
+        run: python scripts/applied_analysis_advanced_validation.py
       - name: Verify application integration and boundaries
         run: |
           grep -q '^scipy$' src-tauri/resources/ui/physical_lab_builtin_requirements.txt
           grep -q 'physical_lab_applied_analysis.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_applied_analysis_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_applied_analysis_advanced.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_applied_analysis_advanced_ui.py' src-tauri/tauri.conf.json
           grep -q 'Applied Math & Statistics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'render_applied_analysis_advanced' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'Regression + Diagnostics' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
           grep -q 'Bootstrap + Monte Carlo' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
           grep -q 'Design of Experiments' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
           grep -q 'Parameter Estimation' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
+          grep -q 'Robust Regression' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
+          grep -q 'Model Selection' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
+          grep -q 'Factorial + Morris' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
+          grep -q 'DOE → Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
+          grep -q 'execution_started.*False' src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py
+          grep -q 'Explicitly start queued Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           grep -q 'arbitrary user code' src-tauri/resources/ui/physical_lab_applied_analysis.py
           grep -q 'proposals only' src-tauri/resources/ui/physical_lab_applied_analysis.py

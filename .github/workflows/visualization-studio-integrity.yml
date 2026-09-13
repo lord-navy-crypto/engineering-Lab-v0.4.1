@@ -1,0 +1,48 @@
+name: Engineering Lab Visualization Studio Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/visualization_studio_validation.py'
+      - '.github/workflows/visualization-studio-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/visualization_studio_validation.py'
+      - '.github/workflows/visualization-studio-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install visualization dependencies
+        run: python -m pip install numpy pandas plotly
+      - name: Compile visualization modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile scripts/visualization_studio_validation.py
+      - name: Validate generic visualization and DIY scans
+        run: python scripts/visualization_studio_validation.py
+      - name: Verify UI and bundle integration
+        run: |
+          grep -q 'Visualization Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'physical_lab_visualization_studio.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_visualization_studio_ui.py' src-tauri/tauri.conf.json
+          grep -q 'MAX_SCAN_POINTS = 500' src-tauri/resources/ui/physical_lab_visualization_studio.py
+          grep -q 'Visualization changes representation, not evidence' src-tauri/resources/ui/physical_lab_visualization_studio.py

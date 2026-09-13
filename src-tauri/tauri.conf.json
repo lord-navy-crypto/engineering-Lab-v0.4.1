@@ -30,6 +30,8 @@
       "resources/ui/physical_lab_visualization_studio_ui.py": "ui/physical_lab_visualization_studio_ui.py",
       "resources/ui/physical_lab_visual_analytics.py": "ui/physical_lab_visual_analytics.py",
       "resources/ui/physical_lab_visual_analytics_ui.py": "ui/physical_lab_visual_analytics_ui.py",
+      "resources/ui/physical_lab_tradeoff_analysis.py": "ui/physical_lab_tradeoff_analysis.py",
+      "resources/ui/physical_lab_tradeoff_analysis_ui.py": "ui/physical_lab_tradeoff_analysis_ui.py",
       "resources/ui/physical_lab_modelspec_diy_ui.py": "ui/physical_lab_modelspec_diy_ui.py",
       "resources/ui/physical_lab_engineering.py": "ui/physical_lab_engineering.py",
       "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",

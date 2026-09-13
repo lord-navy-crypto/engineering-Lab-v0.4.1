@@ -8,6 +8,7 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
       - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/visualization_studio_validation.py'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
       - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/visualization_studio_validation.py'
@@ -35,6 +37,7 @@ jobs:
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio.py
           python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/visualization_studio_validation.py
       - name: Validate generic visualization and DIY scans
@@ -42,7 +45,11 @@ jobs:
       - name: Verify UI and bundle integration
         run: |
           grep -q 'Visualization Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'ModelSpec DIY' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'physical_lab_visualization_studio.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_visualization_studio_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_modelspec_diy_ui.py' src-tauri/tauri.conf.json
           grep -q 'MAX_SCAN_POINTS = 500' src-tauri/resources/ui/physical_lab_visualization_studio.py
+          grep -q 'physical-lab-model-spec-v1' src-tauri/resources/ui/physical_lab_visualization_studio.py
+          grep -q 'never grants arbitrary execution authority' src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
           grep -q 'Visualization changes representation, not evidence' src-tauri/resources/ui/physical_lab_visualization_studio.py

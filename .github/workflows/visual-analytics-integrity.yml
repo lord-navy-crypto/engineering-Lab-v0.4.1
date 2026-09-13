@@ -8,17 +8,23 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_visual_analytics.py'
       - 'src-tauri/resources/ui/physical_lab_visual_analytics_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
-      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
+      - 'scripts/scientific_visualization_validation.py'
       - '.github/workflows/visual-analytics-integrity.yml'
   pull_request:
     paths:
       - 'src-tauri/resources/ui/physical_lab_visual_analytics.py'
       - 'src-tauri/resources/ui/physical_lab_visual_analytics_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
-      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
+      - 'scripts/scientific_visualization_validation.py'
       - '.github/workflows/visual-analytics-integrity.yml'
 
 jobs:
@@ -30,19 +36,26 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install analytics dependencies
-        run: python -m pip install pandas plotly
+        run: python -m pip install numpy pandas plotly
       - name: Compile Visual Analytics modules
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_visual_analytics.py
           python -m py_compile src-tauri/resources/ui/physical_lab_visual_analytics_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/visual_analytics_validation.py
-      - name: Validate uncertainty overlay selection and dashboards
+          python -m py_compile scripts/scientific_visualization_validation.py
+      - name: Validate interactive analytics
         run: python scripts/visual_analytics_validation.py
+      - name: Validate units UQ sensitivity and response surfaces
+        run: python scripts/scientific_visualization_validation.py
       - name: Verify application integration
         run: |
           grep -q 'Visual Analytics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'physical_lab_visual_analytics.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_visual_analytics_ui.py' src-tauri/tauri.conf.json
           grep -q 'visual-analytics-dashboards' src-tauri/resources/ui/physical_lab_visual_analytics.py
-          grep -q 'changes representation and selection, not evidence' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'standardized_sensitivity' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'response_surface' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'Native UQ' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'Sensitivity + Surface' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py

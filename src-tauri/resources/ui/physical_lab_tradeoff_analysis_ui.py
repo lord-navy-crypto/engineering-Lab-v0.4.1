@@ -13,7 +13,21 @@ from physical_lab_result_inspector import load_project_result
 from physical_lab_visual_analytics_ui import _sources
 from physical_lab_visualization_studio import numeric_columns
 from physical_lab_tradeoff_analysis import BOUNDARY as TRADEOFF_BOUNDARY, correlation_matrix, pareto_frontier
-from physical_lab_visual_analytics import axis_label, contract_field_metadata, convert_series, convertible_units, field_metadata, local_sensitivity, response_surface, standardized_sensitivity, uncertainty_plot_record, uncertainty_records
+from physical_lab_visual_analytics import (
+    axis_label,
+    contract_field_metadata,
+    convert_series,
+    convertible_units,
+    elasticity_sensitivity,
+    field_metadata,
+    local_sensitivity,
+    response_surface,
+    response_surface_slice,
+    save_science_analysis_recipe,
+    standardized_sensitivity,
+    uncertainty_plot_record,
+    uncertainty_records,
+)
 
 
 def _raw_result(project_path: Path, source: dict[str, Any]) -> dict[str, Any] | None:
@@ -25,6 +39,18 @@ def _raw_result(project_path: Path, source: dict[str, Any]) -> dict[str, Any] | 
         return dict(result)
     except Exception:
         return None
+
+
+def _save_recipe(st: Any, project_path: Path, source: dict[str, Any], analysis: dict[str, Any], profile: str, suffix: str) -> None:
+    if st.button("Save Science Analysis Recipe", key=f"pl_science_recipe_{profile}_{suffix}"):
+        identity = dict(source.get("identity") or {})
+        identity.setdefault("source_id", source.get("id"))
+        identity.setdefault("source_kind", source.get("kind"))
+        try:
+            saved = save_science_analysis_recipe(project_path, source_identity=identity, analysis=analysis)
+            st.success(f"Saved {saved['recipe_id']} · sha256 {saved['sha256'][:16]}…")
+        except Exception as exc:
+            st.error(f"Could not save analysis recipe: {exc}")
 
 
 def _render_semantics(st: Any, project_path: Path, source: dict[str, Any], profile: str) -> None:
@@ -85,7 +111,7 @@ def _render_semantics(st: Any, project_path: Path, source: dict[str, Any], profi
         st.caption("Structural validity does not establish completeness or correctness of the uncertainty model.")
 
 
-def _render_sensitivity_surface(st: Any, source: dict[str, Any], profile: str) -> None:
+def _render_sensitivity_surface(st: Any, project_path: Path, source: dict[str, Any], profile: str) -> None:
     frame = source["frame"]
     numeric = numeric_columns(frame)
     t1, t2 = st.tabs(["Sensitivity", "Response Surface"])
@@ -104,13 +130,20 @@ def _render_sensitivity_surface(st: Any, source: dict[str, Any], profile: str) -
                 st.dataframe(screening, hide_index=True, width="stretch")
             local_parameter = st.selectbox("Local finite-difference parameter", params, key=f"pl_science_local_param_{profile}")
             try:
-                local = local_sensitivity(frame, local_parameter, output)
-                fig = px.line(local, x="parameter_center", y="sensitivity", markers=True, title=f"Local Δ{output} / Δ{local_parameter}")
-                fig.update_layout(height=480)
-                st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+                local = elasticity_sensitivity(frame, local_parameter, output)
+                c1, c2 = st.columns(2)
+                with c1:
+                    fig = px.line(local, x="parameter_center", y="sensitivity", markers=True, title=f"Local Δ{output} / Δ{local_parameter}")
+                    fig.update_layout(height=420)
+                    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+                with c2:
+                    fig = px.line(local, x="parameter_center", y="elasticity", markers=True, title="Local dimensionless elasticity")
+                    fig.update_layout(height=420)
+                    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
                 st.dataframe(local, hide_index=True, width="stretch")
             except Exception as exc:
                 st.caption(f"Local sensitivity unavailable: {exc}")
+            _save_recipe(st, project_path, source, {"kind": "sensitivity", "output": output, "parameters": selected, "local_parameter": local_parameter}, profile, "sensitivity")
             st.caption("Sensitivity is descriptive screening of the available table, not causal attribution or global Sobol analysis.")
     with t2:
         if len(numeric) < 3:
@@ -141,6 +174,20 @@ def _render_sensitivity_surface(st: Any, source: dict[str, Any], profile: str) -
         coverage = surface["coverage"] / max(surface["grid_cells"], 1)
         st.caption(f"Grid coverage: {coverage:.1%}. Missing parameter combinations are not interpolated or invented.")
 
+        s1, s2 = st.columns(2)
+        slice_axis = s1.radio("Slice axis", ["x", "y"], horizontal=True, key=f"pl_science_slice_axis_{profile}")
+        count = len(surface[slice_axis])
+        slice_index = int(s2.number_input("Slice index", min_value=0, max_value=max(count-1, 0), value=0, step=1, key=f"pl_science_slice_index_{profile}"))
+        try:
+            sliced = response_surface_slice(surface, axis=slice_axis, index=slice_index)
+            fig = px.line(sliced, x="coordinate", y="response", markers=True, title=f"Slice · fixed {slice_axis}={sliced['fixed_value'].iloc[0]:g}")
+            fig.update_layout(height=420)
+            st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+            st.dataframe(sliced, hide_index=True, width="stretch")
+        except Exception as exc:
+            st.caption(f"Surface slice unavailable: {exc}")
+        _save_recipe(st, project_path, source, {"kind": "response-surface", "x": x, "y": y, "z": z, "aggregation": agg, "view": mode, "slice_axis": slice_axis, "slice_index": slice_index}, profile, "surface")
+
 
 def render_tradeoff_analysis(st: Any, profile: str) -> None:
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
@@ -166,7 +213,7 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
     with tab_sem:
         _render_semantics(st, project_path, source, profile)
     with tab_sens:
-        _render_sensitivity_surface(st, source, profile)
+        _render_sensitivity_surface(st, project_path, source, profile)
     with tab_corr:
         if len(numeric) < 2:
             st.info("At least two numeric fields are required.")
@@ -180,6 +227,7 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
                     fig.update_layout(height=max(520, 52 * len(columns)))
                     st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
                     st.dataframe(corr, width="stretch")
+                    _save_recipe(st, project_path, source, {"kind": "correlation", "fields": columns, "method": method}, profile, "correlation")
                     st.caption("Correlation summarizes association only; it does not establish causality or model validity.")
                 except Exception as exc:
                     st.warning(f"Correlation matrix unavailable: {exc}")
@@ -208,6 +256,7 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
                     st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
                     m1, m2, m3 = st.columns(3); m1.metric("Finite points", len(result)); m2.metric("Pareto points", int(result["pareto"].sum())); m3.metric("Dominated", int((~result["pareto"]).sum()))
                     st.dataframe(frontier[["source_index", x, y]], hide_index=True, width="stretch")
+                    _save_recipe(st, project_path, source, {"kind": "pareto", "x": x, "x_goal": x_goal, "y": y, "y_goal": y_goal}, profile, "pareto")
                     st.caption("Pareto status is non-dominance only for the selected objectives/directions; feasibility, UQ and validity remain separate.")
             except Exception as exc:
                 st.warning(f"Pareto analysis unavailable: {exc}")

@@ -53,11 +53,16 @@ def render_modelspec_diy(st: Any, profile: str) -> None:
     )
     uploaded = st.file_uploader("ModelSpec / model.json", type=["json"], key=f"pl_modelspec_diy_upload_{profile}")
     if uploaded is None:
-        st.info("Upload a model.json produced by Research Model Builder to expose its declared parameters, ranges, outputs and visualization hints.")
+        current = st.session_state.get(f"pl_modelspec_guidance_{profile}")
+        if current:
+            st.info(f"Current Visualization Studio guidance: {current.get('name', 'Research model')}. Upload another model.json to replace it.")
+        else:
+            st.info("Upload a model.json produced by Research Model Builder to expose its declared parameters, ranges, outputs and visualization hints.")
         return
     try:
         spec = _load_spec(uploaded)
         guidance = model_spec_guidance(spec)
+        st.session_state[f"pl_modelspec_guidance_{profile}"] = guidance
     except Exception as exc:
         st.error(f"ModelSpec could not be validated: {exc}")
         return
@@ -68,6 +73,7 @@ def render_modelspec_diy(st: Any, profile: str) -> None:
     c3.metric("Declared outputs", len(guidance.get("outputs") or []))
     if guidance.get("description"):
         st.caption(str(guidance["description"]))
+    st.success("ModelSpec guidance is now available to Visualization Studio for non-binding axis and scan suggestions.")
 
     st.markdown("#### Declared parameter controls")
     params = list(guidance.get("parameters") or [])
@@ -119,6 +125,7 @@ def render_modelspec_diy(st: Any, profile: str) -> None:
     names = [str(row["name"]) for row in compatible]
     param_a = st.selectbox("Scanned parameter", names, key=f"pl_modelspec_diy_param_{profile}")
     selected = next(row for row in compatible if row["name"] == param_a)
+    st.session_state[f"pl_modelspec_preferred_scan_parameter_{profile}"] = param_a
     lo, hi, center = _range_defaults(selected)
     a, b, c, d = st.columns(4)
     start = float(a.number_input("Start", value=lo, key=f"pl_modelspec_diy_start_{profile}"))
@@ -128,7 +135,6 @@ def render_modelspec_diy(st: Any, profile: str) -> None:
 
     fixed = _numeric_defaults(guidance)
     fixed.pop(param_a, None)
-    # Only pass fixed values actually accepted by the selected adapter.
     fixed = {name: value for name, value in fixed.items() if name in accepted}
     with st.expander("Fixed defaults mapped from ModelSpec", expanded=False):
         st.json(fixed)

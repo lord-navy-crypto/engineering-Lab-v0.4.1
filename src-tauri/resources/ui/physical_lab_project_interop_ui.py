@@ -1,4 +1,4 @@
-"""UI for Engineering Lab project data, LabBridge, results, coupling, workflows and reproducibility."""
+"""UI for Engineering Lab project data, LabBridge, results, visualization, coupling, workflows and reproducibility."""
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
@@ -21,13 +21,13 @@ def render_project_interop(st: Any, profile: str) -> None:
         return
 
     st.markdown("---")
-    with st.expander("Engineering Lab · Project Data, LabBridge, Results & Reproducibility", expanded=False):
+    with st.expander("Engineering Lab · Project Data, Visualization, LabBridge, Results & Reproducibility", expanded=False):
         st.caption(
             "Engineering Lab is the scientific computation/evidence core. Discover or ingest BetterBoard real-world measurements through LabBridge, "
-            "record the Lab Journey, inspect/compare results, compose model workflows, and exchange bounded advisory context with OpenPenguin."
+            "inspect and visualize results with model-independent DIY views, record the Lab Journey, compare runs, compose model workflows, and exchange bounded advisory context with OpenPenguin."
         )
-        tab_data, tab_discovery, tab_labbridge, tab_results, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
-            "Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
+        tab_data, tab_discovery, tab_labbridge, tab_results, tab_visual, tab_compare, tab_coupling, tab_dag, tab_pack = st.tabs([
+            "Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector", "Visualization Studio", "Run Comparison", "Model Coupling", "Pipeline DAG", "Reproducibility Pack"
         ])
 
         with tab_data:
@@ -91,6 +91,13 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_result_inspector(st, profile)
             except Exception as exc:
                 st.warning(f"Unified Result Inspector/Materializer could not load: {exc}")
+
+        with tab_visual:
+            try:
+                from physical_lab_visualization_studio_ui import render_visualization_studio
+                render_visualization_studio(st, profile)
+            except Exception as exc:
+                st.warning(f"Visualization Studio could not load: {exc}")
 
         with tab_compare:
             try:

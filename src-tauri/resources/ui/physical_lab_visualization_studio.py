@@ -145,6 +145,16 @@ def sweep_frame(sweep_result: Mapping[str, Any]) -> pd.DataFrame:
         if not isinstance(point, Mapping) or point.get("status") != "succeeded":
             continue
         row: dict[str, Any] = {"design_index": point.get("design_index")}
+        metadata = point.get("design_metadata") or {}
+        if isinstance(metadata, Mapping):
+            for key, value in metadata.items():
+                key = str(key)
+                if not key.startswith("__"):
+                    continue
+                if value is None or isinstance(value, (str, bool, int)):
+                    row[key] = value
+                elif isinstance(value, float) and math.isfinite(value):
+                    row[key] = value
         design = point.get("parameters") or point.get("design") or point.get("inputs") or {}
         if isinstance(design, Mapping):
             for key, value in design.items():

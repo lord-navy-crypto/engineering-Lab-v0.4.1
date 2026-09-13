@@ -37,8 +37,8 @@ def common_numeric_columns(frames: Sequence[pd.DataFrame]) -> list[str]:
     for name in sorted(common):
         ok = True
         for frame in frames:
-            s = _numeric(frame[name])
-            finite = s[s.map(lambda x: isinstance(x, (int, float)) and math.isfinite(float(x)) if pd.notna(x) else False)]
+            s = _numeric(frame[name]).dropna()
+            finite = s[s.map(lambda x: math.isfinite(float(x)))]
             if finite.empty:
                 ok = False
                 break

@@ -35,6 +35,8 @@
       "resources/ui/physical_lab_modelspec_diy_ui.py": "ui/physical_lab_modelspec_diy_ui.py",
       "resources/ui/physical_lab_applied_analysis.py": "ui/physical_lab_applied_analysis.py",
       "resources/ui/physical_lab_applied_analysis_ui.py": "ui/physical_lab_applied_analysis_ui.py",
+      "resources/ui/physical_lab_applied_analysis_advanced.py": "ui/physical_lab_applied_analysis_advanced.py",
+      "resources/ui/physical_lab_applied_analysis_advanced_ui.py": "ui/physical_lab_applied_analysis_advanced_ui.py",
       "resources/ui/physical_lab_engineering.py": "ui/physical_lab_engineering.py",
       "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",
       "resources/ui/physical_lab_application_modes.py": "ui/physical_lab_application_modes.py",

@@ -46,6 +46,9 @@ jobs:
         run: |
           grep -q 'Visualization Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'ModelSpec DIY' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Research table' src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'pl_modelspec_guidance_' src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'pl_modelspec_guidance_' src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
           grep -q 'physical_lab_visualization_studio.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_visualization_studio_ui.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_modelspec_diy_ui.py' src-tauri/tauri.conf.json

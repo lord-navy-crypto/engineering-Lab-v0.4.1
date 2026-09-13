@@ -83,7 +83,7 @@ def main() -> int:
     else:
         os.environ["PHYSICAL_LAB_DATA_DIR"] = previous
 
-    require("does not establish causality" in aa.BOUNDARY, "advanced scientific boundary missing")
+    require("do not establish causality" in aa.BOUNDARY, "advanced scientific boundary missing")
     print("PASS: robust regression, CV, factorial/Morris screening, and queue-only DOE→Sweep boundary")
     return 0
 

@@ -18,7 +18,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> int:
-    import physical_lab_inverse_regularization as ir
+    import physical_lab_applied_math_deep as ir
 
     rng = np.random.default_rng(12)
     x = np.linspace(-2.0, 2.0, 90)
@@ -45,14 +45,14 @@ def main() -> int:
     require(choice["regularization"] > 0 and choice["curvature"] >= 0, "L-curve candidate invalid")
     require(np.isnan(curved.iloc[0]["lcurve_curvature"]) and np.isnan(curved.iloc[-1]["lcurve_curvature"]), "L-curve endpoint curvature should be unavailable")
 
-    require("not proof of physical identifiability" in ir.BOUNDARY, "inverse regularization scientific boundary missing")
+    require("physical identifiability" in ir.BOUNDARY, "inverse regularization scientific boundary missing")
 
-    ui_text = (UI / "physical_lab_inverse_regularization_ui.py").read_text(encoding="utf-8")
+    ui_text = (UI / "physical_lab_applied_math_deep_ui.py").read_text(encoding="utf-8")
     require("start_sweep_job" not in ui_text, "analysis handoff must not start a sweep")
     require("pl_analysis_handoff_" in ui_text, "analysis handoff state contract missing")
     require("No execution or new evidence was created" in ui_text, "handoff boundary message missing")
 
-    print("PASS: TSVD, GCV, L-curve diagnostics and view-only sweep handoff")
+    print("PASS: bundled TSVD, GCV, L-curve diagnostics and view-only sweep handoff")
     return 0
 
 

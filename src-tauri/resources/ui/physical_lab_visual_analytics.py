@@ -19,6 +19,7 @@ from physical_lab_result_contracts import find_uncertainty_objects, get_contract
 from physical_lab_units import compatible, convert, supported_units, unit_info
 
 DASHBOARD_SCHEMA = "engineering-lab-visual-analytics-dashboard-v1"
+SCIENCE_RECIPE_SCHEMA = "engineering-lab-science-analysis-recipe-v1"
 BOUNDARY = (
     "Visual analytics changes representation and selection, not evidence. Explicit contracts/units/UQ are consumed when available; "
     "unregistered fields remain unspecified. Overlays, sensitivity, correlation and response surfaces do not establish comparability, validation, uncertainty completeness or causality."
@@ -143,6 +144,17 @@ def convertible_units(unit: str) -> list[str]:
     return list(supported_units().get(str(info.get("dimension")), [])) if info.get("known") else []
 
 
+def unit_comparability(unit_a: str | None, unit_b: str | None) -> dict[str, Any]:
+    a = str(unit_a or "").strip(); b = str(unit_b or "").strip()
+    if not a or not b:
+        return {"status": "UNSPECIFIED", "comparable": False, "convertible": False, "unit_a": a, "unit_b": b}
+    if a == b:
+        return {"status": "EXACT", "comparable": True, "convertible": False, "unit_a": a, "unit_b": b}
+    if compatible(a, b):
+        return {"status": "CONVERTIBLE", "comparable": True, "convertible": True, "unit_a": a, "unit_b": b}
+    return {"status": "INCOMPATIBLE", "comparable": False, "convertible": False, "unit_a": a, "unit_b": b}
+
+
 def convert_series(values: Sequence[Any], from_unit: str, to_unit: str) -> list[float | None]:
     if from_unit != to_unit and not compatible(from_unit, to_unit): raise ValueError(f"incompatible units: {from_unit!r} -> {to_unit!r}")
     out: list[float | None] = []
@@ -179,7 +191,18 @@ def local_sensitivity(frame: pd.DataFrame, parameter: str, output: str) -> pd.Da
     if len(grouped) < 2: raise ValueError("parameter must vary across at least two finite points")
     x = grouped["x"].to_numpy(dtype=float); y = grouped["y"].to_numpy(dtype=float); dx = np.diff(x)
     if np.any(dx == 0): raise ValueError("parameter values must be distinct")
-    return pd.DataFrame({"parameter_center": (x[:-1]+x[1:])/2.0, "sensitivity": np.diff(y)/dx, "delta_parameter": dx, "delta_output": np.diff(y)})
+    return pd.DataFrame({"parameter_center": (x[:-1]+x[1:])/2.0, "output_center": (y[:-1]+y[1:])/2.0, "sensitivity": np.diff(y)/dx, "delta_parameter": dx, "delta_output": np.diff(y)})
+
+
+def elasticity_sensitivity(frame: pd.DataFrame, parameter: str, output: str) -> pd.DataFrame:
+    local = local_sensitivity(frame, parameter, output).copy()
+    xmid = pd.to_numeric(local["parameter_center"], errors="coerce")
+    ymid = pd.to_numeric(local["output_center"], errors="coerce")
+    slope = pd.to_numeric(local["sensitivity"], errors="coerce")
+    valid = xmid.notna() & ymid.notna() & slope.notna() & (ymid.abs() > 0)
+    local["elasticity"] = np.nan
+    local.loc[valid, "elasticity"] = slope[valid] * xmid[valid] / ymid[valid]
+    return local
 
 
 def standardized_sensitivity(frame: pd.DataFrame, parameters: Sequence[str], output: str) -> pd.DataFrame:
@@ -201,3 +224,31 @@ def response_surface(frame: pd.DataFrame, x: str, y: str, z: str, *, agg: str = 
     if agg not in {"mean", "median", "min", "max"}: raise ValueError("unsupported response-surface aggregation")
     pivot = work.pivot_table(index=y, columns=x, values=z, aggfunc=agg); arr = pivot.to_numpy(dtype=float)
     return {"x": [float(v) for v in pivot.columns], "y": [float(v) for v in pivot.index], "z": arr.tolist(), "rows": int(len(work)), "coverage": int(np.isfinite(arr).sum()), "grid_cells": int(arr.shape[0]*arr.shape[1]), "aggregation": agg}
+
+
+def response_surface_slice(surface: Mapping[str, Any], *, axis: str, index: int) -> pd.DataFrame:
+    x = list(surface.get("x") or []); y = list(surface.get("y") or []); z = np.asarray(surface.get("z") or [], dtype=float)
+    if z.ndim != 2 or z.shape != (len(y), len(x)): raise ValueError("invalid response-surface shape")
+    if axis == "x":
+        if not 0 <= index < len(x): raise ValueError("x slice index out of range")
+        return pd.DataFrame({"coordinate": y, "response": z[:, index], "fixed_axis": "x", "fixed_value": x[index]})
+    if axis == "y":
+        if not 0 <= index < len(y): raise ValueError("y slice index out of range")
+        return pd.DataFrame({"coordinate": x, "response": z[index, :], "fixed_axis": "y", "fixed_value": y[index]})
+    raise ValueError("slice axis must be 'x' or 'y'")
+
+
+def science_analysis_identity(source_identity: Mapping[str, Any], analysis: Mapping[str, Any]) -> tuple[str, str]:
+    semantic = {"schema": SCIENCE_RECIPE_SCHEMA, "source": dict(source_identity), "analysis": dict(analysis)}
+    raw = json.dumps(semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    digest = hashlib.sha256(raw).hexdigest()
+    return f"science-{digest[:20]}", digest
+
+
+def save_science_analysis_recipe(project_path: Path, *, source_identity: Mapping[str, Any], analysis: Mapping[str, Any]) -> dict[str, Any]:
+    recipe_id, digest = science_analysis_identity(source_identity, analysis)
+    record = {"schema": SCIENCE_RECIPE_SCHEMA, "recipe_id": recipe_id, "sha256": digest, "source": dict(source_identity), "analysis": dict(analysis), "boundary": BOUNDARY}
+    root = Path(project_path) / "reports" / "science-analysis-recipes"; root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{recipe_id}.json"
+    if not path.exists(): path.write_text(json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+    return {**record, "path": str(path)}

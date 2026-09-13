@@ -155,6 +155,16 @@ def _design_hash(profile: str, adapter: str, rows: Sequence[Mapping[str, Any]]) 
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _is_design_metadata_key(key: Any) -> bool:
+    return str(key).startswith("__")
+
+
+def _valid_design_metadata(value: Any) -> bool:
+    if value is None or isinstance(value, (str, bool, int)):
+        return True
+    return isinstance(value, float) and math.isfinite(value)
+
+
 def create_sweep_job(profile: str, adapter: str, rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     root = _root()
     if root is None:
@@ -167,6 +177,10 @@ def create_sweep_job(profile: str, adapter: str, rows: Sequence[Mapping[str, Any
     for row in design:
         for key, value in row.items():
             if key == "design_index":
+                continue
+            if _is_design_metadata_key(key):
+                if not _valid_design_metadata(value):
+                    raise ValueError("reserved sweep design metadata must be a JSON scalar")
                 continue
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
                 raise ValueError("sweep parameters must be finite numeric scalars")
@@ -195,7 +209,7 @@ def create_sweep_job(profile: str, adapter: str, rows: Sequence[Mapping[str, Any
         "finished_at": None,
         "error": None,
         "result_path": None,
-        "boundary": "Allow-listed local model sweep. Per-point numerical success is not experimental validation or parameter optimality.",
+        "boundary": "Allow-listed local model sweep. Reserved __* design metadata is preserved for analysis provenance but is never passed to the model adapter. Per-point numerical success is not experimental validation or parameter optimality.",
     }
     _atomic_json(directory / "job.json", record)
     return record
@@ -303,7 +317,7 @@ def execute_adapter(adapter: str, params: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("unknown sweep adapter")
     module = importlib.import_module(str(spec["module"]))
     fn = getattr(module, str(spec["function"]))
-    call_params = {str(k): float(v) for k, v in params.items() if k != "design_index"}
+    call_params = {str(k): float(v) for k, v in params.items() if k != "design_index" and not _is_design_metadata_key(k)}
     result = fn(**call_params)
     metrics = _flatten_scalars(result)
     return {"parameters": call_params, "metrics": metrics, "result": _plain(result)}
@@ -333,29 +347,31 @@ def run_job(job_dir: Path) -> int:
             record.update({"status": "cancelled", "stage": "cancelled", "pid": None, "finished_at": time.time()})
             _atomic_json(job_dir / "job.json", record)
             return 130
-        params = {k: v for k, v in dict(row).items() if k != "design_index"}
+        row_dict = dict(row)
+        params = {str(k): v for k, v in row_dict.items() if k != "design_index" and not _is_design_metadata_key(k)}
+        metadata = {str(k): _plain(v) for k, v in row_dict.items() if _is_design_metadata_key(k)}
         key = _point_key(adapter, params)
         cache_path = cache_root / f"{key}.json"
         item = _read_json(cache_path)
         if item is not None:
             cached += 1
-            point = {"design_index": int(row.get("design_index", i)), "status": "succeeded", "cached": True, **item}
+            point = {"design_index": int(row.get("design_index", i)), "design_metadata": metadata, "status": "succeeded", "cached": True, **item}
         else:
             try:
                 started = time.perf_counter()
                 item = execute_adapter(adapter, params)
                 item["runtime_s"] = time.perf_counter() - started
                 _atomic_json(cache_path, item)
-                point = {"design_index": int(row.get("design_index", i)), "status": "succeeded", "cached": False, **item}
+                point = {"design_index": int(row.get("design_index", i)), "design_metadata": metadata, "status": "succeeded", "cached": False, **item}
             except Exception as exc:
                 failed += 1
-                point = {"design_index": int(row.get("design_index", i)), "status": "failed", "cached": False, "parameters": _plain(params), "metrics": {}, "error": f"{type(exc).__name__}: {exc}"}
+                point = {"design_index": int(row.get("design_index", i)), "design_metadata": metadata, "status": "failed", "cached": False, "parameters": _plain(params), "metrics": {}, "error": f"{type(exc).__name__}: {exc}"}
         outputs.append(point)
         completed = i + 1
         record.update({"stage": "running", "progress": completed / max(len(rows), 1), "completed_points": completed, "failed_points": failed, "cached_points": cached})
         _atomic_json(job_dir / "job.json", record)
         _atomic_json(job_dir / "partial-result.json", {"schema": RESULT_SCHEMA, "adapter": adapter, "points": outputs})
-    result = {"schema": RESULT_SCHEMA, "profile": record.get("profile"), "adapter": adapter, "design_sha256": record.get("design_sha256"), "point_count": len(rows), "succeeded_points": len(rows) - failed, "failed_points": failed, "cached_points": cached, "points": outputs, "boundary": "Finite allow-listed computational sweep. Cached equality means identical adapter/parameter inputs, not equivalence of physical experiments."}
+    result = {"schema": RESULT_SCHEMA, "profile": record.get("profile"), "adapter": adapter, "design_sha256": record.get("design_sha256"), "point_count": len(rows), "succeeded_points": len(rows) - failed, "failed_points": failed, "cached_points": cached, "points": outputs, "boundary": "Finite allow-listed computational sweep. Reserved design metadata is preserved for downstream analysis but is excluded from model execution and cache identity. Cached equality means identical adapter/parameter inputs, not equivalence of physical experiments."}
     _atomic_json(job_dir / "result.json", result)
     record.update({"status": "succeeded" if failed < len(rows) else "failed", "stage": "complete", "progress": 1.0, "pid": None, "finished_at": time.time(), "result_path": str(job_dir / "result.json"), "failed_points": failed, "cached_points": cached})
     _atomic_json(job_dir / "job.json", record)

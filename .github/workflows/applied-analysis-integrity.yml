@@ -13,6 +13,9 @@ on:
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
       - 'src-tauri/tauri.conf.json'
@@ -20,6 +23,7 @@ on:
       - 'scripts/applied_analysis_advanced_validation.py'
       - 'scripts/applied_math_deep_validation.py'
       - 'scripts/inverse_regularization_validation.py'
+      - 'scripts/sweep_design_metadata_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
   pull_request:
     paths:
@@ -30,6 +34,9 @@ on:
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
       - 'src-tauri/tauri.conf.json'
@@ -37,6 +44,7 @@ on:
       - 'scripts/applied_analysis_advanced_validation.py'
       - 'scripts/applied_math_deep_validation.py'
       - 'scripts/inverse_regularization_validation.py'
+      - 'scripts/sweep_design_metadata_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
 
 jobs:
@@ -57,11 +65,16 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep.py
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_executor.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/applied_analysis_validation.py
           python -m py_compile scripts/applied_analysis_advanced_validation.py
           python -m py_compile scripts/applied_math_deep_validation.py
           python -m py_compile scripts/inverse_regularization_validation.py
+          python -m py_compile scripts/sweep_design_metadata_validation.py
       - name: Validate Tauri configuration
         run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
       - name: Validate applied mathematics and statistics core
@@ -72,6 +85,8 @@ jobs:
         run: python scripts/applied_math_deep_validation.py
       - name: Validate inverse regularization and analysis handoff
         run: python scripts/inverse_regularization_validation.py
+      - name: Validate sweep design metadata round trip
+        run: python scripts/sweep_design_metadata_validation.py
       - name: Verify application integration and boundaries
         run: |
           grep -q '^scipy$' src-tauri/resources/ui/physical_lab_builtin_requirements.txt
@@ -81,9 +96,12 @@ jobs:
           grep -q 'physical_lab_applied_analysis_advanced_ui.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_applied_math_deep.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_applied_math_deep_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_sweep_design_bridge.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_sweep_design_bridge_ui.py' src-tauri/tauri.conf.json
           grep -q 'Applied Math & Statistics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'render_applied_analysis_advanced' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'render_applied_math_deep' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'render_sweep_design_bridge' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'Regression + Diagnostics' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
           grep -q 'Bootstrap + Monte Carlo' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
           grep -q 'Design of Experiments' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
@@ -98,6 +116,10 @@ jobs:
           grep -q 'Completed Sweep Feedback + Handoff' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
           grep -q 'pl_analysis_handoff_' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
           ! grep -q 'start_sweep_job' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
+          grep -q 'design_metadata' src-tauri/resources/ui/physical_lab_sweep_executor.py
+          grep -q '__changed_factor' src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py
+          grep -q 'Explicitly start Morris Sweep' src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py
+          grep -q 'execution_started.*False' src-tauri/resources/ui/physical_lab_sweep_design_bridge.py
           grep -q 'execution_started.*False' src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py
           grep -q 'Explicitly start queued Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           grep -q 'physical identifiability' src-tauri/resources/ui/physical_lab_applied_math_deep.py

@@ -33,6 +33,7 @@ def main() -> int:
     require(prepared[0]["__changed_factor"] == "alpha", "changed-factor metadata was stripped")
 
     previous = os.environ.get("PHYSICAL_LAB_DATA_DIR")
+    original_execute = sweeps.execute_adapter
     with tempfile.TemporaryDirectory() as tmp:
         os.environ["PHYSICAL_LAB_DATA_DIR"] = tmp
         queued_a = queue_design_with_metadata("numerical-methods", "heat-1d", [row])
@@ -44,6 +45,25 @@ def main() -> int:
         # Cache identity remains based on real adapter parameters only.
         require(sweeps._point_key("heat-1d", {}) == sweeps._point_key("heat-1d", {}), "cache identity must remain parameter-based")
 
+        seen_params = []
+        def fake_execute(adapter, params):
+            seen_params.append(dict(params))
+            return {"parameters": dict(params), "metrics": {"score": 5.0}, "result": {"score": 5.0}}
+
+        sweeps.execute_adapter = fake_execute
+        code = sweeps.run_job(sweeps._job_dir(str(queued_a["id"])))
+        require(code == 0, "stubbed sweep worker did not complete")
+        result = sweeps.read_sweep_result(str(queued_a["id"]))
+        require(result is not None and len(result.get("points") or []) == 1, "worker result missing")
+        point = result["points"][0]
+        require(point["design_metadata"]["__trajectory"] == 3, "worker result lost trajectory metadata")
+        require(point["design_metadata"]["__changed_factor"] == "alpha", "worker result lost changed-factor metadata")
+        require(seen_params == [{}], "reserved metadata leaked into adapter parameters")
+        actual_frame = sweep_frame(result)
+        require(actual_frame.loc[0, "__trajectory"] == 3, "worker→flatten round trip lost trajectory metadata")
+        require(actual_frame.loc[0, "__changed_factor"] == "alpha", "worker→flatten round trip lost string metadata")
+
+    sweeps.execute_adapter = original_execute
     if previous is None:
         os.environ.pop("PHYSICAL_LAB_DATA_DIR", None)
     else:
@@ -78,7 +98,7 @@ def main() -> int:
     require(feedback["morris_ready"] is True, "completed sweep was not recognized as Morris-ready")
     require(any(r["analysis"] == "morris-effects" for r in feedback["recommendations"]), "Morris handoff recommendation missing")
 
-    print("PASS: reserved sweep metadata survives queue/result flattening without entering model parameters")
+    print("PASS: reserved sweep metadata survives queue, worker execution and result flattening without entering adapter parameters")
     return 0
 
 

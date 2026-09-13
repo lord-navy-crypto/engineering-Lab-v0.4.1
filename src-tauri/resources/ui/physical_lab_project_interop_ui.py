@@ -114,6 +114,8 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_applied_analysis(st, profile)
                 from physical_lab_applied_analysis_advanced_ui import render_applied_analysis_advanced
                 render_applied_analysis_advanced(st, profile)
+                from physical_lab_applied_math_deep_ui import render_applied_math_deep
+                render_applied_math_deep(st, profile)
             except Exception as exc:
                 st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
 

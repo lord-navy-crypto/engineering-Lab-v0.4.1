@@ -14,6 +14,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
       - 'scripts/scientific_visualization_validation.py'
+      - 'scripts/science_analysis_recipe_validation.py'
       - '.github/workflows/visual-analytics-integrity.yml'
   pull_request:
     paths:
@@ -25,6 +26,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
       - 'scripts/scientific_visualization_validation.py'
+      - 'scripts/science_analysis_recipe_validation.py'
       - '.github/workflows/visual-analytics-integrity.yml'
 
 jobs:
@@ -45,17 +47,22 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/visual_analytics_validation.py
           python -m py_compile scripts/scientific_visualization_validation.py
+          python -m py_compile scripts/science_analysis_recipe_validation.py
       - name: Validate interactive analytics
         run: python scripts/visual_analytics_validation.py
       - name: Validate units UQ sensitivity and response surfaces
         run: python scripts/scientific_visualization_validation.py
+      - name: Validate reproducible science analysis helpers
+        run: python scripts/science_analysis_recipe_validation.py
       - name: Verify application integration
         run: |
           grep -q 'Visual Analytics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'physical_lab_visual_analytics.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_visual_analytics_ui.py' src-tauri/tauri.conf.json
           grep -q 'visual-analytics-dashboards' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'science-analysis-recipes' src-tauri/resources/ui/physical_lab_visual_analytics.py
           grep -q 'standardized_sensitivity' src-tauri/resources/ui/physical_lab_visual_analytics.py
-          grep -q 'response_surface' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'elasticity_sensitivity' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'response_surface_slice' src-tauri/resources/ui/physical_lab_visual_analytics.py
           grep -q 'Native UQ' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
           grep -q 'Sensitivity + Surface' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py

@@ -12,6 +12,8 @@ on:
       - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
@@ -24,6 +26,7 @@ on:
       - 'scripts/applied_math_deep_validation.py'
       - 'scripts/inverse_regularization_validation.py'
       - 'scripts/sweep_design_metadata_validation.py'
+      - 'scripts/utube_experiment_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
   pull_request:
     paths:
@@ -33,6 +36,8 @@ on:
       - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
       - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
       - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
@@ -45,6 +50,7 @@ on:
       - 'scripts/applied_math_deep_validation.py'
       - 'scripts/inverse_regularization_validation.py'
       - 'scripts/sweep_design_metadata_validation.py'
+      - 'scripts/utube_experiment_validation.py'
       - '.github/workflows/applied-analysis-integrity.yml'
 
 jobs:
@@ -65,6 +71,8 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep.py
           python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_sweep_executor.py
           python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge.py
           python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py
@@ -75,6 +83,7 @@ jobs:
           python -m py_compile scripts/applied_math_deep_validation.py
           python -m py_compile scripts/inverse_regularization_validation.py
           python -m py_compile scripts/sweep_design_metadata_validation.py
+          python -m py_compile scripts/utube_experiment_validation.py
       - name: Validate Tauri configuration
         run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
       - name: Validate applied mathematics and statistics core
@@ -87,6 +96,8 @@ jobs:
         run: python scripts/inverse_regularization_validation.py
       - name: Validate sweep design metadata round trip
         run: python scripts/sweep_design_metadata_validation.py
+      - name: Validate native U-tube experiment model
+        run: python scripts/utube_experiment_validation.py
       - name: Verify application integration and boundaries
         run: |
           grep -q '^scipy$' src-tauri/resources/ui/physical_lab_builtin_requirements.txt
@@ -96,9 +107,14 @@ jobs:
           grep -q 'physical_lab_applied_analysis_advanced_ui.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_applied_math_deep.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_applied_math_deep_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_utube_experiment.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_utube_experiment_ui.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_sweep_design_bridge.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_sweep_design_bridge_ui.py' src-tauri/tauri.conf.json
           grep -q 'Applied Math & Statistics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'render_utube_experiment' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Rotating U-Tube Experiment' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
+          grep -q 'Signed and magnitude angle' src-tauri/resources/ui/physical_lab_utube_experiment.py
           grep -q 'render_applied_analysis_advanced' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'render_applied_math_deep' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'render_sweep_design_bridge' src-tauri/resources/ui/physical_lab_project_interop_ui.py

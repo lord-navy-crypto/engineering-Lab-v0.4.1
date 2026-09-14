@@ -98,7 +98,7 @@ def main() -> int:
     require(lag["rmse_rpm"] < 0.5, "dynamic twin synthetic RMSE unexpectedly large")
     require(lag["r2"] is not None and lag["r2"] > 0.999, "dynamic twin synthetic fit quality unexpectedly low")
     require(abs(lag["settling_time_2pct_s"] - 4.0 * lag["tau_s"]) < 1e-12, "settling-time diagnostic changed")
-    require("not viscosity" in lag["boundary"].lower(), "dynamic twin evidence boundary weakened")
+    require("not be interpreted as viscosity" in lag["boundary"].lower(), "dynamic twin evidence boundary weakened")
     require("not viscosity" in r.UTUBE_TWIN_BOUNDARY.lower(), "U-tube twin boundary weakened")
 
     questions = a.research_questions()

@@ -39,6 +39,8 @@
       "resources/ui/physical_lab_applied_analysis_advanced_ui.py": "ui/physical_lab_applied_analysis_advanced_ui.py",
       "resources/ui/physical_lab_applied_math_deep.py": "ui/physical_lab_applied_math_deep.py",
       "resources/ui/physical_lab_applied_math_deep_ui.py": "ui/physical_lab_applied_math_deep_ui.py",
+      "resources/ui/physical_lab_utube_experiment.py": "ui/physical_lab_utube_experiment.py",
+      "resources/ui/physical_lab_utube_experiment_ui.py": "ui/physical_lab_utube_experiment_ui.py",
       "resources/ui/physical_lab_engineering.py": "ui/physical_lab_engineering.py",
       "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",
       "resources/ui/physical_lab_application_modes.py": "ui/physical_lab_application_modes.py",

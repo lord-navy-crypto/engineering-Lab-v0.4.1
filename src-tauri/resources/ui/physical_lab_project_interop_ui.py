@@ -120,6 +120,8 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_sweep_design_bridge(st, profile)
                 from physical_lab_utube_experiment_ui import render_utube_experiment
                 render_utube_experiment(st, profile)
+                from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
+                render_utube_uncertainty(st, profile)
             except Exception as exc:
                 st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
 

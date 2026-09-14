@@ -1,0 +1,58 @@
+name: U-Tube Dynamic Threshold & Hysteresis Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+      - feature/utube-hysteresis-dynamic-threshold
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_utube_hysteresis.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_hysteresis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/utube_hysteresis_validation.py'
+      - '.github/workflows/utube-hysteresis-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_utube_hysteresis.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_hysteresis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/utube_hysteresis_validation.py'
+      - '.github/workflows/utube-hysteresis-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific dependencies
+        run: python -m pip install numpy scipy pandas plotly
+      - name: Compile U-tube hysteresis modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_hysteresis.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_hysteresis_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          python -m py_compile scripts/utube_hysteresis_validation.py
+      - name: Validate Tauri bundle configuration
+        run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
+      - name: Validate reduced-order hysteresis physics
+        run: python scripts/utube_hysteresis_validation.py
+      - name: Verify desktop integration and scientific boundaries
+        run: |
+          set -euo pipefail
+          grep -q 'physical_lab_utube_hysteresis.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_utube_hysteresis_ui.py' src-tauri/tauri.conf.json
+          grep -q 'render_utube_hysteresis' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'U-Tube Dynamic Threshold & Hysteresis' src-tauri/resources/ui/physical_lab_utube_hysteresis_ui.py
+          grep -q 'loop half-width = H + |dn/dt|·τ' src-tauri/resources/ui/physical_lab_utube_hysteresis_ui.py
+          grep -q 'must not be interpreted as contact-angle hysteresis' src-tauri/resources/ui/physical_lab_utube_hysteresis.py
+          grep -q 'ramp-rate variation is required' src-tauri/resources/ui/physical_lab_utube_hysteresis.py

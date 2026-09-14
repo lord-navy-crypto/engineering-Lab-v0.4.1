@@ -7,6 +7,7 @@ on:
       - feature/expand-physics-simulation-scenarios
       - feature/utube-robust-design-verification
       - feature/utube-digital-twin-dynamics
+      - feature/utube-diy-visualization
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_advanced.py'
       - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
@@ -65,6 +66,11 @@ jobs:
           grep -q 'render_utube_robust_engineering' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'U-Tube Advanced Physics & Engineering' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'Inverse design solves the current model only' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'DIY Research Data & Model View' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'Overlay deterministic U-tube n_g(V) model' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'Group / series' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'Max plotted rows' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'do not change source data' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'Robust Design & Pareto' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
           grep -q 'Register templates in current Project' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
           grep -q 'U-Tube Measurement Digital Twin' src-tauri/resources/ui/physical_lab_utube_robust_ui.py

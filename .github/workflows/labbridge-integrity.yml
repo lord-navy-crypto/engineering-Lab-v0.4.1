@@ -8,12 +8,14 @@ on:
       - 'src-tauri/resources/ui/physical_lab_labbridge_ui.py'
       - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
       - 'src-tauri/resources/ui/physical_lab_science_protocol.py'
+      - 'src-tauri/resources/ui/physical_lab_analysis_plan_store.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/labbridge_validation.py'
       - 'scripts/openguin_adapter_validation.py'
       - 'scripts/openguin_science_protocol_validation.py'
+      - 'scripts/openguin_analysis_plan_store_validation.py'
       - '.github/workflows/labbridge-integrity.yml'
   workflow_dispatch:
 
@@ -35,17 +37,21 @@ jobs:
             src-tauri/resources/ui/physical_lab_labbridge_ui.py \
             src-tauri/resources/ui/physical_lab_openguin_adapter.py \
             src-tauri/resources/ui/physical_lab_science_protocol.py \
+            src-tauri/resources/ui/physical_lab_analysis_plan_store.py \
             src-tauri/resources/ui/physical_lab_project_interop.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
             scripts/labbridge_validation.py \
             scripts/openguin_adapter_validation.py \
-            scripts/openguin_science_protocol_validation.py
+            scripts/openguin_science_protocol_validation.py \
+            scripts/openguin_analysis_plan_store_validation.py
       - name: Validate LabBridge and Lab Journey semantics
         run: python scripts/labbridge_validation.py
       - name: Validate OpenPenguin adapter boundary
         run: python scripts/openguin_adapter_validation.py
       - name: Validate OpenPenguin scientific protocol
         run: python scripts/openguin_science_protocol_validation.py
+      - name: Validate OpenPenguin analysis-plan provenance
+        run: python scripts/openguin_analysis_plan_store_validation.py
       - name: Verify bundled LabBridge and science-protocol resources
         run: |
           python - <<'PY'
@@ -59,6 +65,7 @@ jobs:
               'resources/ui/physical_lab_labbridge_ui.py',
               'resources/ui/physical_lab_openguin_adapter.py',
               'resources/ui/physical_lab_science_protocol.py',
+              'resources/ui/physical_lab_analysis_plan_store.py',
           }
           missing=sorted(required-set(resources))
           if missing:
@@ -71,3 +78,5 @@ jobs:
           grep -q 'engineering-lab-analysis-plan-v1' src-tauri/resources/ui/physical_lab_science_protocol.py
           grep -q 'mutation_authority' src-tauri/resources/ui/physical_lab_science_protocol.py
           grep -q 'Engineering Lab remains the scientific computation and evidence authority' src-tauri/resources/ui/physical_lab_science_protocol.py
+          grep -q 'scientific_evidence.*False' src-tauri/resources/ui/physical_lab_analysis_plan_store.py
+          grep -q 'executed.*False' src-tauri/resources/ui/physical_lab_analysis_plan_store.py

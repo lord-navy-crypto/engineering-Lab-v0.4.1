@@ -214,6 +214,6 @@ def render_project_interop(st: Any, profile: str) -> None:
                 c.metric("ZIP sha256", pack["zip_sha256"][:16]+"…")
                 if pack["manifest"].get("omitted"):
                     st.warning(f"Omitted {len(pack['manifest']['omitted'])} oversized file(s); inspect manifest for details.")
-                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="text/csv", key=f"pl_repro_download_{profile}_{chosen}")
+                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="application/zip", key=f"pl_repro_download_{profile}")
                 st.json({k:v for k,v in pack["manifest"].items() if k != "files"})
                 st.caption(pack["boundary"])

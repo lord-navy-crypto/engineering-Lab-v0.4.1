@@ -19,6 +19,9 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     import physical_lab_utube_experiment as u
+    import physical_lab_utube_sweep_adapter as ua
+    import physical_lab_sweep_executor as sweeps
+    from physical_lab_applied_analysis_advanced import adapter_parameter_names
 
     geom = u.geometry()
     require(abs(geom["R_in_m"] - 15.12e-3) < 1e-12, "R_in fixture changed")
@@ -52,13 +55,38 @@ def main() -> int:
     require(len(convergence) == 6, "convergence table row count mismatch")
     require(set(convergence.columns) >= {"V_mL", "nq", "threshold_rpm", "delta_from_previous_rpm"}, "convergence contract incomplete")
 
+    # Allow-listed Sweep integration: signature discovery, execution and flattened metrics.
+    require("utube-rotation" in sweeps.ADAPTERS, "U-tube adapter is not registered")
+    require("numerical-methods" in sweeps.ADAPTERS["utube-rotation"]["profiles"], "U-tube numerical-methods allow-list missing")
+    params = adapter_parameter_names("numerical-methods", "utube-rotation")
+    for name in ("volume_ml", "n_rpm", "rin_m", "a_m", "rho_kg_m3", "gamma_mN_m", "theta_deg", "nq"):
+        require(name in params, f"U-tube Sweep parameter missing: {name}")
+
+    direct = ua.utube_rotation_sweep(volume_ml=3.0, n_rpm=260.0, nq=48)
+    prediction = direct["prediction"]
+    require(abs(prediction["capacity_total_ml"] - u.capacity(260.0, nq=48)[0]) < 1e-10, "adapter capacity disagrees with model core")
+    require(abs(prediction["threshold_rpm"] - n3) < 1e-8, "adapter threshold disagrees with model core")
+    require(prediction["free_energy"]["vstar_ml"] > 0, "adapter free-energy result missing")
+    executed = sweeps.execute_adapter("utube-rotation", {"volume_ml": 3.0, "n_rpm": 260.0, "nq": 48.0})
+    metrics = executed["metrics"]
+    require("prediction.threshold_rpm" in metrics, "flattened threshold metric missing")
+    require("prediction.capacity_total_ml" in metrics, "flattened capacity metric missing")
+    require("prediction.free_energy.vstar_ml" in metrics, "flattened V* metric missing")
+    require("boundary" not in metrics, "text boundary must not become a numeric metric")
+
+    # Below n_c, the adapter must not invent a free-energy local expansion.
+    low = ua.utube_rotation_sweep(volume_ml=1.0, n_rpm=150.0, nq=32)
+    require(low["prediction"].get("free_energy_available") is False, "sub-bifurcation free-energy model should be unavailable")
+    require("free_energy" not in low["prediction"], "sub-bifurcation free-energy values were fabricated")
+
     obj = u.scientific_object({"fixture": "validation"})
     require(obj["authority"]["ai_execution"] is False, "OpenPenguin execution authority leaked into U-tube object")
     require(obj["authority"]["mutation_authority"] is False, "OpenPenguin mutation authority leaked into U-tube object")
     require(any("Signed" in rule or "signed" in rule for rule in obj["interpretation_constraints"]), "signed-angle interpretation boundary missing")
     require("Numerical convergence" in u.BOUNDARY, "numerical/physical validation boundary missing")
+    require("not measurements" in ua.BOUNDARY, "Sweep computational/experimental boundary missing")
 
-    print("PASS: U-tube contracts, signed-angle semantics, 3D capacity, threshold root, free-energy crossing and numerical convergence")
+    print("PASS: U-tube contracts, signed-angle semantics, 3D model, Sweep adapter, flattened metrics, free-energy boundary and convergence")
     return 0
 
 

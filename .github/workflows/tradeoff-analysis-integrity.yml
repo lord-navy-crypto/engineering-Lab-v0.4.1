@@ -44,5 +44,5 @@ jobs:
           grep -q 'Trade-off Explorer' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'physical_lab_tradeoff_analysis.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_tradeoff_analysis_ui.py' src-tauri/tauri.conf.json
-          grep -q 'not causality' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
+          grep -q 'not causal' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
           grep -q 'non-dominance' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py

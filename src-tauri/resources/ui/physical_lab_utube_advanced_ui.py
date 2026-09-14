@@ -19,6 +19,7 @@ from physical_lab_utube_advanced import (
 )
 from physical_lab_utube_experiment import DEFAULT_A_M, DEFAULT_R_IN_M, threshold
 from physical_lab_utube_robust_ui import render_utube_robust_engineering
+from physical_lab_utube_hysteresis_ui import render_utube_hysteresis
 
 
 def render_utube_advanced(st: Any, profile: str) -> None:
@@ -131,3 +132,4 @@ def render_utube_advanced(st: Any, profile: str) -> None:
 
     st.caption(BOUNDARY)
     render_utube_robust_engineering(st, profile)
+    render_utube_hysteresis(st, profile)

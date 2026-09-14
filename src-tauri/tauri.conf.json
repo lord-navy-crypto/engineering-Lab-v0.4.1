@@ -149,6 +149,7 @@
       "resources/ui/physical_lab_local_ai.py": "ui/physical_lab_local_ai.py",
       "resources/ui/physical_lab_openguin_adapter.py": "ui/physical_lab_openguin_adapter.py",
       "resources/ui/physical_lab_science_protocol.py": "ui/physical_lab_science_protocol.py",
+      "resources/ui/physical_lab_science_protocol_ui.py": "ui/physical_lab_science_protocol_ui.py",
       "resources/ui/physical_lab_analysis_plan_store.py": "ui/physical_lab_analysis_plan_store.py",
       "resources/ui/physical_lab_model_builder.py": "ui/physical_lab_model_builder.py"
     },

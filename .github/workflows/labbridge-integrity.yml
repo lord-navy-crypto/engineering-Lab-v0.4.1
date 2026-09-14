@@ -8,6 +8,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_labbridge_ui.py'
       - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
       - 'src-tauri/resources/ui/physical_lab_science_protocol.py'
+      - 'src-tauri/resources/ui/physical_lab_science_protocol_ui.py'
       - 'src-tauri/resources/ui/physical_lab_analysis_plan_store.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
@@ -28,7 +29,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install scientific dependencies
-        run: python -m pip install --upgrade pip numpy scipy pandas streamlit matplotlib
+        run: python -m pip install --upgrade pip numpy scipy pandas streamlit matplotlib plotly
       - name: Compile LabBridge modules
         run: |
           python -m py_compile \
@@ -37,6 +38,7 @@ jobs:
             src-tauri/resources/ui/physical_lab_labbridge_ui.py \
             src-tauri/resources/ui/physical_lab_openguin_adapter.py \
             src-tauri/resources/ui/physical_lab_science_protocol.py \
+            src-tauri/resources/ui/physical_lab_science_protocol_ui.py \
             src-tauri/resources/ui/physical_lab_analysis_plan_store.py \
             src-tauri/resources/ui/physical_lab_project_interop.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
@@ -65,6 +67,7 @@ jobs:
               'resources/ui/physical_lab_labbridge_ui.py',
               'resources/ui/physical_lab_openguin_adapter.py',
               'resources/ui/physical_lab_science_protocol.py',
+              'resources/ui/physical_lab_science_protocol_ui.py',
               'resources/ui/physical_lab_analysis_plan_store.py',
           }
           missing=sorted(required-set(resources))
@@ -80,3 +83,8 @@ jobs:
           grep -q 'Engineering Lab remains the scientific computation and evidence authority' src-tauri/resources/ui/physical_lab_science_protocol.py
           grep -q 'scientific_evidence.*False' src-tauri/resources/ui/physical_lab_analysis_plan_store.py
           grep -q 'executed.*False' src-tauri/resources/ui/physical_lab_analysis_plan_store.py
+          grep -q 'Ask OpenPenguin about this' src-tauri/resources/ui/physical_lab_science_protocol_ui.py
+          grep -q 'Request Analysis Plan' src-tauri/resources/ui/physical_lab_science_protocol_ui.py
+          grep -q 'Prepare in Engineering Lab' src-tauri/resources/ui/physical_lab_science_protocol_ui.py
+          grep -q 'Record plan provenance' src-tauri/resources/ui/physical_lab_science_protocol_ui.py
+          grep -q '"executed": False' src-tauri/resources/ui/physical_lab_science_protocol_ui.py

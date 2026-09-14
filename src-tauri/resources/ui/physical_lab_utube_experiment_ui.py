@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -11,15 +11,21 @@ import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
 import physical_lab_sweep_executor as sweeps
-import physical_lab_utube_visualization as utube_viz
 from physical_lab_applied_analysis import design_experiment
 from physical_lab_applied_analysis_advanced import adapter_parameter_names
 from physical_lab_utube_experiment import (
     BOUNDARY,
+    G,
+    DEFAULT_A_M,
+    DEFAULT_R_IN_M,
     angle_views,
+    capacity,
+    critical_speed,
     delta_free_energy,
+    geometry,
     identify_dataset,
     model_spec,
+    omega,
     quadrature_convergence,
     scientific_object,
     threshold,
@@ -27,6 +33,125 @@ from physical_lab_utube_experiment import (
     vstar,
 )
 from physical_lab_visual_analytics_ui import _sources
+
+VISUALIZATION_BOUNDARY = (
+    "U-tube visualization products are deterministic derived views of the declared "
+    "model inputs. Geometry traces are schematic centerline/reference views rather "
+    "than CFD or reconstructed liquid interfaces. Effective-potential and threshold "
+    "maps are model diagnostics, not experimental observations or safety limits."
+)
+
+
+def _reference_geometry(
+    rin_m: float = DEFAULT_R_IN_M,
+    a_m: float = DEFAULT_A_M,
+    *,
+    bend_points: int = 181,
+    leg_height_m: float | None = None,
+) -> pd.DataFrame:
+    geom = geometry(rin_m, a_m)
+    R = geom["R_m"]
+    ell = geom["ell_m"]
+    n = max(31, min(int(bend_points), 1001))
+    height = float(leg_height_m) if leg_height_m is not None else max(4.0 * a_m, 0.75 * R)
+    if not np.isfinite(height) or height <= 0:
+        raise ValueError("leg_height_m must be positive")
+    theta = np.linspace(-0.5 * np.pi, 0.5 * np.pi, n)
+    bend = pd.DataFrame({
+        "segment": "bend",
+        "order": np.arange(n, dtype=int),
+        "x_m": R * np.sin(theta),
+        "z_m": ell - R * np.cos(theta),
+        "theta_rad": theta,
+    })
+    leg_n = max(20, n // 4)
+    z_leg = np.linspace(ell, ell + height, leg_n)
+    left = pd.DataFrame({"segment": "left-leg", "order": np.arange(leg_n, dtype=int), "x_m": -R, "z_m": z_leg, "theta_rad": np.nan})
+    right = pd.DataFrame({"segment": "right-leg", "order": np.arange(leg_n, dtype=int), "x_m": R, "z_m": z_leg, "theta_rad": np.nan})
+    return pd.concat([left, bend, right], ignore_index=True)
+
+
+def _effective_potential_profile(
+    n_rpm: float,
+    rin_m: float = DEFAULT_R_IN_M,
+    a_m: float = DEFAULT_A_M,
+    *,
+    points: int = 361,
+) -> pd.DataFrame:
+    speed = float(n_rpm)
+    if not np.isfinite(speed) or speed <= 0:
+        raise ValueError("n_rpm must be finite and positive")
+    geom = geometry(rin_m, a_m)
+    R = geom["R_m"]
+    ell = geom["ell_m"]
+    w = float(omega(speed))
+    n = max(51, min(int(points), 2001))
+    theta = np.linspace(-0.5 * np.pi, 0.5 * np.pi, n)
+    x = R * np.sin(theta)
+    z = ell - R * np.cos(theta)
+    potential = G * z - 0.5 * w * w * x * x
+    return pd.DataFrame({
+        "theta_deg": np.degrees(theta),
+        "x_m": x,
+        "z_m": z,
+        "effective_potential_J_kg": potential,
+        "relative_potential_J_kg": potential - float(np.min(potential)),
+    })
+
+
+def _capacity_decomposition(volume_ml: float, n_rpm: float, nq: int = 84) -> dict[str, Any]:
+    volume = float(volume_ml)
+    speed = float(n_rpm)
+    if not np.isfinite(volume) or not np.isfinite(speed) or volume <= 0 or speed <= 0:
+        raise ValueError("volume_ml and n_rpm must be finite and positive")
+    total, curved, legs = capacity(speed, nq=int(nq))
+    ng = threshold(volume, nq=int(nq))
+    nc = critical_speed()
+    return {
+        "volume_ml": volume,
+        "n_rpm": speed,
+        "critical_speed_rpm": nc,
+        "threshold_rpm": ng,
+        "threshold_margin_rpm": speed - ng,
+        "capacity_total_ml": total,
+        "capacity_curved_ml": curved,
+        "capacity_legs_ml": legs,
+        "capacity_margin_ml": total - volume,
+        "curved_fraction": curved / total if total > 0 else None,
+        "legs_fraction": legs / total if total > 0 else None,
+    }
+
+
+def _threshold_phase_map(
+    volumes_ml: Iterable[float],
+    speeds_rpm: Iterable[float],
+    nq: int = 48,
+    *,
+    near_threshold_band_rpm: float = 3.0,
+) -> pd.DataFrame:
+    volumes = [float(v) for v in volumes_ml]
+    speeds = [float(n) for n in speeds_rpm]
+    if not volumes or not speeds:
+        raise ValueError("volumes_ml and speeds_rpm must be non-empty")
+    if any((not np.isfinite(v) or v <= 0) for v in volumes) or any((not np.isfinite(n) or n <= 0) for n in speeds):
+        raise ValueError("all phase-map coordinates must be finite and positive")
+    band = abs(float(near_threshold_band_rpm))
+    nc = critical_speed()
+    thresholds = {v: threshold(v, nq=int(nq)) for v in volumes}
+    rows: list[dict[str, Any]] = []
+    for volume in volumes:
+        ng = thresholds[volume]
+        for speed in speeds:
+            if speed < nc:
+                regime, code = "below-angular-bifurcation", 0
+            elif abs(speed - ng) <= band:
+                regime, code = "near-finite-volume-threshold", 2
+            elif speed < ng:
+                regime, code = "between-nc-and-ng", 1
+            else:
+                regime, code = "above-finite-volume-threshold", 3
+            rows.append({"V_mL": volume, "n_rpm": speed, "critical_speed_rpm": nc, "threshold_rpm": ng, "threshold_margin_rpm": speed - ng, "regime": regime, "regime_code": code})
+    return pd.DataFrame(rows)
 
 
 def _source_contract(st: Any, source: dict[str, Any], profile: str) -> None:
@@ -49,11 +174,8 @@ def _source_contract(st: Any, source: dict[str, Any], profile: str) -> None:
         st.dataframe(explicit[[c for c in explicit.columns if c in {"n_rpm", "theta_deg", "theta_deg_signed", "theta_deg_magnitude"}]].head(300), hide_index=True, width="stretch")
         st.caption("Signed orientation and absolute magnitude are stored separately. Magnitude is never substituted for the signed measurement.")
     st.session_state[f"pl_utube_science_source_{profile}"] = {
-        "id": source["id"],
-        "label": f"U-tube · {source['label']}",
-        "kind": source.get("kind", "dataset"),
-        "frame": frame,
-        "units": contract["units"],
+        "id": source["id"], "label": f"U-tube · {source['label']}", "kind": source.get("kind", "dataset"),
+        "frame": frame, "units": contract["units"],
         "identity": {**dict(source.get("identity") or {}), "utube_contract": contract, "utube_model": model_spec()},
     }
 
@@ -64,63 +186,40 @@ def _theory_tab(st: Any, profile: str) -> None:
     speed = float(b.number_input("Rotation speed / rpm", min_value=1.0, value=260.0, step=1.0, key=f"pl_utube_speed_{profile}"))
     nq = int(c.number_input("Gauss-Legendre order", min_value=12, max_value=256, value=84, step=4, key=f"pl_utube_nq_{profile}"))
     try:
-        state = utube_viz.capacity_decomposition(volume, speed, nq=nq)
-        geometry = utube_viz.reference_geometry()
-        potential = utube_viz.effective_potential_profile(speed)
+        state = _capacity_decomposition(volume, speed, nq=nq)
+        geom_frame = _reference_geometry()
+        potential = _effective_potential_profile(speed)
     except Exception as exc:
         st.warning(f"Theory calculation unavailable: {exc}")
         return
-
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Angular bifurcation n_c", f"{state['critical_speed_rpm']:.3f} rpm")
     c2.metric("Capacity threshold n_g", f"{state['threshold_rpm']:.3f} rpm")
     c3.metric("Capacity margin", f"{state['capacity_margin_ml']:+.4f} mL")
     c4.metric("Threshold margin", f"{state['threshold_margin_rpm']:+.3f} rpm")
     st.caption("n_c is an angular/effective-potential bifurcation; n_g is the finite-volume 3D capacity threshold. They are separate model quantities.")
-
     left, right = st.columns(2)
     with left:
         fig = go.Figure()
         labels = {"left-leg": "left leg", "bend": "curved section", "right-leg": "right leg"}
-        for segment, sub in geometry.groupby("segment", sort=False):
-            fig.add_trace(go.Scatter(
-                x=sub["x_m"] * 1e3,
-                y=sub["z_m"] * 1e3,
-                mode="lines",
-                name=labels.get(str(segment), str(segment)),
-            ))
-        fig.update_layout(
-            title="U-tube reference geometry",
-            xaxis_title="horizontal coordinate / mm",
-            yaxis_title="vertical coordinate / mm",
-            yaxis={"scaleanchor": "x", "scaleratio": 1},
-            legend={"orientation": "h"},
-        )
+        for segment, sub in geom_frame.groupby("segment", sort=False):
+            fig.add_trace(go.Scatter(x=sub["x_m"] * 1e3, y=sub["z_m"] * 1e3, mode="lines", name=labels.get(str(segment), str(segment))))
+        fig.update_layout(title="U-tube reference geometry", xaxis_title="horizontal coordinate / mm", yaxis_title="vertical coordinate / mm", yaxis={"scaleanchor": "x", "scaleratio": 1}, legend={"orientation": "h"})
         st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
         st.caption("Centerline/reference geometry from the same R and ℓ definitions used by the capacity solver; it is not a reconstructed liquid interface or CFD result.")
-
     with right:
-        fig = px.line(
-            potential,
-            x="theta_deg",
-            y="relative_potential_J_kg",
-            title="Rotating-frame effective potential along bend centerline",
-        )
+        fig = px.line(potential, x="theta_deg", y="relative_potential_J_kg", title="Rotating-frame effective potential along bend centerline")
         fig.add_vline(x=0.0, line_dash="dot")
         fig.update_layout(xaxis_title="bend angle θ / deg", yaxis_title="relative effective potential / J kg⁻¹")
         st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
         st.caption("Potential is shifted by its minimum. This is a model diagnostic along the bend centerline, not a measured pressure or interface profile.")
-
     st.markdown("##### Capacity anatomy")
-    cap_frame = pd.DataFrame({
-        "component": ["curved section", "two legs", "selected liquid volume"],
-        "volume_ml": [state["capacity_curved_ml"], state["capacity_legs_ml"], state["volume_ml"]],
-    })
+    cap_frame = pd.DataFrame({"component": ["curved section", "two legs", "selected liquid volume"], "volume_ml": [state["capacity_curved_ml"], state["capacity_legs_ml"], state["volume_ml"]]})
     fig = px.bar(cap_frame, x="component", y="volume_ml", title=f"Available low-potential capacity at {speed:.1f} rpm")
     fig.update_layout(yaxis_title="volume / mL", xaxis_title="")
     st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-    st.dataframe(pd.DataFrame([state]).drop(columns=["boundary"]), hide_index=True, width="stretch")
-    st.caption(utube_viz.BOUNDARY)
+    st.dataframe(pd.DataFrame([state]), hide_index=True, width="stretch")
+    st.caption(VISUALIZATION_BOUNDARY)
 
 
 def _phase_map_tab(st: Any, profile: str) -> None:
@@ -137,27 +236,12 @@ def _phase_map_tab(st: Any, profile: str) -> None:
         st.warning("Upper bounds must be greater than lower bounds.")
         return
     try:
-        volumes = np.linspace(v_lo, v_hi, points)
-        speeds = np.linspace(n_lo, n_hi, n_points)
-        phase = utube_viz.threshold_phase_map(volumes, speeds, nq=48)
+        phase = _threshold_phase_map(np.linspace(v_lo, v_hi, points), np.linspace(n_lo, n_hi, n_points), nq=48)
     except Exception as exc:
         st.warning(f"Phase-map evaluation unavailable: {exc}")
         return
-
     pivot = phase.pivot(index="n_rpm", columns="V_mL", values="regime_code")
-    fig = go.Figure(data=go.Heatmap(
-        x=pivot.columns,
-        y=pivot.index,
-        z=pivot.values,
-        zmin=0,
-        zmax=3,
-        colorbar={
-            "title": "regime",
-            "tickvals": [0, 1, 2, 3],
-            "ticktext": ["below n_c", "between", "near n_g", "above n_g"],
-        },
-        hovertemplate="V=%{x:.3g} mL<br>n=%{y:.3g} rpm<br>regime code=%{z}<extra></extra>",
-    ))
+    fig = go.Figure(data=go.Heatmap(x=pivot.columns, y=pivot.index, z=pivot.values, zmin=0, zmax=3, colorbar={"title": "regime", "tickvals": [0, 1, 2, 3], "ticktext": ["below n_c", "between", "near n_g", "above n_g"]}, hovertemplate="V=%{x:.3g} mL<br>n=%{y:.3g} rpm<br>regime code=%{z}<extra></extra>"))
     threshold_curve = phase[["V_mL", "threshold_rpm"]].drop_duplicates().sort_values("V_mL")
     nc = float(phase["critical_speed_rpm"].iloc[0])
     fig.add_trace(go.Scatter(x=threshold_curve["V_mL"], y=threshold_curve["threshold_rpm"], mode="lines", name="n_g(V)"))
@@ -190,7 +274,6 @@ def _validation_tab(st: Any, source: dict[str, Any], profile: str) -> None:
     fig.add_trace(go.Scatter(x=grouped["V_mL"], y=grouped["mean"], mode="markers", name="experiment", error_y={"type": "data", "array": grouped["std"].fillna(0)}))
     fig.update_layout(xaxis_title="V / mL", yaxis_title="speed / rpm", title="Theory–experiment threshold comparison")
     st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-
     residual_fig = px.scatter(grouped, x="V_mL", y="residual_rpm", title="Threshold residual: experiment − model")
     residual_fig.add_hline(y=0.0, line_dash="dash")
     residual_fig.update_layout(xaxis_title="V / mL", yaxis_title="residual / rpm")
@@ -314,15 +397,7 @@ def render_utube_experiment(st: Any, profile: str) -> None:
     sources = _sources(project_path)
     st.markdown("#### Rotating U-Tube Experiment")
     st.caption("Native deterministic model, domain-specific physical visualization, raw-data contracts, numerical convergence, theory–experiment validation, threshold-regime mapping and allow-listed DOE/Sweep execution.")
-    tab_data, tab_theory, tab_phase, tab_validation, tab_numerics, tab_free, tab_sweep = st.tabs([
-        "Data Contract",
-        "Physical View",
-        "Threshold Map",
-        "Theory ↔ Experiment",
-        "Numerical Convergence",
-        "Free Energy",
-        "DOE / Sweep",
-    ])
+    tab_data, tab_theory, tab_phase, tab_validation, tab_numerics, tab_free, tab_sweep = st.tabs(["Data Contract", "Physical View", "Threshold Map", "Theory ↔ Experiment", "Numerical Convergence", "Free Energy", "DOE / Sweep"])
     selected = None
     if sources:
         labels = {s["id"]: s["label"] for s in sources}

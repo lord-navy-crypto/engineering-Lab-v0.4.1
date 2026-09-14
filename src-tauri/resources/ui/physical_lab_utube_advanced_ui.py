@@ -18,6 +18,7 @@ from physical_lab_utube_advanced import (
     threshold_elasticity,
 )
 from physical_lab_utube_experiment import DEFAULT_A_M, DEFAULT_R_IN_M, threshold
+from physical_lab_utube_robust_ui import render_utube_robust_engineering
 
 
 def render_utube_advanced(st: Any, profile: str) -> None:
@@ -129,3 +130,4 @@ def render_utube_advanced(st: Any, profile: str) -> None:
             st.warning(str(exc))
 
     st.caption(BOUNDARY)
+    render_utube_robust_engineering(st, profile)

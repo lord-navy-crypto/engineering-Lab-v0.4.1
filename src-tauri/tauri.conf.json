@@ -46,6 +46,7 @@
       "resources/ui/physical_lab_utube_uncertainty_ui.py": "ui/physical_lab_utube_uncertainty_ui.py",
       "resources/ui/physical_lab_utube_advanced.py": "ui/physical_lab_utube_advanced.py",
       "resources/ui/physical_lab_utube_advanced_ui.py": "ui/physical_lab_utube_advanced_ui.py",
+      "resources/ui/physical_lab_utube_robust_ui.py": "ui/physical_lab_utube_robust_ui.py",
       "resources/ui/physical_lab_engineering.py": "ui/physical_lab_engineering.py",
       "resources/ui/physical_lab_engineering_legacy.py": "ui/physical_lab_engineering_legacy.py",
       "resources/ui/physical_lab_application_modes.py": "ui/physical_lab_application_modes.py",

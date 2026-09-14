@@ -5,10 +5,14 @@ on:
   push:
     branches:
       - feature/expand-physics-simulation-scenarios
+      - feature/utube-robust-design-verification
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_advanced.py'
       - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_robust_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_requirements_verification.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/utube_advanced_validation.py'
@@ -17,7 +21,10 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_advanced.py'
       - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_robust_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_requirements_verification.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/utube_advanced_validation.py'
@@ -37,14 +44,25 @@ jobs:
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_advanced.py
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_robust_ui.py
           python -m py_compile scripts/utube_advanced_validation.py
+      - name: Validate Tauri bundle configuration
+        run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
       - name: Validate advanced U-tube physics and engineering tools
         run: python scripts/utube_advanced_validation.py
       - name: Verify bundle and workspace integration
         run: |
+          set -euo pipefail
           grep -q 'physical_lab_utube_advanced.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_utube_advanced_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_utube_robust_ui.py' src-tauri/tauri.conf.json
           grep -q 'render_utube_advanced' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'render_utube_robust_engineering' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'U-Tube Advanced Physics & Engineering' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'Inverse design solves the current model only' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+          grep -q 'Robust Design & Pareto' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'Register templates in current Project' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'pareto_frontier' src-tauri/resources/ui/physical_lab_utube_advanced.py
+          grep -q 'empirical-bracket-refinement' src-tauri/resources/ui/physical_lab_utube_advanced.py
+          grep -q 'requirement compliance' src-tauri/resources/ui/physical_lab_utube_advanced.py
           grep -q 'computational proposals' src-tauri/resources/ui/physical_lab_utube_advanced.py

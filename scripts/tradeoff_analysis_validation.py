@@ -51,8 +51,9 @@ def main() -> int:
     flipped_rows = set(int(i) for i in flipped.loc[flipped["pareto"], "source_index"])
     require(2 in flipped_rows, "objective direction flip was ignored")
 
-    require("not causality" in ta.BOUNDARY.lower(), "correlation boundary missing")
-    require("non-dominance" in ta.BOUNDARY.lower(), "Pareto boundary missing")
+    boundary = ta.BOUNDARY.lower()
+    require("not causal" in boundary, "correlation boundary missing")
+    require("non-dominance" in boundary, "Pareto boundary missing")
     print("PASS: correlation and two-objective Pareto trade-off analysis")
     return 0
 

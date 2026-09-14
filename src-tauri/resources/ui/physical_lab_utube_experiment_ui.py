@@ -10,6 +10,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
+import physical_lab_sweep_executor as sweeps
+from physical_lab_applied_analysis import design_experiment
+from physical_lab_applied_analysis_advanced import adapter_parameter_names
 from physical_lab_utube_experiment import (
     BOUNDARY,
     angle_views,
@@ -138,6 +141,76 @@ def _free_energy_tab(st: Any, profile: str) -> None:
     st.caption("V* is a prediction of the stated free-energy scaling model under explicit γ and θ assumptions; it is not an observed transition volume unless independently measured.")
 
 
+def _parse_factor_lines(text: str) -> list[dict[str, float | str]]:
+    factors: list[dict[str, float | str]] = []
+    seen: set[str] = set()
+    for raw in str(text).splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) != 3:
+            raise ValueError("Each factor line must be name,low,high")
+        name = parts[0]
+        low, high = float(parts[1]), float(parts[2])
+        if name in seen:
+            raise ValueError(f"duplicate factor: {name}")
+        if not np.isfinite(low) or not np.isfinite(high) or high <= low:
+            raise ValueError(f"invalid bounds for {name}")
+        seen.add(name)
+        factors.append({"name": name, "low": low, "high": high})
+    if not factors:
+        raise ValueError("At least one factor is required")
+    return factors
+
+
+def _sweep_tab(st: Any, profile: str) -> None:
+    st.markdown("##### U-Tube DOE → Sweep")
+    available = {row["id"] for row in sweeps.available_adapters(profile)}
+    if "utube-rotation" not in available:
+        st.info("The U-tube Sweep adapter is allow-listed for the Numerical Methods and Oscillation/Integration profiles. Open this workspace from one of those profiles to queue a campaign.")
+        return
+    accepted = adapter_parameter_names(profile, "utube-rotation")
+    st.caption("Allow-listed adapter parameters: " + ", ".join(accepted))
+    default_factors = "volume_ml,1,6\nn_rpm,190,320\ngamma_mN_m,35,73"
+    factor_text = st.text_area("Factors · name,low,high", value=default_factors, key=f"pl_utube_sweep_factors_{profile}")
+    c1, c2, c3 = st.columns(3)
+    method = c1.selectbox("DOE", ["latin-hypercube", "full-factorial", "random"], key=f"pl_utube_sweep_method_{profile}")
+    samples = int(c2.number_input("Samples", min_value=2, max_value=200, value=24, step=1, key=f"pl_utube_sweep_samples_{profile}"))
+    seed = int(c3.number_input("Seed", min_value=0, max_value=2_147_483_647, value=0, step=1, key=f"pl_utube_sweep_seed_{profile}"))
+    try:
+        factors = _parse_factor_lines(factor_text)
+        unknown = sorted({str(x["name"]) for x in factors} - set(accepted))
+        if unknown:
+            raise ValueError(f"factors are not adapter parameters: {unknown}")
+        design = design_experiment(factors, method=method, samples=samples, seed=seed)
+        rows = design["rows"]
+    except Exception as exc:
+        st.warning(f"DOE preview unavailable: {exc}")
+        return
+    st.dataframe(pd.DataFrame(rows).head(200), hide_index=True, width="stretch")
+    st.caption("This table is a prospective computational design only. Queueing does not execute the model and does not create experimental evidence.")
+    if st.button("Queue U-Tube DOE as Sweep", type="primary", key=f"pl_utube_sweep_queue_{profile}"):
+        try:
+            job = sweeps.create_sweep_job(profile, "utube-rotation", rows)
+            st.session_state[f"pl_utube_sweep_job_{profile}"] = job["id"]
+            st.success(f"Queued {job['id']} · {job['point_count']} points · execution has not started.")
+        except Exception as exc:
+            st.error(f"Could not queue U-tube Sweep: {exc}")
+    job_id = st.session_state.get(f"pl_utube_sweep_job_{profile}")
+    if job_id:
+        job = sweeps.read_sweep_job(str(job_id)) or {}
+        st.json({k: job.get(k) for k in ("id", "adapter", "point_count", "status", "progress", "failed_points", "cached_points", "design_sha256")})
+        if job.get("status") in {"queued", "interrupted", "failed", "cancelled"}:
+            if st.button("Explicitly start U-Tube Sweep", key=f"pl_utube_sweep_start_{profile}"):
+                try:
+                    sweeps.start_sweep_job(str(job_id))
+                    st.success("Explicit start requested. Completed results will re-enter the normal Sweep Feedback / Science Analysis pipeline.")
+                except Exception as exc:
+                    st.error(f"Could not start U-tube Sweep: {exc}")
+    st.caption("Design → Queue → explicit Start → Sweep result → sensitivity / response surface / Morris / OpenPenguin. No step silently becomes experimental evidence.")
+
+
 def render_utube_experiment(st: Any, profile: str) -> None:
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
     if not active:
@@ -145,8 +218,8 @@ def render_utube_experiment(st: Any, profile: str) -> None:
     project_path = Path(active)
     sources = _sources(project_path)
     st.markdown("#### Rotating U-Tube Experiment")
-    st.caption("Native deterministic model, raw-data contracts, numerical convergence and theory–experiment validation extracted from the publication analysis workflow.")
-    tab_data, tab_theory, tab_validation, tab_numerics, tab_free = st.tabs(["Data Contract", "3D Theory", "Theory ↔ Experiment", "Numerical Convergence", "Free Energy"])
+    st.caption("Native deterministic model, raw-data contracts, numerical convergence, theory–experiment validation, and allow-listed DOE/Sweep execution extracted from the publication analysis workflow.")
+    tab_data, tab_theory, tab_validation, tab_numerics, tab_free, tab_sweep = st.tabs(["Data Contract", "3D Theory", "Theory ↔ Experiment", "Numerical Convergence", "Free Energy", "DOE / Sweep"])
     selected = None
     if sources:
         labels = {s["id"]: s["label"] for s in sources}
@@ -167,4 +240,6 @@ def render_utube_experiment(st: Any, profile: str) -> None:
         _numerics_tab(st, profile)
     with tab_free:
         _free_energy_tab(st, profile)
+    with tab_sweep:
+        _sweep_tab(st, profile)
     st.caption(BOUNDARY)

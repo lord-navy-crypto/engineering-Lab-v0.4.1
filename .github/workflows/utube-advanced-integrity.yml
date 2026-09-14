@@ -6,11 +6,14 @@ on:
     branches:
       - feature/expand-physics-simulation-scenarios
       - feature/utube-robust-design-verification
+      - feature/utube-digital-twin-dynamics
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_advanced.py'
       - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_robust_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_digital_twin.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
       - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
       - 'src-tauri/resources/ui/physical_lab_requirements_verification.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
@@ -23,6 +26,8 @@ on:
       - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_robust_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_digital_twin.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop.py'
       - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
       - 'src-tauri/resources/ui/physical_lab_requirements_verification.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
@@ -62,6 +67,10 @@ jobs:
           grep -q 'Inverse design solves the current model only' src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
           grep -q 'Robust Design & Pareto' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
           grep -q 'Register templates in current Project' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'U-Tube Measurement Digital Twin' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'fit_model_affine' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'suggest_residual_measurement_points' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
+          grep -q 'First-order reduced-order fit only' src-tauri/resources/ui/physical_lab_utube_robust_ui.py
           grep -q 'pareto_frontier' src-tauri/resources/ui/physical_lab_utube_advanced.py
           grep -q 'empirical-bracket-refinement' src-tauri/resources/ui/physical_lab_utube_advanced.py
           grep -q 'requirement compliance' src-tauri/resources/ui/physical_lab_utube_advanced.py

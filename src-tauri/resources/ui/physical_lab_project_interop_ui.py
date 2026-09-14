@@ -122,6 +122,8 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_utube_experiment(st, profile)
                 from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
                 render_utube_uncertainty(st, profile)
+                from physical_lab_utube_advanced_ui import render_utube_advanced
+                render_utube_advanced(st, profile)
             except Exception as exc:
                 st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
 

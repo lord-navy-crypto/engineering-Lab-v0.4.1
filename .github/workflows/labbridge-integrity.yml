@@ -6,10 +6,14 @@ on:
       - 'src-tauri/resources/ui/physical_lab_lab_journey.py'
       - 'src-tauri/resources/ui/physical_lab_labbridge.py'
       - 'src-tauri/resources/ui/physical_lab_labbridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_openguin_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_science_protocol.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/labbridge_validation.py'
+      - 'scripts/openguin_adapter_validation.py'
+      - 'scripts/openguin_science_protocol_validation.py'
       - '.github/workflows/labbridge-integrity.yml'
   workflow_dispatch:
 
@@ -29,12 +33,20 @@ jobs:
             src-tauri/resources/ui/physical_lab_lab_journey.py \
             src-tauri/resources/ui/physical_lab_labbridge.py \
             src-tauri/resources/ui/physical_lab_labbridge_ui.py \
+            src-tauri/resources/ui/physical_lab_openguin_adapter.py \
+            src-tauri/resources/ui/physical_lab_science_protocol.py \
             src-tauri/resources/ui/physical_lab_project_interop.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
-            scripts/labbridge_validation.py
+            scripts/labbridge_validation.py \
+            scripts/openguin_adapter_validation.py \
+            scripts/openguin_science_protocol_validation.py
       - name: Validate LabBridge and Lab Journey semantics
         run: python scripts/labbridge_validation.py
-      - name: Verify bundled LabBridge resources
+      - name: Validate OpenPenguin adapter boundary
+        run: python scripts/openguin_adapter_validation.py
+      - name: Validate OpenPenguin scientific protocol
+        run: python scripts/openguin_science_protocol_validation.py
+      - name: Verify bundled LabBridge and science-protocol resources
         run: |
           python - <<'PY'
           import json
@@ -45,9 +57,17 @@ jobs:
               'resources/ui/physical_lab_lab_journey.py',
               'resources/ui/physical_lab_labbridge.py',
               'resources/ui/physical_lab_labbridge_ui.py',
+              'resources/ui/physical_lab_openguin_adapter.py',
+              'resources/ui/physical_lab_science_protocol.py',
           }
           missing=sorted(required-set(resources))
           if missing:
-              raise SystemExit('missing bundled LabBridge resources: '+', '.join(missing))
-          print('PASS: LabBridge resources bundled')
+              raise SystemExit('missing bundled LabBridge/science-protocol resources: '+', '.join(missing))
+          print('PASS: LabBridge and OpenPenguin science-protocol resources bundled')
           PY
+      - name: Verify OpenPenguin scientific authority boundaries
+        run: |
+          grep -q 'engineering-lab-scientific-context-v1' src-tauri/resources/ui/physical_lab_science_protocol.py
+          grep -q 'engineering-lab-analysis-plan-v1' src-tauri/resources/ui/physical_lab_science_protocol.py
+          grep -q 'mutation_authority' src-tauri/resources/ui/physical_lab_science_protocol.py
+          grep -q 'Engineering Lab remains the scientific computation and evidence authority' src-tauri/resources/ui/physical_lab_science_protocol.py

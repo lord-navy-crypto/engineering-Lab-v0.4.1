@@ -125,6 +125,8 @@ def render_project_interop(st: Any, profile: str) -> None:
             try:
                 from physical_lab_tradeoff_analysis_ui import render_tradeoff_analysis
                 render_tradeoff_analysis(st, profile)
+                from physical_lab_science_protocol_ui import render_science_protocol_ui
+                render_science_protocol_ui(st, profile, project_path)
             except Exception as exc:
                 st.warning(f"Science Analysis workspace could not load: {exc}")
 

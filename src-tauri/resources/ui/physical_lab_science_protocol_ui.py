@@ -41,8 +41,11 @@ def render_science_protocol_ui(st: Any, profile: str, project_path: str | Path) 
     )
 
     sources = _sources(project)
+    external_source = st.session_state.get(f"pl_utube_science_source_{profile}")
+    if isinstance(external_source, Mapping):
+        sources.append(dict(external_source))
     if not sources:
-        st.info("No project Result, completed Sweep, or canonical Dataset is currently available for scoped scientific advisory.")
+        st.info("No project Result, completed Sweep, canonical Dataset, or registered experiment source is currently available for scoped scientific advisory.")
         return
 
     labels = [str(row.get("label") or row.get("id")) for row in sources]

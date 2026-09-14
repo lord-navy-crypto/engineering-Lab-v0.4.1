@@ -118,6 +118,8 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_applied_math_deep(st, profile)
                 from physical_lab_sweep_design_bridge_ui import render_sweep_design_bridge
                 render_sweep_design_bridge(st, profile)
+                from physical_lab_utube_experiment_ui import render_utube_experiment
+                render_utube_experiment(st, profile)
             except Exception as exc:
                 st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
 
@@ -176,6 +178,6 @@ def render_project_interop(st: Any, profile: str) -> None:
                 c.metric("ZIP sha256", pack["zip_sha256"][:16]+"…")
                 if pack["manifest"].get("omitted"):
                     st.warning(f"Omitted {len(pack['manifest']['omitted'])} oversized file(s); inspect manifest for details.")
-                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="application/zip", key=f"pl_repro_download_{profile}")
+                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="application/zip", key=f"pl_repro_download_{profile}_{chosen}")
                 st.json({k:v for k,v in pack["manifest"].items() if k != "files"})
                 st.caption(pack["boundary"])

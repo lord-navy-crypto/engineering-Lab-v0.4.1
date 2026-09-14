@@ -148,4 +148,4 @@ jobs:
           grep -q 'Explicitly start queued Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
           grep -q 'physical identifiability' src-tauri/resources/ui/physical_lab_applied_math_deep.py
           grep -q 'arbitrary user code' src-tauri/resources/ui/physical_lab_applied_analysis.py
-          grep -q 'proposals only' src-tauri/resources/ui/physical_lab_applied_analysis.py
+          grep -q 'DOE proposals do not by themselves establish causality' src-tauri/resources/ui/physical_lab_applied_analysis.py

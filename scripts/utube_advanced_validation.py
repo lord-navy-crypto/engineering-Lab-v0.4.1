@@ -4,6 +4,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "src-tauri" / "resources" / "ui"
 sys.path.insert(0, str(UI))
@@ -47,18 +49,68 @@ def main() -> int:
     require("abs_target_error_rpm" in grid.columns, "target design ranking missing")
     require(grid["abs_target_error_rpm"].is_monotonic_increasing, "design-space ranking is not stable")
 
+    robust = a.robust_design_space(
+        volumes_ml=[2.8, 3.2],
+        rin_values_m=[0.0145, 0.0155],
+        a_values_m=[0.0072, 0.0078],
+        volume_tolerance_ml=0.05,
+        rin_tolerance_m=0.0001,
+        a_tolerance_m=0.0001,
+        target_threshold_rpm=250.0,
+        nq=24,
+    )
+    require(len(robust) == 8, "robust-design nominal row count mismatch")
+    require((robust["corner_count"] == 8).all(), "robust-design corner count changed")
+    require((robust["threshold_span_rpm"] >= 0).all(), "robust threshold span cannot be negative")
+    require(np.isfinite(robust["separation_floor_rpm"]).all(), "robust separation floor contains non-finite values")
+    require(np.isfinite(robust["worst_abs_target_error_rpm"]).all(), "worst target error contains non-finite values")
+
+    pareto = a.pareto_robust_design(robust)
+    require("pareto" in pareto.columns, "Pareto membership column missing")
+    require(bool(pareto["pareto"].any()), "robust design must expose at least one non-dominated candidate")
+    require(len(pareto) == len(robust), "Pareto marking changed source row count")
+
     plan = a.experiment_scan_plan(250.0, coarse_span_rpm=20.0, coarse_step_rpm=10.0, fine_span_rpm=4.0, fine_step_rpm=2.0)
     require(len(plan) > 5, "experiment scan plan too small")
     require(set(plan["phase"]) == {"coarse-bracket", "fine-threshold"}, "scan phases missing")
     require(plan["n_rpm"].is_monotonic_increasing, "scan plan is not ordered")
 
+    adaptive = a.adaptive_threshold_plan(
+        [{"n_rpm": 240.0, "state": "below"}, {"n_rpm": 260.0, "state": "above"}],
+        250.0,
+        target_bracket_rpm=2.0,
+    )
+    require(adaptive["status"] == "empirical-bracket-refinement", "adaptive planner did not detect a valid wide bracket")
+    require(adaptive["next_measurements_rpm"] == [250.0], "adaptive planner did not bisect the empirical bracket")
+    reached = a.adaptive_threshold_plan(
+        [{"n_rpm": 249.0, "state": "below"}, {"n_rpm": 250.0, "state": "above"}],
+        250.0,
+        target_bracket_rpm=2.0,
+    )
+    require(reached["status"] == "target-bracket-reached", "adaptive planner did not stop at requested bracket width")
+    require(reached["next_measurements_rpm"] == [], "adaptive planner should not invent another point after target bracket is reached")
+
+    matrix = a.verification_requirements(
+        target_threshold_rpm=250.0,
+        threshold_tolerance_rpm=5.0,
+        minimum_separation_rpm=10.0,
+        maximum_numerical_change_rpm=0.25,
+    )
+    require(len(matrix) == 4, "verification template count changed")
+    require(set(matrix["requirement_id"]) == {"UTUBE-REQ-THRESHOLD", "UTUBE-REQ-SEPARATION", "UTUBE-REQ-NUMERICS", "UTUBE-REQ-VALIDATION"}, "verification requirement IDs changed")
+    require(matrix["statement"].str.contains("shall", case=False).all(), "common Requirements layer requires normative 'shall' statements")
+    require(set(matrix["verification_method"]).issubset({"analysis", "test", "inspection", "demonstration"}), "unsupported verification method emitted")
+    require(matrix["verification_activity"].str.len().gt(0).all(), "verification activity missing")
+    require(matrix["success_criteria"].str.len().gt(0).all(), "verification success criteria missing")
+
     questions = a.research_questions()
     require(any(q["domain"] == "physics" for q in questions), "physics research question missing")
     require(any(q["domain"] == "engineering design" for q in questions), "engineering research question missing")
     require("computational proposals" in a.BOUNDARY, "engineering evidence boundary weakened")
+    require("requirement compliance" in a.BOUNDARY, "requirements boundary weakened")
     require("Numerical convergence" in u.BOUNDARY, "base U-tube boundary unexpectedly changed")
 
-    print("PASS: U-tube dimensionless physics, regimes, inverse design, elasticity, design space and experiment planning")
+    print("PASS: U-tube advanced physics, robust Pareto design, adaptive planning and verification templates")
     return 0
 
 

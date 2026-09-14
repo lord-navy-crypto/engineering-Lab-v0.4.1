@@ -57,7 +57,7 @@ def render_sweep_design_bridge(st: Any, profile: str) -> None:
     st.caption(f"Adapter parameters: {', '.join(accepted)}")
     table = pd.DataFrame(prepared)
     st.dataframe(table.head(500), hide_index=True, width="stretch")
-    st.caption("Columns beginning with `__` are provenance metadata, not model parameters.")
+    st.caption("Morris provenance fields `__trajectory`, `__step`, and `__changed_factor` are preserved as analysis metadata; columns beginning with `__` are never passed as model parameters.")
     if st.button("Queue Morris design as Sweep", type="primary", key=f"pl_morris_bridge_queue_{profile}"):
         try:
             job = queue_design_with_metadata(profile, adapter, prepared)

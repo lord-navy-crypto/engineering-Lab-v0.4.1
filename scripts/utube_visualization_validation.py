@@ -17,8 +17,11 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> int:
+    import physical_lab_result_contracts as contracts
+    import physical_lab_result_inspector as inspector
     import physical_lab_utube_experiment as u
     import physical_lab_utube_experiment_ui as v
+    import physical_lab_utube_sweep_adapter as sweep_adapter
 
     geom = v._reference_geometry(bend_points=121)
     require(set(geom["segment"]) == {"left-leg", "bend", "right-leg"}, "geometry segments missing")
@@ -49,7 +52,22 @@ def main() -> int:
     require(regimes[3] == "above-finite-volume-threshold", "above n_g regime classification failed")
     require("not experimental observations" in v.VISUALIZATION_BOUNDARY, "visualization evidence boundary weakened")
 
-    print("PASS: U-tube reference geometry, effective potential, capacity anatomy and threshold phase map")
+    result = sweep_adapter.utube_rotation_sweep(volume_ml=3.0, n_rpm=260.0, nq=40)
+    require(result["schema"] == "engineering-lab-utube-sweep-result/v1", "unexpected U-tube sweep result schema")
+    inspection = inspector.inspect_result(result)
+    contract = contracts.get_contract(result["schema"])
+    require(contract is not None, "U-tube sweep result contract is not registered")
+    annotated = contracts.annotate_inventory(result["schema"], inspection["inventory"])
+    require(annotated["matched_fields"] >= 19, "too few U-tube result fields matched explicit contract metadata")
+    conformance = contracts.validate_contract_inventory(result["schema"], inspection["inventory"])
+    require(conformance["status"] == "PASS", f"U-tube result contract conformance failed: {conformance['issues']}")
+    by_path = {str(row.get("path")): row for row in annotated["inventory"]}
+    require(by_path["prediction.threshold_rpm"].get("unit") == "rpm", "n_g unit metadata missing")
+    require(by_path["prediction.threshold_margin_rpm"].get("role") == "engineering-margin", "threshold margin role metadata missing")
+    require(by_path["prediction.capacity_margin_ml"].get("unit") == "mL", "capacity margin unit metadata missing")
+    require(by_path["inputs.nq"].get("role") == "discretization", "quadrature role metadata missing")
+
+    print("PASS: U-tube visualization, phase map and Result Inspector contract integration")
     return 0
 
 

@@ -12,6 +12,42 @@ from physical_lab_project_interop import (
 )
 
 
+def _render_utube_research_studio(st: Any, profile: str) -> None:
+    """Expose the U-Tube workspaces at project level instead of burying them in Applied Math."""
+    st.markdown("### 🧪 U-Tube Research Studio")
+    st.caption(
+        "Direct access to the rotating U-tube model, research-data visualization, uncertainty tools, "
+        "robust design, digital twin, hysteresis analysis and verification controls."
+    )
+    workspace = st.radio(
+        "Open workspace",
+        ["Physical Model & Data", "Uncertainty", "Advanced Engineering & Twin"],
+        horizontal=True,
+        key=f"pl_utube_studio_workspace_{profile}",
+    )
+    if workspace == "Physical Model & Data":
+        st.info("Use Physical View / Threshold Map / Theory ↔ Experiment for model visualization, or DOE / Sweep for computational campaigns.")
+        try:
+            from physical_lab_utube_experiment_ui import render_utube_experiment
+            render_utube_experiment(st, profile)
+        except Exception as exc:
+            st.warning(f"U-Tube Physical Model & Data could not load: {exc}")
+    elif workspace == "Uncertainty":
+        st.info("Explore model-input uncertainty and threshold sensitivity without treating visualization bands as measured uncertainty.")
+        try:
+            from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
+            render_utube_uncertainty(st, profile)
+        except Exception as exc:
+            st.warning(f"U-Tube Uncertainty workspace could not load: {exc}")
+    else:
+        st.info("Open DIY Data View for your own research columns, or use robust design, digital twin, hysteresis and verification tools below.")
+        try:
+            from physical_lab_utube_advanced_ui import render_utube_advanced
+            render_utube_advanced(st, profile)
+        except Exception as exc:
+            st.warning(f"U-Tube Advanced Engineering & Twin could not load: {exc}")
+
+
 def render_project_interop(st: Any, profile: str) -> None:
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
     if not active:
@@ -20,6 +56,8 @@ def render_project_interop(st: Any, profile: str) -> None:
     if not (project_path / "project.json").exists():
         return
 
+    st.markdown("---")
+    _render_utube_research_studio(st, profile)
     st.markdown("---")
     with st.expander("Engineering Lab · Project Data, Visualization, LabBridge, Results & Reproducibility", expanded=False):
         st.caption(
@@ -118,12 +156,6 @@ def render_project_interop(st: Any, profile: str) -> None:
                 render_applied_math_deep(st, profile)
                 from physical_lab_sweep_design_bridge_ui import render_sweep_design_bridge
                 render_sweep_design_bridge(st, profile)
-                from physical_lab_utube_experiment_ui import render_utube_experiment
-                render_utube_experiment(st, profile)
-                from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
-                render_utube_uncertainty(st, profile)
-                from physical_lab_utube_advanced_ui import render_utube_advanced
-                render_utube_advanced(st, profile)
             except Exception as exc:
                 st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
 
@@ -182,6 +214,6 @@ def render_project_interop(st: Any, profile: str) -> None:
                 c.metric("ZIP sha256", pack["zip_sha256"][:16]+"…")
                 if pack["manifest"].get("omitted"):
                     st.warning(f"Omitted {len(pack['manifest']['omitted'])} oversized file(s); inspect manifest for details.")
-                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="application/zip", key=f"pl_repro_download_{profile}_{chosen}")
+                st.download_button("Download reproducibility pack", data=pack["bytes"], file_name=pack["filename"], mime="application/zip", key=f"pl_repro_download_{profile}")
                 st.json({k:v for k,v in pack["manifest"].items() if k != "files"})
                 st.caption(pack["boundary"])

@@ -1,0 +1,62 @@
+name: U-Tube Research Studio Entry Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+      - feature/utube-research-studio-entry
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - '.github/workflows/utube-studio-entry-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_advanced_ui.py'
+      - '.github/workflows/utube-studio-entry-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile project and U-Tube UI modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_advanced_ui.py
+      - name: Verify visible studio routing
+        run: |
+          set -euo pipefail
+          FILE=src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'U-Tube Research Studio' "$FILE"
+          grep -q 'Open workspace' "$FILE"
+          grep -q 'Physical Model & Data' "$FILE"
+          grep -q 'Uncertainty' "$FILE"
+          grep -q 'Advanced Engineering & Twin' "$FILE"
+          grep -q '_render_utube_research_studio(st, profile)' "$FILE"
+          grep -q 'render_utube_experiment(st, profile)' "$FILE"
+          grep -q 'render_utube_uncertainty(st, profile)' "$FILE"
+          grep -q 'render_utube_advanced(st, profile)' "$FILE"
+          grep -q 'mime="application/zip"' "$FILE"
+      - name: Verify U-Tube is not duplicated inside Applied Math
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src-tauri/resources/ui/physical_lab_project_interop_ui.py').read_text()
+          applied = text.split('with tab_applied:', 1)[1].split('with tab_tradeoff:', 1)[0]
+          forbidden = ['physical_lab_utube_experiment_ui', 'physical_lab_utube_uncertainty_ui', 'physical_lab_utube_advanced_ui']
+          found = [name for name in forbidden if name in applied]
+          if found:
+              raise SystemExit(f'U-Tube renderers still duplicated in Applied Math: {found}')
+          print('PASS: U-Tube renderers are routed only through the visible project-level studio')
+          PY

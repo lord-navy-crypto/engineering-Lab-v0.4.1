@@ -23,6 +23,8 @@ OPENPENGUIN_BASE = OPENPENGUIN_NATIVE_BASE
 GENERIC_API_VERSION = "openguin-local-api/v1"
 LEGACY_API_VERSION = "labbridge-openguin-api/v1"
 ENGINEERING_CONTEXT_SCHEMA = "labbridge.ai-context/v1"
+SCIENTIFIC_CONTEXT_SCHEMA = "engineering-lab-scientific-context-v1"
+ANALYSIS_PLAN_SCHEMA = "engineering-lab-analysis-plan-v1"
 MAX_NATIVE_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
@@ -224,6 +226,15 @@ def _compat_advisory(context_packet: Mapping[str, Any], *, question: str, model:
     return _wrap_answer(answer=str(answer), context_packet=context_packet, question=question, model=model, mode="ollama-compat", runtime=str(compat["base"]), fallback_used=bool(native_error), native_error=native_error)
 
 
+def _requested_response_schema(context_packet: Mapping[str, Any], question: str) -> str:
+    scientific = context_packet.get("scientific_context")
+    if not isinstance(scientific, Mapping) or scientific.get("schema") != SCIENTIFIC_CONTEXT_SCHEMA:
+        return ""
+    if ANALYSIS_PLAN_SCHEMA in str(question):
+        return ANALYSIS_PLAN_SCHEMA
+    return ""
+
+
 def request_advisory(context_packet: Mapping[str, Any], *, question: str, model: str = "auto", temperature: float = 0.2, timeout_ms: int | None = None) -> dict[str, Any]:
     if context_packet.get("schema") != ENGINEERING_CONTEXT_SCHEMA:
         raise ValueError("OpenPenguin advisory requires labbridge.ai-context/v1")
@@ -234,6 +245,7 @@ def request_advisory(context_packet: Mapping[str, Any], *, question: str, model:
     if not 0.0 <= float(temperature) <= 2.0:
         raise ValueError("temperature must be within 0..2")
 
+    requested_schema = _requested_response_schema(context_packet, question)
     status = probe_openguin()
     if not status["available"]:
         raise OpenPenguinAdapterError("offline", "OpenPenguin is unavailable")
@@ -248,6 +260,8 @@ def request_advisory(context_packet: Mapping[str, Any], *, question: str, model:
             "model": model,
             "temperature": float(temperature),
         }
+        if requested_schema:
+            payload["requested_response_schema"] = requested_schema
         if timeout_ms is not None:
             payload["timeout_ms"] = int(timeout_ms)
         try:
@@ -274,7 +288,7 @@ def request_advisory(context_packet: Mapping[str, Any], *, question: str, model:
                     "question": question,
                     "model": legacy_model,
                     "temperature": float(temperature),
-                    "requested_response_schema": AI_SUGGESTION_SCHEMA,
+                    "requested_response_schema": requested_schema or AI_SUGGESTION_SCHEMA,
                 },
                 timeout=605.0,
             )
@@ -299,6 +313,8 @@ def native_api_contract() -> dict[str, Any]:
         "legacy_endpoints": ["GET /labbridge/v1/health", "GET /labbridge/v1/capabilities", "POST /labbridge/v1/advisory"],
         "client_identity": {"app_id": "engineering-lab", "app_version": "0.10.0"},
         "context_schema": ENGINEERING_CONTEXT_SCHEMA,
+        "nested_scientific_context_schema": SCIENTIFIC_CONTEXT_SCHEMA,
+        "analysis_plan_response_schema": ANALYSIS_PLAN_SCHEMA,
         "fallback": f"Ollama-compatible /api/chat on {OPENPENGUIN_RUNTIME_BASE}",
         "required_security": ["loopback-only", "bounded request/response", "executed=false", "mutation_authority=false", "Engineering Lab remains scientific authority"],
     }

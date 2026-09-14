@@ -64,6 +64,12 @@ ADAPTERS: dict[str, dict[str, Any]] = {
         "function": "chirp_frf_experiment",
         "label": "Chirp FRF experiment",
     },
+    "utube-rotation": {
+        "profiles": ["oscillation-integration", "numerical-methods"],
+        "module": "physical_lab_utube_sweep_adapter",
+        "function": "utube_rotation_sweep",
+        "label": "Rotating U-tube 3-D potential model",
+    },
 }
 
 

@@ -8,12 +8,18 @@ on:
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_sweep_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_result_inspector.py'
       - 'scripts/utube_visualization_validation.py'
       - '.github/workflows/utube-visualization-integrity.yml'
   pull_request:
     paths:
       - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_sweep_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_result_inspector.py'
       - 'scripts/utube_visualization_validation.py'
       - '.github/workflows/utube-visualization-integrity.yml'
 
@@ -27,11 +33,12 @@ jobs:
           python-version: '3.12'
       - name: Install scientific dependencies
         run: python -m pip install numpy scipy pandas plotly
-      - name: Compile bundled U-tube visualization code
+      - name: Compile bundled U-tube and contract code
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_result_contracts.py
           python -m py_compile scripts/utube_visualization_validation.py
-      - name: Validate U-tube scientific visualization layer
+      - name: Validate U-tube visualization and Result Inspector integration
         run: python scripts/utube_visualization_validation.py
       - name: Verify UI integration boundaries
         run: |
@@ -39,3 +46,4 @@ jobs:
           grep -q 'Threshold Map' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
           grep -q 'Capacity anatomy' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
           grep -q 'not experimental observations' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
+          grep -q 'engineering-lab-utube-sweep-result/v1' src-tauri/resources/ui/physical_lab_result_contracts.py

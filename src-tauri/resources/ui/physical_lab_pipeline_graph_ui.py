@@ -6,6 +6,7 @@ from typing import Any
 import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
+from physical_lab_ui_semantics import render_context_header, render_status_card
 from physical_lab_model_coupling import list_pipelines
 from physical_lab_pipeline_graph import (
     advance_workflow_run,
@@ -175,6 +176,7 @@ def render_pipeline_graph(st: Any, profile: str) -> None:
 
     st.markdown("#### Pipeline Graph / DAG")
     st.caption("Compose saved coupling pipelines into an acyclic dependency graph. Edges control execution readiness; each node retains its own explicit dataset-to-parameter mapping.")
+    render_context_header(st, project=path.stem, workspace="Pipeline DAG", task="Workflow Graph")
     by_id = {str(p["pipeline_id"]): p for p in pipelines}
     ids = list(by_id)
     selected = st.multiselect(
@@ -251,6 +253,13 @@ def render_pipeline_graph(st: Any, profile: str) -> None:
     run_id=st.selectbox("Workflow run",run_ids,index=idx,key=f"pl_dag_run_pick_{profile}")
     run=advance_workflow_run(path,wf,run_id,auto_start=True)
     st.metric("Workflow status",str(run.get("status") or "—"))
+    render_status_card(
+        st,
+        validation="NOT ESTABLISHED",
+        scientific="NOT ESTABLISHED",
+        provenance="RECORDED",
+        execution=str(run.get("status") or "NOT APPLICABLE"),
+    )
     _render_workflow_graph(st, wf, by_id, run=run, key=f"pl_dag_run_graph_{profile}_{run_id}")
     rows=[]
     for position,node_id in enumerate(wf.get("topological_order") or []):

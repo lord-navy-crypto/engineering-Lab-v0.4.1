@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import physical_lab_project_kernel as projects
+from physical_lab_ui_semantics import render_context_header, render_status_card
 from physical_lab_project_interop import (
     build_reproducibility_pack,
     dataset_csv_bytes,
@@ -31,6 +32,16 @@ def _render_project_home(st: Any, profile: str, project_path: Path) -> None:
     doc = projects.open_project(project_path)
     summary = projects.project_summary(project_path)
     datasets = list_canonical_datasets(project_path)
+
+    project_label = str(summary.get("name") or project_path.stem)
+    render_context_header(st, project=project_label, workspace="Project Home")
+    render_status_card(
+        st,
+        validation="NOT ESTABLISHED",
+        scientific="NOT ESTABLISHED",
+        provenance="UNSPECIFIED",
+        execution="NOT APPLICABLE",
+    )
 
     st.markdown(f"## 🧭 {summary.get('name') or project_path.stem}")
     question = str(summary.get("research_question") or "").strip()

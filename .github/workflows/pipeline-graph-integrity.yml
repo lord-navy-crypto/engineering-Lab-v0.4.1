@@ -34,6 +34,30 @@ jobs:
             scripts/pipeline_graph_validation.py
       - name: Validate deterministic DAG dispatch
         run: python scripts/pipeline_graph_validation.py
+      - name: Verify visual DAG surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='src-tauri/resources/ui/physical_lab_pipeline_graph_ui.py'
+          grep -q 'import plotly.graph_objects as go' "$file"
+          grep -q 'def _render_workflow_graph' "$file"
+          grep -q 'Workflow dependency graph' "$file"
+          grep -q 'Dependency edge' "$file"
+          grep -q 'Node status' "$file"
+          grep -q 'go.Figure' "$file"
+          grep -q 'go.Scatter' "$file"
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('src-tauri/resources/ui/physical_lab_pipeline_graph_ui.py').read_text()
+          start=text.index('def _render_workflow_graph')
+          end=text.find('\ndef ', start + 1)
+          block=text[start:] if end < 0 else text[start:end]
+          forbidden=['start_sweep_job(', 'advance_workflow_run(', 'create_workflow_run(']
+          bad=[token for token in forbidden if token in block]
+          if bad:
+              raise SystemExit('visual DAG renderer must remain read-only: '+', '.join(bad))
+          print('PASS: DAG visualization renderer is read-only')
+          PY
       - name: Verify bundled workflow resources
         run: |
           python - <<'PY'

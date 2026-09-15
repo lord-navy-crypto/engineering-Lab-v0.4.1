@@ -141,6 +141,10 @@ def _validate_integrations() -> None:
     analytics = texts["physical_lab_visual_analytics_ui.py"]
     _require("selection" in analytics.lower(), "Visual Analytics linked-selection behavior unexpectedly missing")
     _require('object_type=' in analytics, "Visual Analytics must explicitly supply a source object type")
+    _require(
+        'source.get("frame") or []' not in analytics,
+        "Visual Analytics must not boolean-test a pandas DataFrame when computing source metadata",
+    )
 
     coupling = texts["physical_lab_model_coupling_ui.py"]
     _require('object_type="DATASET"' in coupling, "Model Coupling must explicitly identify DATASET source")

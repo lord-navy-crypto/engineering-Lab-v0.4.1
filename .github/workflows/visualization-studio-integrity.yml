@@ -42,6 +42,19 @@ jobs:
           python -m py_compile scripts/visualization_studio_validation.py
       - name: Validate generic visualization and DIY scans
         run: python scripts/visualization_studio_validation.py
+      - name: Verify staged Visualization Studio workflow
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'Visualization workflow' "$FILE"
+          grep -q 'Choose Data' "$FILE"
+          grep -q 'Build View' "$FILE"
+          grep -q 'Inspect & Export' "$FILE"
+          grep -q 'Parameter Scan' "$FILE"
+          grep -q 'pl_vizstudio_selected_source_' "$FILE"
+          grep -q 'pl_vizstudio_built_view_' "$FILE"
+          grep -q '_render_plot_inspect_export' "$FILE"
+          grep -q 'Save reproducible View Recipe' "$FILE"
+          grep -q 'Create and start DIY scan' "$FILE"
       - name: Verify UI and bundle integration
         run: |
           grep -q 'Visualization Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py

@@ -68,7 +68,7 @@ SURFACES: tuple[Surface, ...] = (
     _s(
         "utube-studio", "U-Tube Research Studio", "Experiments & Physics",
         "Rotating U-tube model, threshold maps, theory↔experiment comparison, uncertainty, robust design, digital twin and hysteresis.",
-        launch_mode="route", route_hint="Project workspace → U-Tube Research Studio",
+        launch_mode="route", route_hint="Project Workspace → U-Tube Research Studio",
     ),
     _s("utube-physical", "U-Tube Physical Model & Data", "Experiments & Physics",
        "Physical view, threshold map, theory↔experiment comparison and DOE/sweep workflows.",
@@ -81,12 +81,24 @@ SURFACES: tuple[Surface, ...] = (
        "physical_lab_utube_advanced_ui", "render_utube_advanced"),
 
     # Data and measurement.
+    _s("data-bridge", "Canonical Data Bridge", "Data & Measurement",
+       "Promote parsed numeric tables into reusable canonical project datasets and inspect/export them.",
+       launch_mode="route", route_hint="Project Workspace → Project Tools → Data & LabBridge → Data Bridge"),
+    _s("measurement-registry", "Measurement & Calibration Registry", "Data & Measurement",
+       "Project measurement/calibration records and their explicit provenance links.",
+       launch_mode="route", route_hint=".physlab Project / Evidence Center → Measurements & calibration"),
     _s("betterboard-discovery", "BetterBoard Discovery", "Data & Measurement",
        "Discover local BetterBoard measurement packages and connect real-world sensor evidence.",
        "physical_lab_betterboard_discovery_ui", "render_betterboard_discovery"),
+    _s("betterboard-inbox", "BetterBoard Ingress / Inbox", "Data & Measurement",
+       "Select, validate and explicitly ingest BetterBoard measurement packages without silent promotion.",
+       launch_mode="route", route_hint="Project Workspace → Project Tools → Data & LabBridge → BetterBoard Discovery"),
     _s("labbridge", "LabBridge & Lab Journey", "Data & Measurement",
        "Promote measurements, preserve provenance and maintain the project lab journey.",
        "physical_lab_labbridge_ui", "render_labbridge"),
+    _s("research-notebook", "Experiment Notebook & Annotations", "Data & Measurement",
+       "Write project notebook entries, annotate evidence and browse preserved research records.",
+       launch_mode="route", route_hint="Project Workspace → Project Tools → Data & LabBridge → LabBridge / Journey → Experiment Notebook"),
     _s("result-inspector", "Result Inspector", "Data & Measurement",
        "Inspect results, contracts, materialized datasets and execution environments.",
        "physical_lab_result_inspector_ui", "render_result_inspector"),
@@ -156,13 +168,34 @@ SURFACES: tuple[Surface, ...] = (
        "Traceable shall-statements, verification methods, evidence freshness and human review rationale.",
        "physical_lab_requirements_verification_ui", "render_requirements_verification_tab", argument_mode="st_project_profile_refs"),
 
-    # Reproducibility / evidence.
+    # Reproducibility / evidence / advisory layers.
     _s("evidence-center", "Evidence Center", "Reproducibility & AI",
        "Credibility passport, claims, cross-checks, evidence graph, snapshots and evidence diffs.",
        "physical_lab_evidence_center_ui", "render_evidence_center", argument_mode="st_project_profile"),
+    _s("reproducibility-pack", "Reproducibility Pack", "Reproducibility & AI",
+       "Package project metadata, datasets, analysis artifacts, environments, provenance and reports into a portable ZIP.",
+       launch_mode="route", route_hint="Project Workspace → Project Tools → Reproducibility"),
+    _s("local-ai", "Local AI Physics Tutor", "Reproducibility & AI",
+       "Read-only local OpenPenguin/Ollama explanation layer; it cannot change parameters, execute model-provided code or replace solvers.",
+       "physical_lab_local_ai", "render_local_ai_assistant", launch_mode="profile",
+       profiles=("numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo", "nonlinear-chaos", "oscillation-integration", "radia-magnet-studio", "radiation-platform"),
+       route_hint="Native Lab → Local AI Physics Tutor · OpenPenguin / Ollama"),
+    _s("run-vault", "Run Vault", "Reproducibility & AI",
+       "Persistent experiment snapshots for reproducibility, restoration, comparison, notes and bug reports.",
+       "physical_lab_advanced", "_render_run_vault", launch_mode="profile",
+       profiles=("numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo", "nonlinear-chaos", "oscillation-integration", "radia-magnet-studio", "radiation-platform"),
+       route_hint="Native Lab → Run Vault"),
+    _s("openguin-advisory", "OpenPenguin Advisory Bridge", "Reproducibility & AI",
+       "Review/import advisory records while preserving the boundary that suggestions do not execute measurements, solvers or parameter changes.",
+       launch_mode="route", route_hint="Project Workspace → Project Tools → Data & LabBridge → LabBridge / Journey → OpenPenguin advisory"),
 
     # Profile-scoped science/model families: centrally discoverable, but not falsely
     # launched without the profile/namespace state their existing integrations require.
+    _s("engineering-vvuq", "Engineering V&V / UQ Suite", "Engineering Decisions & Reliability",
+       "Profile-native engineering verification, validation and uncertainty surfaces hosting deeper science/model workspaces.",
+       "physical_lab_engineering", "render_engineering_vvuq", launch_mode="profile",
+       profiles=("numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo", "nonlinear-chaos", "oscillation-integration", "radia-magnet-studio", "radiation-platform"),
+       route_hint="Native Lab → Engineering V&V/UQ"),
     _s("kerr-geodesics", "Kerr Geodesic Dynamics", "Experiments & Physics",
        "Kerr geodesic dynamics workspace.", "physical_lab_kerr_ui", "render_kerr_geodesic_workspace",
        launch_mode="profile", profiles=("nonlinear-chaos",), route_hint="Nonlinear Chaos → Engineering V&V/UQ"),
@@ -205,6 +238,18 @@ SURFACES: tuple[Surface, ...] = (
     _s("radiation-seed-compare", "Nominal vs Seed Radiation", "Experiments & Physics",
        "Nominal-versus-seed radiation comparison requiring native RADIA state.", "physical_lab_radiation_seed_compare_ui", "render_seed_radiation_comparison",
        launch_mode="profile", profiles=("radia-magnet-studio",), route_hint="RADIA Magnet Studio → Engineering V&V/UQ"),
+    _s("radia-forward", "RADIA Measurement Adapter", "Modeling & Simulation",
+       "Use the current Magnet Studio configuration as the real RADIA forward model against measurement coordinates.",
+       "physical_lab_radia_adapter", "render_radia_forward_workspace", launch_mode="profile",
+       profiles=("radia-magnet-studio",), route_hint="RADIA Magnet Studio → Full mode → RADIA Measurement Adapter"),
+    _s("radia-tolerance", "RADIA Nonlinear Tolerance Workspace", "Engineering Decisions & Reliability",
+       "Profile-native nonlinear RADIA tolerance analysis using the current Magnet Studio namespace.",
+       "physical_lab_radia_tolerance", "render_radia_tolerance_workspace", launch_mode="profile",
+       profiles=("radia-magnet-studio",), route_hint="RADIA Magnet Studio → nonlinear RADIA tolerance workspace"),
+    _s("radia-radiation-propagation", "RADIA → Radiation Tolerance Propagation", "Engineering Decisions & Reliability",
+       "Propagate RADIA tolerance cases into radiation behavior without replacing native model provenance.",
+       "physical_lab_radia_radiation_propagation", "render_radia_radiation_propagation", launch_mode="profile",
+       profiles=("radia-magnet-studio",), route_hint="RADIA Magnet Studio → RADIA → Radiation tolerance propagation"),
 )
 
 
@@ -226,10 +271,10 @@ EMBEDDED_UI_MODULES = frozenset({
 })
 
 PROFILE_UI_MODULES = frozenset(
-    row.module for row in SURFACES if row.launch_mode == "profile" and row.module
+    row.module for row in SURFACES if row.launch_mode == "profile" and row.module and row.module.endswith("_ui")
 )
 DIRECT_UI_MODULES = frozenset(
-    row.module for row in SURFACES if row.launch_mode == "direct" and row.module
+    row.module for row in SURFACES if row.launch_mode == "direct" and row.module and row.module.endswith("_ui")
 )
 CLASSIFIED_UI_MODULES = frozenset(DIRECT_UI_MODULES | PROFILE_UI_MODULES | EMBEDDED_UI_MODULES)
 

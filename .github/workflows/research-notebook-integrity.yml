@@ -30,6 +30,17 @@ jobs:
             scripts/research_notebook_validation.py
       - name: Validate notebook and annotation semantics
         run: python scripts/research_notebook_validation.py
+      - name: Verify staged notebook and journey workflows
+        run: |
+          grep -q 'Notebook task' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'pl_notebook_task_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Write Entry' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Annotate Evidence' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Browse Records' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Journey task' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'pl_journey_task_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Append Event' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Inspect Event' src-tauri/resources/ui/physical_lab_labbridge_ui.py
       - name: Verify bundled notebook resource
         run: |
           python - <<'PY'

@@ -62,6 +62,19 @@ def main() -> int:
     selection = {"selection": {"points": [{"point_index": 2}, {"pointNumber": 0}, {"point_index": 2}, {"point_index": 99}]}}
     require(va.selection_indices(selection, 3) == [2, 0], "selection decoder did not deduplicate/bound indices")
 
+    # Multi-trace Plotly point indices are local to each trace. Explicit customdata
+    # carries the stable global row position for linked views and must take priority.
+    linked_selection = {
+        "selection": {
+            "points": [
+                {"point_index": 0, "customdata": [3]},
+                {"point_index": 1, "customdata": 4},
+                {"point_index": 0, "customdata": [3]},
+            ]
+        }
+    }
+    require(va.selection_indices(linked_selection, 5) == [3, 4], "selection decoder ignored global customdata row identity")
+
     panels = [
         {"kind": "uncertainty-plot", "source": {"id": "dataset:a"}, "x": "t", "y": "signal", "error_mode": "Symmetric field", "symmetric": "signal_sigma"},
         {"kind": "multi-source-overlay", "sources": [{"id": "dataset:a"}, {"id": "dataset:b"}], "x": "x", "y": "y"},

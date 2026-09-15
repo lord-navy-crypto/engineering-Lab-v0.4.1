@@ -33,6 +33,17 @@ jobs:
             scripts/result_inspector_validation.py
       - name: Validate inspection sanity and materialization provenance
         run: python scripts/result_inspector_validation.py
+      - name: Verify staged result workflow UI
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_result_inspector_ui.py
+          grep -q 'RESULT_WORKSPACES' "$FILE"
+          grep -q 'Inspect Result' "$FILE"
+          grep -q 'Materialize Dataset' "$FILE"
+          grep -q 'Environment' "$FILE"
+          grep -q 'Result workflow' "$FILE"
+          grep -q '_build_inspection' "$FILE"
+          grep -q 'st.container(border=True)' "$FILE"
+          grep -q 'Materialization provenance' "$FILE"
       - name: Verify bundled result inspector resources
         run: |
           python - <<'PY'

@@ -16,6 +16,9 @@ from physical_lab_result_inspector import (
 )
 
 
+RESULT_WORKSPACES = ["Inspect Result", "Materialize Dataset", "Environment"]
+
+
 def _source_selector(st: Any, project_path: Path, profile: str):
     doc = projects.open_project(project_path)
     project_results = dict(doc.get("results") or {})
@@ -53,13 +56,20 @@ def _source_selector(st: Any, project_path: Path, profile: str):
     return payload, identity
 
 
-def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], profile: str) -> tuple[dict[str,Any],dict[str,Any]]:
+def _build_inspection(result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     inspection = inspect_result(result)
     contract = annotate_inventory(result.get("schema"), inspection["inventory"])
     conformance = validate_contract_inventory(result.get("schema"), inspection["inventory"])
     inspection = {**inspection, "inventory": contract["inventory"], "contract": contract, "contract_conformance": conformance}
     sanity = numerical_sanity_report(result)
     explicit_uncertainty = find_uncertainty_objects(result)
+    return inspection, sanity, explicit_uncertainty
+
+
+def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], profile: str, prepared: tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] | None = None) -> tuple[dict[str,Any],dict[str,Any]]:
+    inspection, sanity, explicit_uncertainty = prepared or _build_inspection(result)
+    contract = inspection["contract"]
+    conformance = inspection["contract_conformance"]
 
     a,b,c,d,e = st.columns(5)
     a.metric("Result schema", str(result.get("schema") or "untyped"))
@@ -76,17 +86,18 @@ def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], 
     else:
         st.success("No configured numerical/structural sanity inconsistency was detected.")
     if sanity["checks"]:
-        st.dataframe(sanity["checks"], hide_index=True, width="stretch")
+        with st.expander("Numerical sanity checks", expanded=(sanity["status"] != "PASS")):
+            st.dataframe(sanity["checks"], hide_index=True, width="stretch")
 
-    st.markdown("#### Result schema contract")
-    if contract["registered"]:
-        st.success(f"Registered contract · matched {contract['matched_fields']} explicit field definition(s).")
-        if conformance["issues"]:
-            st.dataframe(conformance["issues"], hide_index=True, width="stretch")
-        with st.expander("Contract metadata", expanded=False):
-            st.json(contract["contract"])
-    else:
-        st.info("This result schema is not registered. Structural inspection remains available, but quantity/unit/shape metadata will not be guessed.")
+    with st.expander("Result schema contract", expanded=(conformance["status"] != "PASS")):
+        if contract["registered"]:
+            st.success(f"Registered contract · matched {contract['matched_fields']} explicit field definition(s).")
+            if conformance["issues"]:
+                st.dataframe(conformance["issues"], hide_index=True, width="stretch")
+            with st.expander("Contract metadata", expanded=False):
+                st.json(contract["contract"])
+        else:
+            st.info("This result schema is not registered. Structural inspection remains available, but quantity/unit/shape metadata will not be guessed.")
 
     st.markdown("#### Unified field inventory")
     all_roles = sorted({str(r.get("role") or "unclassified") for r in inspection["inventory"]})
@@ -95,23 +106,23 @@ def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], 
     rows = [r for r in inspection["inventory"] if r.get("role") in role_filter]
     st.dataframe(rows[:500], hide_index=True, width="stretch")
 
-    st.markdown("#### Explicit uncertainty objects")
-    if explicit_uncertainty:
-        st.dataframe([
-            {
-                "path": row["path"],
-                "valid": row["validation"]["valid"],
-                "estimate": row["value"].get("estimate"),
-                "standard_uncertainty": row["value"].get("standard_uncertainty"),
-                "coverage_factor": row["value"].get("coverage_factor"),
-                "coverage_probability": row["value"].get("coverage_probability"),
-                "method": row["value"].get("method"),
-                "unit": row["value"].get("unit"),
-            }
-            for row in explicit_uncertainty
-        ], hide_index=True, width="stretch")
-    else:
-        st.caption("No explicit Physical Lab uncertainty object is embedded in this result. Error/residual fields are not treated as uncertainty by default.")
+    with st.expander("Explicit uncertainty objects", expanded=False):
+        if explicit_uncertainty:
+            st.dataframe([
+                {
+                    "path": row["path"],
+                    "valid": row["validation"]["valid"],
+                    "estimate": row["value"].get("estimate"),
+                    "standard_uncertainty": row["value"].get("standard_uncertainty"),
+                    "coverage_factor": row["value"].get("coverage_factor"),
+                    "coverage_probability": row["value"].get("coverage_probability"),
+                    "method": row["value"].get("method"),
+                    "unit": row["value"].get("unit"),
+                }
+                for row in explicit_uncertainty
+            ], hide_index=True, width="stretch")
+        else:
+            st.caption("No explicit Physical Lab uncertainty object is embedded in this result. Error/residual fields are not treated as uncertainty by default.")
 
     with st.expander("Source identity / provenance seed", expanded=False):
         st.json(identity)
@@ -129,16 +140,17 @@ def _render_materializer(st: Any, project_path: Path, result: dict[str,Any], ide
     for i,path in enumerate(selected):
         info=lookup[path]; kind=str(info.get("kind"))
         reducers=["series","mean","min","max","first","last","index"] if kind=="vector" else (["mean","min","max","first","last","index"] if kind=="matrix" else ["series","mean","first","last"])
-        c1,c2,c3,c4=st.columns([2.2,1.2,1.5,1.0])
-        c1.caption(path)
-        reducer=c2.selectbox("Reducer",reducers,key=f"pl_result_reduce_{profile}_{i}")
-        default_name=path.split(".")[-1].replace(" ","_")
-        column=c3.text_input("Dataset column",value=default_name,key=f"pl_result_col_{profile}_{i}")
-        contract_unit=str(info.get("unit") or "")
-        unit=c4.text_input("Unit",value=contract_unit,key=f"pl_result_unit_{profile}_{i}")
-        index=0
-        if reducer=="index": index=int(st.number_input("Index",value=0,step=1,key=f"pl_result_index_{profile}_{i}"))
-        rules.append({"path":path,"reducer":reducer,"column_name":column,"unit":unit,"index":index})
+        with st.container(border=True):
+            st.caption(path)
+            c1,c2,c3=st.columns([1.0,1.5,1.0])
+            reducer=c1.selectbox("Reducer",reducers,key=f"pl_result_reduce_{profile}_{i}")
+            default_name=path.split(".")[-1].replace(" ","_")
+            column=c2.text_input("Dataset column",value=default_name,key=f"pl_result_col_{profile}_{i}")
+            contract_unit=str(info.get("unit") or "")
+            unit=c3.text_input("Unit",value=contract_unit,key=f"pl_result_unit_{profile}_{i}")
+            index=0
+            if reducer=="index": index=int(st.number_input("Index",value=0,step=1,key=f"pl_result_index_{profile}_{i}"))
+            rules.append({"path":path,"reducer":reducer,"column_name":column,"unit":unit,"index":index})
     c1,c2=st.columns(2)
     name=c1.text_input("Materialized dataset name",value=f"{profile}-result",key=f"pl_result_materialize_name_{profile}")
     notes=c2.text_input("Materialization notes",value="",key=f"pl_result_materialize_notes_{profile}")
@@ -149,11 +161,11 @@ def _render_materializer(st: Any, project_path: Path, result: dict[str,Any], ide
 
     mats=list_materializations(project_path)
     if mats:
-        st.markdown("#### Materialization provenance")
-        st.dataframe([
-            {"id":m.get("materialization_id"),"source":(m.get("source_entity") or {}).get("id"),"dataset":(m.get("generated_entity") or {}).get("id"),"rules":len((m.get("activity") or {}).get("rules") or []),"sha256":str(m.get("sha256") or "")[:16]}
-            for m in mats[:100]
-        ],hide_index=True,width="stretch")
+        with st.expander("Materialization provenance", expanded=False):
+            st.dataframe([
+                {"id":m.get("materialization_id"),"source":(m.get("source_entity") or {}).get("id"),"dataset":(m.get("generated_entity") or {}).get("id"),"rules":len((m.get("activity") or {}).get("rules") or []),"sha256":str(m.get("sha256") or "")[:16]}
+                for m in mats[:100]
+            ],hide_index=True,width="stretch")
 
 
 def _render_environment(st: Any, project_path: Path, profile: str) -> None:
@@ -183,9 +195,34 @@ def render_result_inspector(st: Any, profile: str) -> None:
         st.info("Open a Physical Lab project to inspect and materialize persisted results.")
         return
     project_path=Path(active)
+    st.markdown("### Result Inspector")
+    st.caption("Inspect a result first, materialize selected fields only when needed, or capture the software environment separately.")
+    workspace = st.radio(
+        "Result workflow",
+        RESULT_WORKSPACES,
+        horizontal=True,
+        key=f"pl_result_workspace_{profile}",
+    )
+
+    if workspace == "Environment":
+        _render_environment(st,project_path,profile)
+        return
+
     selected=_source_selector(st,project_path,profile)
-    if selected:
-        result,identity=selected
-        inspection,_sanity=_render_inspection(st,result,identity,profile)
-        _render_materializer(st,project_path,result,identity,inspection,profile)
-    _render_environment(st,project_path,profile)
+    if not selected:
+        return
+    result,identity=selected
+    prepared = _build_inspection(result)
+    inspection, sanity, _uncertainty = prepared
+
+    a,b,c = st.columns(3)
+    a.metric("Selected schema", str(result.get("schema") or "untyped"))
+    b.metric("Fields", inspection["field_count"])
+    c.metric("Sanity", sanity["status"])
+
+    if workspace == "Inspect Result":
+        _render_inspection(st,result,identity,profile,prepared=prepared)
+        return
+
+    st.info("Materialization creates a new derived dataset and provenance record; it does not modify the source result.")
+    _render_materializer(st,project_path,result,identity,inspection,profile)

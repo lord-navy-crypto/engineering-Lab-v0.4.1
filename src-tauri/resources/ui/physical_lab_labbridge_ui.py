@@ -250,12 +250,19 @@ def render_labbridge(st: Any, profile: str) -> None:
     if not (project_path / "project.json").exists():
         return
 
-    ingest, notebook, journey, ai = st.tabs(["BetterBoard Ingress", "Experiment Notebook", "Lab Journey", "OpenPenguin Bridge"])
-    with ingest:
+    st.markdown("### LabBridge & Research Record")
+    st.caption("Choose one task at a time. BetterBoard import, notebook editing, timeline verification and OpenPenguin advisory tools are independent workspaces and only the selected workspace is rendered.")
+    workspace = st.radio(
+        "LabBridge workspace",
+        ["BetterBoard Ingress", "Experiment Notebook", "Lab Journey", "OpenPenguin Bridge"],
+        horizontal=True,
+        key=f"pl_labbridge_workspace_{profile}",
+    )
+    if workspace == "BetterBoard Ingress":
         _render_ingest(st, project_path, profile)
-    with notebook:
+    elif workspace == "Experiment Notebook":
         _render_notebook(st, project_path, profile)
-    with journey:
+    elif workspace == "Lab Journey":
         _render_journey(st, project_path, profile)
-    with ai:
+    else:
         _render_openguin(st, project_path, profile)

@@ -54,6 +54,19 @@ jobs:
         run: python scripts/openguin_science_protocol_validation.py
       - name: Validate OpenPenguin analysis-plan provenance
         run: python scripts/openguin_analysis_plan_store_validation.py
+      - name: Verify staged LabBridge workspace
+        run: |
+          grep -q 'LabBridge & Research Record' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'LabBridge workspace' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'pl_labbridge_workspace_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'BetterBoard Ingress' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Experiment Notebook' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Lab Journey' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'OpenPenguin Bridge' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          if grep -q 'st.tabs' src-tauri/resources/ui/physical_lab_labbridge_ui.py; then
+            echo 'LabBridge must not render all complex workspaces through st.tabs'
+            exit 1
+          fi
       - name: Verify bundled LabBridge and science-protocol resources
         run: |
           python - <<'PY'

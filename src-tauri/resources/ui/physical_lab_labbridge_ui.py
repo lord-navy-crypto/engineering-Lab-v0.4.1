@@ -66,11 +66,9 @@ def _render_ingest(st: Any, project_path: Path, profile: str) -> None:
         st.error("; ".join(check["errors"]))
     if check["warnings"]:
         st.warning("; ".join(check["warnings"]))
-
     with st.expander("MeasurementAsset details", expanded=False):
         st.json(packet)
         st.caption(check["boundary"])
-
     notes = st.text_input("Import notes", value="", key=f"pl_labbridge_import_notes_{profile}")
     if st.button("Validate & ingest into Engineering Lab", type="primary", disabled=not (check["valid"] and data_bytes), key=f"pl_labbridge_ingest_{profile}"):
         out = ingest_measurement_asset(project_path, packet=packet, dataset_bytes=data_bytes, profile=profile or "measurement-bridge", notes=notes)
@@ -83,7 +81,14 @@ def _render_notebook(st: Any, project_path: Path, profile: str) -> None:
     st.caption(
         "Notebook entries are structured project artifacts, not loose chat text. Hypotheses, observations, interpretations, methods, limitations and decisions can cite fixed dataset/result/run/event IDs; each entry has its own SHA and is mirrored into Lab Journey."
     )
-    with st.expander("Write notebook entry", expanded=True):
+    task = st.radio(
+        "Notebook task",
+        ["Write Entry", "Annotate Evidence", "Browse Records"],
+        horizontal=True,
+        key=f"pl_notebook_task_{profile}",
+    )
+
+    if task == "Write Entry":
         kind = st.selectbox("Entry kind", ["hypothesis", "observation", "interpretation", "method", "limitation", "decision"], key=f"pl_note_kind_{profile}")
         title = st.text_input("Notebook title", key=f"pl_note_title_{profile}")
         text = st.text_area("Notebook text", height=150, key=f"pl_note_text_{profile}")
@@ -93,38 +98,47 @@ def _render_notebook(st: Any, project_path: Path, profile: str) -> None:
             out = add_notebook_entry(project_path, kind=kind, title=title, text=text, evidence_refs=_split_refs(refs), tags=_split_refs(tags))
             st.success(f"Saved {out['entry']['entry_id']} · Journey {out['journey_event']['event_id']}")
             st.rerun()
+        return
 
-    st.markdown("##### Evidence annotation")
-    c1, c2 = st.columns(2)
-    target_type = c1.selectbox("Target type", ["dataset", "result", "run", "experiment", "plot", "journey-event", "measurement", "workflow", "freeform"], key=f"pl_ann_target_type_{profile}")
-    target_id = c2.text_input("Target evidence ID", key=f"pl_ann_target_id_{profile}")
-    label = st.text_input("Annotation label", key=f"pl_ann_label_{profile}")
-    note = st.text_area("Annotation note", height=100, key=f"pl_ann_note_{profile}")
-    loc1, loc2 = st.columns(2)
-    locator_key = loc1.text_input("Optional locator key", value="", help="Examples: x, time_s, frequency_hz, row, region", key=f"pl_ann_locator_key_{profile}")
-    locator_value = loc2.text_input("Optional locator value", value="", key=f"pl_ann_locator_value_{profile}")
-    ann_tags = st.text_input("Annotation tags", value="", key=f"pl_ann_tags_{profile}")
-    locator = {locator_key.strip(): locator_value.strip()} if locator_key.strip() else {}
-    if st.button("Attach annotation", disabled=not (target_id.strip() and label.strip() and note.strip()), key=f"pl_ann_save_{profile}"):
-        out = add_annotation(project_path, target_type=target_type, target_id=target_id, label=label, note=note, locator=locator, tags=_split_refs(ann_tags))
-        st.success(f"Saved {out['annotation']['annotation_id']} · Journey {out['journey_event']['event_id']}")
-        st.rerun()
+    if task == "Annotate Evidence":
+        c1, c2 = st.columns(2)
+        target_type = c1.selectbox("Target type", ["dataset", "result", "run", "experiment", "plot", "journey-event", "measurement", "workflow", "freeform"], key=f"pl_ann_target_type_{profile}")
+        target_id = c2.text_input("Target evidence ID", key=f"pl_ann_target_id_{profile}")
+        label = st.text_input("Annotation label", key=f"pl_ann_label_{profile}")
+        note = st.text_area("Annotation note", height=100, key=f"pl_ann_note_{profile}")
+        loc1, loc2 = st.columns(2)
+        locator_key = loc1.text_input("Optional locator key", value="", help="Examples: x, time_s, frequency_hz, row, region", key=f"pl_ann_locator_key_{profile}")
+        locator_value = loc2.text_input("Optional locator value", value="", key=f"pl_ann_locator_value_{profile}")
+        ann_tags = st.text_input("Annotation tags", value="", key=f"pl_ann_tags_{profile}")
+        locator = {locator_key.strip(): locator_value.strip()} if locator_key.strip() else {}
+        if st.button("Attach annotation", disabled=not (target_id.strip() and label.strip() and note.strip()), key=f"pl_ann_save_{profile}"):
+            out = add_annotation(project_path, target_type=target_type, target_id=target_id, label=label, note=note, locator=locator, tags=_split_refs(ann_tags))
+            st.success(f"Saved {out['annotation']['annotation_id']} · Journey {out['journey_event']['event_id']}")
+            st.rerun()
+        return
 
     entries = list_notebook_entries(project_path)
     annotations = list_annotations(project_path)
     e1, e2 = st.columns(2)
     e1.metric("Notebook entries", len(entries))
     e2.metric("Annotations", len(annotations))
-    if entries:
-        st.dataframe([
-            {"time": r.get("created_at"), "kind": r.get("kind"), "title": r.get("title"), "evidence": ", ".join(r.get("evidence_refs") or []), "sha256": str(r.get("sha256") or "")[:16], "integrity": "PASS" if verify_record(r)["valid"] else "FAIL"}
-            for r in entries[:200]
-        ], hide_index=True, width="stretch")
-    if annotations:
-        st.dataframe([
-            {"time": r.get("created_at"), "target": f"{(r.get('target') or {}).get('type')}:{(r.get('target') or {}).get('id')}", "label": r.get("label"), "locator": r.get("locator"), "sha256": str(r.get("sha256") or "")[:16], "integrity": "PASS" if verify_record(r)["valid"] else "FAIL"}
-            for r in annotations[:200]
-        ], hide_index=True, width="stretch")
+    record_type = st.radio("Record type", ["Notebook entries", "Annotations"], horizontal=True, key=f"pl_notebook_browse_kind_{profile}")
+    if record_type == "Notebook entries":
+        if entries:
+            st.dataframe([
+                {"time": r.get("created_at"), "kind": r.get("kind"), "title": r.get("title"), "evidence": ", ".join(r.get("evidence_refs") or []), "sha256": str(r.get("sha256") or "")[:16], "integrity": "PASS" if verify_record(r)["valid"] else "FAIL"}
+                for r in entries[:200]
+            ], hide_index=True, width="stretch")
+        else:
+            st.caption("No notebook entries yet.")
+    else:
+        if annotations:
+            st.dataframe([
+                {"time": r.get("created_at"), "target": f"{(r.get('target') or {}).get('type')}:{(r.get('target') or {}).get('id')}", "label": r.get("label"), "locator": r.get("locator"), "sha256": str(r.get("sha256") or "")[:16], "integrity": "PASS" if verify_record(r)["valid"] else "FAIL"}
+                for r in annotations[:200]
+            ], hide_index=True, width="stretch")
+        else:
+            st.caption("No evidence annotations yet.")
 
 
 def _render_journey(st: Any, project_path: Path, profile: str) -> None:
@@ -139,26 +153,39 @@ def _render_journey(st: Any, project_path: Path, profile: str) -> None:
         st.dataframe(check["issues"], hide_index=True, width="stretch")
     st.caption(check["boundary"])
 
-    with st.expander("Append lightweight timeline event", expanded=False):
+    task = st.radio(
+        "Journey task",
+        ["Timeline", "Append Event", "Inspect Event"],
+        horizontal=True,
+        key=f"pl_journey_task_{profile}",
+    )
+    events = list_events(project_path, limit=300)
+
+    if task == "Append Event":
         event_type = st.selectbox("Event type", ["observation", "hypothesis", "annotation", "decision"], key=f"pl_journey_type_{profile}")
         title = st.text_input("Title", key=f"pl_journey_title_{profile}")
         body = st.text_area("Research note", height=120, key=f"pl_journey_body_{profile}")
         refs = st.text_input("Evidence refs (comma-separated dataset/result/run/event IDs)", key=f"pl_journey_refs_{profile}")
-        if st.button("Append timeline event", disabled=not title.strip(), key=f"pl_journey_append_{profile}"):
+        if st.button("Append timeline event", type="primary", disabled=not title.strip(), key=f"pl_journey_append_{profile}"):
             event = append_event(project_path, event_type=event_type, source_role="human", title=title, body=body, evidence_refs=_split_refs(refs), payload={"active_profile": profile})
             st.success(f"Appended {event['event_id']}")
             st.rerun()
+        return
 
-    events = list_events(project_path, limit=300)
-    if events:
+    if not events:
+        st.caption("No Lab Journey events yet.")
+        return
+
+    ordered = list(reversed(events))
+    if task == "Timeline":
         st.dataframe([
             {"seq": e.get("sequence"), "time": e.get("created_at"), "source": e.get("source_role"), "type": e.get("event_type"), "title": e.get("title"), "evidence": ", ".join(e.get("evidence_refs") or []), "sha256": str(e.get("event_sha256") or "")[:16]}
-            for e in reversed(events)
+            for e in ordered
         ], hide_index=True, width="stretch")
-        chosen = st.selectbox("Inspect journey event", [e["event_id"] for e in reversed(events)], key=f"pl_journey_pick_{profile}")
-        st.json(next(e for e in events if e["event_id"] == chosen))
-    else:
-        st.caption("No Lab Journey events yet.")
+        return
+
+    chosen = st.selectbox("Inspect journey event", [e["event_id"] for e in ordered], key=f"pl_journey_pick_{profile}")
+    st.json(next(e for e in events if e["event_id"] == chosen))
 
 
 def _render_openguin(st: Any, project_path: Path, profile: str) -> None:

@@ -34,3 +34,14 @@ jobs:
           grep -q 'pl_project_select_' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'Create new project' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'U-Tube Research Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+      - name: Verify task-group project navigation
+        run: |
+          grep -q 'What do you want to do?' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Data & LabBridge' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Visualize & Analyze' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Model & Workflow' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Reproducibility' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'expanded=True' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q '_render_data_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q '_render_analysis_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q '_render_model_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py

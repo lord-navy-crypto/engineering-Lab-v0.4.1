@@ -48,15 +48,22 @@ jobs:
           grep -q 'render_utube_uncertainty(st, profile)' "$FILE"
           grep -q 'render_utube_advanced(st, profile)' "$FILE"
           grep -q 'mime="application/zip"' "$FILE"
-      - name: Verify U-Tube is not duplicated inside Applied Math
+      - name: Verify U-Tube renderers are not duplicated
         run: |
           python - <<'PY'
           from pathlib import Path
           text = Path('src-tauri/resources/ui/physical_lab_project_interop_ui.py').read_text()
-          applied = text.split('with tab_applied:', 1)[1].split('with tab_tradeoff:', 1)[0]
-          forbidden = ['physical_lab_utube_experiment_ui', 'physical_lab_utube_uncertainty_ui', 'physical_lab_utube_advanced_ui']
-          found = [name for name in forbidden if name in applied]
-          if found:
-              raise SystemExit(f'U-Tube renderers still duplicated in Applied Math: {found}')
+          names = [
+              'physical_lab_utube_experiment_ui',
+              'physical_lab_utube_uncertainty_ui',
+              'physical_lab_utube_advanced_ui',
+          ]
+          duplicated = {name: text.count(name) for name in names if text.count(name) != 1}
+          if duplicated:
+              raise SystemExit(f'U-Tube renderer routing count is not exactly one: {duplicated}')
+          studio = text.split('def _render_utube_research_studio', 1)[1].split('def _render_data_bridge', 1)[0]
+          missing = [name for name in names if name not in studio]
+          if missing:
+              raise SystemExit(f'U-Tube renderers are outside the visible project-level studio: {missing}')
           print('PASS: U-Tube renderers are routed only through the visible project-level studio')
           PY

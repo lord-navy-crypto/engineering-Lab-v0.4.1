@@ -34,14 +34,27 @@ jobs:
           grep -q 'pl_project_select_' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'Create new project' src-tauri/resources/ui/physical_lab_project_interop_ui.py
           grep -q 'U-Tube Research Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+      - name: Verify project home and top-level navigation
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'PROJECT_SURFACES' "$FILE"
+          grep -q 'Project Home' "$FILE"
+          grep -q 'Project workspace' "$FILE"
+          grep -q '_render_project_home' "$FILE"
+          grep -q 'Open U-Tube Studio' "$FILE"
+          grep -q 'Open Project Tools' "$FILE"
+          grep -q 'Open Reproducibility' "$FILE"
+          grep -q 'Datasets' "$FILE"
+          grep -q 'Counts describe indexed project records; they do not imply scientific validation.' "$FILE"
       - name: Verify task-group project navigation
         run: |
-          grep -q 'What do you want to do?' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q 'Data & LabBridge' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q 'Visualize & Analyze' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q 'Model & Workflow' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q 'Reproducibility' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q 'expanded=True' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q '_render_data_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q '_render_analysis_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py
-          grep -q '_render_model_group' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          FILE=src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'What do you want to do?' "$FILE"
+          grep -q 'Data & LabBridge' "$FILE"
+          grep -q 'Visualize & Analyze' "$FILE"
+          grep -q 'Model & Workflow' "$FILE"
+          grep -q 'Reproducibility' "$FILE"
+          grep -q '_render_data_group' "$FILE"
+          grep -q '_render_analysis_group' "$FILE"
+          grep -q '_render_model_group' "$FILE"
+          grep -q '_render_project_tools' "$FILE"

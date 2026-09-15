@@ -117,65 +117,76 @@ def _render_semantics(st: Any, project_path: Path, source: dict[str, Any], profi
     frame = source["frame"]
     numeric = numeric_columns(frame)
     result = _raw_result(project_path, source)
-    t1, t2 = st.tabs(["Units & contracts", "Native UQ"])
-    with t1:
+    view = st.radio(
+        "Semantics view",
+        ["Units & contracts", "Native UQ"],
+        horizontal=True,
+        key=f"pl_science_semantics_view_{profile}",
+    )
+    if view == "Units & contracts":
         if result is None:
             units = {field: _source_unit(project_path, source, field) for field in numeric}
             st.dataframe([{"field": c, "unit": units.get(c) or "unspecified"} for c in numeric], hide_index=True, width="stretch")
             st.caption("Units are shown only when explicitly stored; names are never used to guess physical dimensions.")
+            return
+        rows = []
+        for field in numeric:
+            clean = field[2:] if field.startswith("$.") else field
+            rows.append({"frame_field": field, **field_metadata(result, clean)})
+        st.dataframe(rows, hide_index=True, width="stretch")
+        registered = [r for r in rows if r.get("registered") and r.get("unit") and r.get("frame_field") in frame.columns]
+        if registered:
+            selected = st.selectbox("Field for unit conversion preview", [r["frame_field"] for r in registered], key=f"pl_science_sem_field_{profile}")
+            row = next(r for r in registered if r["frame_field"] == selected)
+            original = str(row.get("unit") or "")
+            targets = convertible_units(original) or [original]
+            target = st.selectbox("Display unit", targets, key=f"pl_science_sem_target_{profile}")
+            values = convert_series(frame[selected].tolist(), original, target)
+            preview = pd.DataFrame({"row": range(len(values)), axis_label(selected, target): values})
+            st.line_chart(preview.set_index("row"), height=320)
+            st.caption(f"Display conversion only: {original} → {target}. Stored evidence is unchanged.")
+        elif not contract_field_metadata(result):
+            st.warning("This result schema has no registered contract; units and scientific quantities are not inferred.")
         else:
-            rows = []
-            for field in numeric:
-                clean = field[2:] if field.startswith("$.") else field
-                rows.append({"frame_field": field, **field_metadata(result, clean)})
-            st.dataframe(rows, hide_index=True, width="stretch")
-            registered = [r for r in rows if r.get("registered") and r.get("unit") and r.get("frame_field") in frame.columns]
-            if registered:
-                selected = st.selectbox("Field for unit conversion preview", [r["frame_field"] for r in registered], key=f"pl_science_sem_field_{profile}")
-                row = next(r for r in registered if r["frame_field"] == selected)
-                original = str(row.get("unit") or "")
-                targets = convertible_units(original) or [original]
-                target = st.selectbox("Display unit", targets, key=f"pl_science_sem_target_{profile}")
-                values = convert_series(frame[selected].tolist(), original, target)
-                preview = pd.DataFrame({"row": range(len(values)), axis_label(selected, target): values})
-                st.line_chart(preview.set_index("row"), height=320)
-                st.caption(f"Display conversion only: {original} → {target}. Stored evidence is unchanged.")
-            elif not contract_field_metadata(result):
-                st.warning("This result schema has no registered contract; units and scientific quantities are not inferred.")
-            else:
-                st.caption("The current plotted fields have no explicit convertible unit in the registered contract.")
-    with t2:
-        if result is None:
-            st.info("Native physical-lab-uncertainty-v1 objects are available on Project results.")
-            return
-        records = uncertainty_records(result)
-        if not records:
-            st.info("No explicit uncertainty object is present. Residual/error fields are not reinterpreted as uncertainty.")
-            return
-        st.dataframe(records, hide_index=True, width="stretch")
-        valid = [r for r in records if r.get("valid")]
-        if not valid:
-            st.warning("Uncertainty objects were found, but none passed structural validation.")
-            return
-        path = st.selectbox("Uncertainty object", [str(r["path"]) for r in valid], key=f"pl_science_native_uq_{profile}")
-        record = next(r for r in valid if str(r["path"]) == path)
-        plotted = uncertainty_plot_record(record)
-        error_y = None
-        if plotted.get("error_plus") is not None:
-            error_y = {"type": "data", "array": [plotted["error_plus"]], "arrayminus": [plotted["error_minus"]], "visible": True}
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=[path], y=[plotted["estimate"]], mode="markers", marker={"size": 12}, error_y=error_y))
-        fig.update_layout(height=420, yaxis_title=axis_label("estimate", plotted.get("unit")), title=f"Explicit UQ · {plotted['kind']}")
-        st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-        st.json({"method": record.get("method"), "coverage_factor": record.get("coverage_factor"), "coverage_probability": record.get("coverage_probability"), "sha256": record.get("sha256")})
-        st.caption("Structural validity does not establish completeness or correctness of the uncertainty model.")
+            st.caption("The current plotted fields have no explicit convertible unit in the registered contract.")
+        return
+
+    if result is None:
+        st.info("Native physical-lab-uncertainty-v1 objects are available on Project results.")
+        return
+    records = uncertainty_records(result)
+    if not records:
+        st.info("No explicit uncertainty object is present. Residual/error fields are not reinterpreted as uncertainty.")
+        return
+    st.dataframe(records, hide_index=True, width="stretch")
+    valid = [r for r in records if r.get("valid")]
+    if not valid:
+        st.warning("Uncertainty objects were found, but none passed structural validation.")
+        return
+    path = st.selectbox("Uncertainty object", [str(r["path"]) for r in valid], key=f"pl_science_native_uq_{profile}")
+    record = next(r for r in valid if str(r["path"]) == path)
+    plotted = uncertainty_plot_record(record)
+    error_y = None
+    if plotted.get("error_plus") is not None:
+        error_y = {"type": "data", "array": [plotted["error_plus"]], "arrayminus": [plotted["error_minus"]], "visible": True}
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=[path], y=[plotted["estimate"]], mode="markers", marker={"size": 12}, error_y=error_y))
+    fig.update_layout(height=420, yaxis_title=axis_label("estimate", plotted.get("unit")), title=f"Explicit UQ · {plotted['kind']}")
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    st.json({"method": record.get("method"), "coverage_factor": record.get("coverage_factor"), "coverage_probability": record.get("coverage_probability"), "sha256": record.get("sha256")})
+    st.caption("Structural validity does not establish completeness or correctness of the uncertainty model.")
 
 
 def _render_sensitivity_surface(st: Any, project_path: Path, source: dict[str, Any], profile: str) -> None:
     frame = source["frame"]
     numeric = numeric_columns(frame)
-    t1, t2 = st.tabs(["Sensitivity", "Response Surface"])
-    with t1:
+    method = st.radio(
+        "Sensitivity method",
+        ["Sensitivity", "Response Surface"],
+        horizontal=True,
+        key=f"pl_science_sensitivity_method_{profile}",
+    )
+    if method == "Sensitivity":
         if len(numeric) < 2:
             st.info("At least two numeric fields are required.")
             return
@@ -208,47 +219,48 @@ def _render_sensitivity_surface(st: Any, project_path: Path, source: dict[str, A
             st.caption(f"Local sensitivity unavailable: {exc}")
         _save_recipe(st, project_path, source, {"kind": "robust-sensitivity", "output": output, "parameters": selected, "local_parameter": local_parameter}, profile, "sensitivity")
         st.caption("Sensitivity is descriptive screening of the available table, not causal attribution or global Sobol analysis.")
-    with t2:
-        if len(numeric) < 3:
-            st.info("At least three numeric fields are required.")
-            return
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 0.8])
-        x = c1.selectbox("X parameter", numeric, key=f"pl_science_surface_x_{profile}")
-        y = c2.selectbox("Y parameter", [c for c in numeric if c != x], key=f"pl_science_surface_y_{profile}")
-        z = c3.selectbox("Response Z", [c for c in numeric if c not in {x, y}], key=f"pl_science_surface_z_{profile}")
-        agg = c4.selectbox("Aggregate", ["mean", "median", "min", "max"], key=f"pl_science_surface_agg_{profile}")
-        try:
-            surface = response_surface(frame, x, y, z, agg=agg)
-        except Exception as exc:
-            st.warning(f"Response surface unavailable: {exc}")
-            return
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Rows", surface["rows"]); m2.metric("Grid cells", surface["grid_cells"]); m3.metric("Finite cells", surface["coverage"])
-        mode = st.radio("Surface view", ["Heatmap", "Contour", "3D Surface"], horizontal=True, key=f"pl_science_surface_mode_{profile}")
-        if mode == "Heatmap":
-            fig = go.Figure(data=go.Heatmap(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z}))
-        elif mode == "Contour":
-            fig = go.Figure(data=go.Contour(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z}, contours={"showlabels": True}))
-        else:
-            fig = go.Figure(data=[go.Surface(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z})])
-            fig.update_layout(scene={"xaxis_title": x, "yaxis_title": y, "zaxis_title": z})
-        fig.update_layout(title=f"{z} over {x} × {y} · {agg}", height=620)
-        st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
-        coverage = surface["coverage"] / max(surface["grid_cells"], 1)
-        st.caption(f"Grid coverage: {coverage:.1%}. Missing parameter combinations are not interpolated or invented.")
-        s1, s2 = st.columns(2)
-        slice_axis = s1.radio("Slice axis", ["x", "y"], horizontal=True, key=f"pl_science_slice_axis_{profile}")
-        count = len(surface[slice_axis])
-        slice_index = int(s2.number_input("Slice index", min_value=0, max_value=max(count-1, 0), value=0, step=1, key=f"pl_science_slice_index_{profile}"))
-        try:
-            sliced = response_surface_slice(surface, axis=slice_axis, index=slice_index)
-            fig = px.line(sliced, x="coordinate", y="response", markers=True, title=f"Slice · fixed {slice_axis}={sliced['fixed_value'].iloc[0]:g}")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-            st.dataframe(sliced, hide_index=True, width="stretch")
-        except Exception as exc:
-            st.caption(f"Surface slice unavailable: {exc}")
-        _save_recipe(st, project_path, source, {"kind": "response-surface", "x": x, "y": y, "z": z, "aggregation": agg, "view": mode, "slice_axis": slice_axis, "slice_index": slice_index}, profile, "surface")
+        return
+
+    if len(numeric) < 3:
+        st.info("At least three numeric fields are required.")
+        return
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.8])
+    x = c1.selectbox("X parameter", numeric, key=f"pl_science_surface_x_{profile}")
+    y = c2.selectbox("Y parameter", [c for c in numeric if c != x], key=f"pl_science_surface_y_{profile}")
+    z = c3.selectbox("Response Z", [c for c in numeric if c not in {x, y}], key=f"pl_science_surface_z_{profile}")
+    agg = c4.selectbox("Aggregate", ["mean", "median", "min", "max"], key=f"pl_science_surface_agg_{profile}")
+    try:
+        surface = response_surface(frame, x, y, z, agg=agg)
+    except Exception as exc:
+        st.warning(f"Response surface unavailable: {exc}")
+        return
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Rows", surface["rows"]); m2.metric("Grid cells", surface["grid_cells"]); m3.metric("Finite cells", surface["coverage"])
+    mode = st.radio("Surface view", ["Heatmap", "Contour", "3D Surface"], horizontal=True, key=f"pl_science_surface_mode_{profile}")
+    if mode == "Heatmap":
+        fig = go.Figure(data=go.Heatmap(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z}))
+    elif mode == "Contour":
+        fig = go.Figure(data=go.Contour(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z}, contours={"showlabels": True}))
+    else:
+        fig = go.Figure(data=[go.Surface(x=surface["x"], y=surface["y"], z=surface["z"], colorbar={"title": z})])
+        fig.update_layout(scene={"xaxis_title": x, "yaxis_title": y, "zaxis_title": z})
+    fig.update_layout(title=f"{z} over {x} × {y} · {agg}", height=620)
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
+    coverage = surface["coverage"] / max(surface["grid_cells"], 1)
+    st.caption(f"Grid coverage: {coverage:.1%}. Missing parameter combinations are not interpolated or invented.")
+    s1, s2 = st.columns(2)
+    slice_axis = s1.radio("Slice axis", ["x", "y"], horizontal=True, key=f"pl_science_slice_axis_{profile}")
+    count = len(surface[slice_axis])
+    slice_index = int(s2.number_input("Slice index", min_value=0, max_value=max(count-1, 0), value=0, step=1, key=f"pl_science_slice_index_{profile}"))
+    try:
+        sliced = response_surface_slice(surface, axis=slice_axis, index=slice_index)
+        fig = px.line(sliced, x="coordinate", y="response", markers=True, title=f"Slice · fixed {slice_axis}={sliced['fixed_value'].iloc[0]:g}")
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+        st.dataframe(sliced, hide_index=True, width="stretch")
+    except Exception as exc:
+        st.caption(f"Surface slice unavailable: {exc}")
+    _save_recipe(st, project_path, source, {"kind": "response-surface", "x": x, "y": y, "z": z, "aggregation": agg, "view": mode, "slice_axis": slice_axis, "slice_index": slice_index}, profile, "surface")
 
 
 def _render_unit_compare(st: Any, project_path: Path, sources: list[dict[str, Any]], profile: str) -> None:
@@ -359,14 +371,21 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
         with st.expander("Recommended analysis path", expanded=bool(question.strip())):
             st.dataframe(recommendations, hide_index=True, width="stretch")
             st.caption("Recommendations route you to existing analytical views. They do not infer scientific conclusions or validate the data.")
-    tab_sem, tab_sens, tab_compare, tab_corr, tab_pareto, tab_summary = st.tabs(["Scientific Semantics", "Sensitivity + Surface", "Unit-aware Compare", "Correlation Matrix", "Pareto Frontier", "Analysis Summary"])
-    with tab_sem:
+
+    task = st.radio(
+        "Science analysis task",
+        ["Scientific Semantics", "Sensitivity + Surface", "Unit-aware Compare", "Correlation Matrix", "Pareto Frontier", "Analysis Summary"],
+        horizontal=True,
+        key=f"pl_science_task_{profile}",
+    )
+
+    if task == "Scientific Semantics":
         _render_semantics(st, project_path, source, profile)
-    with tab_sens:
+    elif task == "Sensitivity + Surface":
         _render_sensitivity_surface(st, project_path, source, profile)
-    with tab_compare:
+    elif task == "Unit-aware Compare":
         _render_unit_compare(st, project_path, sources, profile)
-    with tab_corr:
+    elif task == "Correlation Matrix":
         if len(numeric) < 2:
             st.info("At least two numeric fields are required.")
         else:
@@ -383,7 +402,7 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
                     st.caption("Correlation summarizes association only; it does not establish causality or model validity.")
                 except Exception as exc:
                     st.warning(f"Correlation matrix unavailable: {exc}")
-    with tab_pareto:
+    elif task == "Pareto Frontier":
         if len(numeric) < 2:
             st.info("At least two numeric fields are required.")
         else:
@@ -412,6 +431,6 @@ def render_tradeoff_analysis(st: Any, profile: str) -> None:
                     st.caption("Pareto status is non-dominance only for the selected objectives/directions; feasibility, UQ and validity remain separate.")
             except Exception as exc:
                 st.warning(f"Pareto analysis unavailable: {exc}")
-    with tab_summary:
+    else:
         _render_summary(st, project_path, profile)
     st.caption(TRADEOFF_BOUNDARY)

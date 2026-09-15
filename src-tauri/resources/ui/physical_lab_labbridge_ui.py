@@ -42,11 +42,29 @@ def _render_ingest(st: Any, project_path: Path, profile: str) -> None:
         "BetterBoard is the real-world ingress. Engineering Lab validates the MeasurementAsset integrity before "
         "promoting numeric channels into the scientific project record. Calibration/traceability remain separate evidence."
     )
+    task = st.radio(
+        "Ingress task",
+        ["Select Files", "Validate", "Ingest"],
+        horizontal=True,
+        key=f"pl_ingress_task_{profile}",
+    )
+
     c1, c2 = st.columns(2)
     packet_file = c1.file_uploader("LabBridge MeasurementAsset JSON", type=["json"], key=f"pl_labbridge_packet_{profile}")
     data_file = c2.file_uploader("Matching BetterBoard data.csv", type=["csv"], key=f"pl_labbridge_data_{profile}")
+
+    if task == "Select Files":
+        a, b = st.columns(2)
+        a.metric("MeasurementAsset", "READY" if packet_file else "MISSING")
+        b.metric("data.csv", "READY" if data_file else "MISSING")
+        if not packet_file or not data_file:
+            st.info("Select both `labbridge_measurement_asset.json` and its referenced `data.csv` from the same BetterBoard measurement session.")
+        else:
+            st.success("Both files are selected. Open Validate before ingesting them into the scientific project record.")
+        return
+
     if not packet_file:
-        st.info("Export/copy `labbridge_measurement_asset.json` and its referenced `data.csv` from a BetterBoard measurement session.")
+        st.info("Select a BetterBoard `labbridge_measurement_asset.json` in Select Files first.")
         return
     try:
         packet = _json_upload(packet_file)
@@ -69,8 +87,22 @@ def _render_ingest(st: Any, project_path: Path, profile: str) -> None:
     with st.expander("MeasurementAsset details", expanded=False):
         st.json(packet)
         st.caption(check["boundary"])
+
+    if task == "Validate":
+        if not data_bytes:
+            st.warning("The MeasurementAsset can be parsed, but the matching `data.csv` is still required before ingest.")
+        elif check["valid"]:
+            st.success("MeasurementAsset integrity PASS. Open Ingest when you are ready to write this dataset into the active Engineering Lab project.")
+        else:
+            st.error("Validation must pass before this measurement can be ingested.")
+        return
+
     notes = st.text_input("Import notes", value="", key=f"pl_labbridge_import_notes_{profile}")
-    if st.button("Validate & ingest into Engineering Lab", type="primary", disabled=not (check["valid"] and data_bytes), key=f"pl_labbridge_ingest_{profile}"):
+    if not data_bytes:
+        st.warning("Matching BetterBoard `data.csv` is required for ingest.")
+    if not check["valid"]:
+        st.error("Ingest is disabled because MeasurementAsset integrity did not pass.")
+    if st.button("Ingest into Engineering Lab", type="primary", disabled=not (check["valid"] and data_bytes), key=f"pl_labbridge_ingest_{profile}"):
         out = ingest_measurement_asset(project_path, packet=packet, dataset_bytes=data_bytes, profile=profile or "measurement-bridge", notes=notes)
         st.success(f"Imported {out['dataset']['dataset_id']} · BetterBoard source SHA {str((packet.get('dataset') or {}).get('sha256') or '')[:12]}…")
         st.rerun()

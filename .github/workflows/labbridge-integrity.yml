@@ -60,6 +60,11 @@ jobs:
           grep -q 'LabBridge workspace' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'pl_labbridge_workspace_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'BetterBoard Ingress' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Ingress task' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Select Files' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Validate' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Ingest' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'pl_ingress_task_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'Experiment Notebook' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'Lab Journey' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'OpenPenguin Bridge' src-tauri/resources/ui/physical_lab_labbridge_ui.py

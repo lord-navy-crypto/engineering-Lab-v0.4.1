@@ -12,6 +12,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
       - 'src-tauri/resources/ui/physical_lab_result_inspector.py'
       - 'scripts/utube_visualization_validation.py'
+      - 'scripts/utube_coordinated_views_validation.py'
       - '.github/workflows/utube-visualization-integrity.yml'
   pull_request:
     paths:
@@ -21,6 +22,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
       - 'src-tauri/resources/ui/physical_lab_result_inspector.py'
       - 'scripts/utube_visualization_validation.py'
+      - 'scripts/utube_coordinated_views_validation.py'
       - '.github/workflows/utube-visualization-integrity.yml'
 
 jobs:
@@ -38,8 +40,11 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_result_contracts.py
           python -m py_compile scripts/utube_visualization_validation.py
+          python -m py_compile scripts/utube_coordinated_views_validation.py
       - name: Validate U-tube visualization and Result Inspector integration
         run: python scripts/utube_visualization_validation.py
+      - name: Validate coordinated U-tube views
+        run: python scripts/utube_coordinated_views_validation.py
       - name: Verify UI integration boundaries
         run: |
           grep -q 'Physical View' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py

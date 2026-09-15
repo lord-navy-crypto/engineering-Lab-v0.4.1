@@ -1,11 +1,11 @@
-"""Mount the shared .physlab Project surface after every managed Lab UI.
+"""Mount the shared Project and unified workspace surfaces after every managed Lab UI.
 
-The individual upstream Labs remain unchanged. This wrapper extends Physical
-Lab's shared advanced renderer so all ten managed Lab profiles expose the same
-canonical Project Kernel; the Evidence Center patch then extends that Project
-Kernel. During the compatibility period it also performs one non-destructive
-legacy desktop-workspace sync per Streamlit session when session state is
-available.
+The individual upstream Labs remain unchanged. This wrapper extends Engineering
+Lab's shared advanced renderer so all managed Lab profiles expose the canonical
+Project Kernel plus a visible top-level navigator for Project Workspace and the
+registry-backed All Workspaces catalog. During the compatibility period it also
+performs one non-destructive legacy desktop-workspace sync per Streamlit session
+when session state is available.
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def install() -> None:
                     if bridge.get("created") or bridge.get("measurements_imported"):
                         try:
                             st.toast(
-                                "Physical Lab imported legacy workspace evidence into the canonical Project Kernel "
+                                "Engineering Lab imported legacy workspace evidence into the canonical Project Kernel "
                                 f"({bridge.get('created', 0)} project(s), {bridge.get('measurements_imported', 0)} measurement(s))."
                             )
                         except Exception:
@@ -60,18 +60,32 @@ def install() -> None:
                 except Exception as bridge_exc:
                     session_state[LEGACY_SYNC_SESSION_KEY] = {"errors": [{"error": str(bridge_exc)}]}
                     st.warning(f"Legacy .physlab compatibility sync could not complete: {bridge_exc}")
+
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace)
 
-            # Project management remains in its compact .physlab expander above.
-            # Render the actual research surfaces afterwards so Project Home,
-            # U-Tube Research Studio and Project Tools are visible in the main UI.
-            from physical_lab_project_interop_ui import render_project_interop
-            render_project_interop(st, profile)
+            # The compact .physlab Project panel above owns project selection and
+            # metadata. The navigator below owns discoverable user-facing workspaces.
+            st.markdown("---")
+            navigator = st.radio(
+                "Engineering Lab navigator",
+                ["Project Workspace", "All Workspaces"],
+                horizontal=True,
+                key=f"pl_unified_surface_nav_{profile}",
+            )
+
+            if navigator == "Project Workspace":
+                from physical_lab_project_interop_ui import render_project_interop
+                render_project_interop(st, profile)
+            else:
+                from physical_lab_surface_registry import SURFACES  # canonical inventory marker
+                from physical_lab_surface_catalog import render_all_workspaces
+                _ = SURFACES
+                render_all_workspaces(st, profile)
         except Exception as exc:
             try:
                 import streamlit as st
-                st.warning(f"Physical Lab Project / Evidence surface could not load: {exc}")
+                st.warning(f"Engineering Lab Project / workspace surface could not load: {exc}")
             except Exception:
                 pass
 

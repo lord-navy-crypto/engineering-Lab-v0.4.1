@@ -6,7 +6,10 @@ on:
     branches:
       - feature/expand-physics-simulation-scenarios
       - feature/utube-research-studio-entry
+      - feature/surface-utube-studio
     paths:
+      - 'src-tauri/resources/ui/physical_lab_project_kernel.py'
+      - 'src-tauri/resources/ui/physical_lab_project_surface_patch.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py'
@@ -14,6 +17,8 @@ on:
       - '.github/workflows/utube-studio-entry-integrity.yml'
   pull_request:
     paths:
+      - 'src-tauri/resources/ui/physical_lab_project_kernel.py'
+      - 'src-tauri/resources/ui/physical_lab_project_surface_patch.py'
       - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
       - 'src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py'
@@ -30,6 +35,8 @@ jobs:
           python-version: '3.12'
       - name: Compile project and U-Tube UI modules
         run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_kernel.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_surface_patch.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py
@@ -48,6 +55,41 @@ jobs:
           grep -q 'render_utube_uncertainty(st, profile)' "$FILE"
           grep -q 'render_utube_advanced(st, profile)' "$FILE"
           grep -q 'mime="application/zip"' "$FILE"
+      - name: Verify studio is mounted after the real project workspace
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('src-tauri/resources/ui/physical_lab_project_surface_patch.py')
+          tree = ast.parse(path.read_text())
+          install = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'install')
+          wrapped = next(node for node in ast.walk(install) if isinstance(node, ast.FunctionDef) and node.name == 'wrapped')
+
+          calls = []
+          for node in ast.walk(wrapped):
+              if isinstance(node, ast.Call):
+                  target = node.func
+                  if isinstance(target, ast.Name):
+                      calls.append((target.id, node.lineno))
+                  elif isinstance(target, ast.Attribute):
+                      calls.append((target.attr, node.lineno))
+
+          workspace_lines = [line for name, line in calls if name == 'render_project_workspace']
+          interop_lines = [line for name, line in calls if name == 'render_project_interop']
+          if not workspace_lines or not interop_lines:
+              raise SystemExit(
+                  'desktop project surface does not mount both render_project_workspace and render_project_interop; '
+                  'U-Tube can exist in code while remaining unreachable in the app'
+              )
+          if min(interop_lines) <= min(workspace_lines):
+              raise SystemExit('project interop must render after the collapsed project-management workspace')
+
+          text = path.read_text()
+          if 'from physical_lab_project_interop_ui import render_project_interop' not in text:
+              raise SystemExit('desktop project surface does not import the visible project-surface renderer')
+          print('PASS: U-Tube/Project surfaces are mounted after the collapsed project-management workspace')
+          PY
       - name: Verify U-Tube renderers are not duplicated
         run: |
           python - <<'PY'

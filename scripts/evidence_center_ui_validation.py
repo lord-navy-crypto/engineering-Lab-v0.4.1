@@ -15,6 +15,7 @@ sys.path.insert(0, str(UI))
 import physical_lab_advanced as advanced
 import physical_lab_evidence_center_patch as evidence_patch
 import physical_lab_evidence_center_ui as evidence_ui
+import physical_lab_project_interop_ui as project_interop_ui
 import physical_lab_project_kernel as project_kernel
 import physical_lab_project_surface_patch as surface_patch
 
@@ -103,6 +104,7 @@ def main() -> int:
 
     surface_calls: list[tuple] = []
     original_advanced = advanced.render_advanced_experiments
+    original_interop_renderer = project_interop_ui.render_project_interop
     had_surface_flag = hasattr(advanced, "_physical_lab_project_surface_patched")
     old_surface_flag = getattr(advanced, "_physical_lab_project_surface_patched", None)
     old_profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE")
@@ -114,6 +116,9 @@ def main() -> int:
     def fake_project_surface(st, profile, namespace=None):
         surface_calls.append(("project", profile, namespace))
 
+    def fake_project_interop(st, profile):
+        surface_calls.append(("interop", profile))
+
     fake_streamlit = types.ModuleType("streamlit")
     fake_streamlit.warning = lambda message: surface_calls.append(("warning", str(message)))
 
@@ -121,6 +126,7 @@ def main() -> int:
         advanced.render_advanced_experiments = base_advanced
         advanced._physical_lab_project_surface_patched = False
         project_kernel.render_project_workspace = fake_project_surface
+        project_interop_ui.render_project_interop = fake_project_interop
         sys.modules["streamlit"] = fake_streamlit
         os.environ["PHYSICAL_LAB_UI_PROFILE"] = "numerical-methods"
 
@@ -131,6 +137,7 @@ def main() -> int:
         assert surface_calls == [
             ("advanced", {"fixture": "surface"}),
             ("project", "numerical-methods", {"fixture": "surface"}),
+            ("interop", "numerical-methods"),
         ]
 
         before_surface = advanced.render_advanced_experiments
@@ -145,6 +152,7 @@ def main() -> int:
     finally:
         advanced.render_advanced_experiments = original_advanced
         project_kernel.render_project_workspace = original_workspace
+        project_interop_ui.render_project_interop = original_interop_renderer
         if had_surface_flag:
             advanced._physical_lab_project_surface_patched = old_surface_flag
         elif hasattr(advanced, "_physical_lab_project_surface_patched"):
@@ -164,7 +172,7 @@ def main() -> int:
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
     print("- create-new-project stale-path guard: PASS")
-    print("- Lab advanced renderer -> Project surface: PASS")
+    print("- Lab advanced renderer -> Project management -> visible project surfaces: PASS")
     print("- unsupported-profile guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")

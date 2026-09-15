@@ -1,0 +1,1 @@
+Implementation follows docs/superpowers/plans/2026-09-15-shared-scientific-ui-semantics.md using RED-GREEN TDD on the isolated feature branch.

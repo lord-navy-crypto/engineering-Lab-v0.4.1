@@ -85,44 +85,34 @@ def main() -> None:
             fail(f"surface {row.surface_id} has unknown category {row.category!r}")
         if row.launch_mode not in {"direct", "route", "profile", "embedded"}:
             fail(f"surface {row.surface_id} has unsupported launch mode {row.launch_mode!r}")
-        if row.launch_mode == "direct":
+        if row.launch_mode in {"direct", "profile"}:
             if not row.module or not row.callable_name:
-                fail(f"direct surface {row.surface_id} lacks module/callable")
+                fail(f"{row.launch_mode} surface {row.surface_id} lacks module/callable")
             module_path = UI_ROOT / f"{row.module}.py"
             if not module_path.exists():
-                fail(f"direct surface module missing: {row.module}")
+                fail(f"surface module missing: {row.module}")
+            filename = row.module + ".py"
+            if filename not in tauri_text:
+                fail(f"surface module is not bundled: {filename}")
             source = module_path.read_text(encoding="utf-8")
             marker = f"def {row.callable_name}("
             if marker not in source:
-                fail(f"direct renderer missing: {row.module}.{row.callable_name}")
+                fail(f"renderer missing: {row.module}.{row.callable_name}")
 
     required_ids = {
-        "utube-studio",
-        "utube-physical",
-        "utube-uncertainty",
-        "utube-advanced",
-        "visualization-studio",
-        "visual-analytics",
-        "applied-analysis",
-        "advanced-applied-analysis",
-        "deep-applied-math",
-        "science-analysis",
-        "run-comparison",
-        "model-coupling",
-        "pipeline-dag",
-        "engineering-decisions",
-        "operations-planning",
-        "quality-reliability",
-        "risk-economics",
-        "requirements-verification",
-        "digital-twin",
-        "research-orchestrator",
-        "evidence-center",
-        "kerr-geodesics",
-        "solar-system",
-        "lattice-dynamics",
-        "undulator-spectrum",
-        "radiation-stokes",
+        "utube-studio", "utube-physical", "utube-uncertainty", "utube-advanced",
+        "data-bridge", "measurement-registry", "betterboard-discovery", "betterboard-inbox",
+        "labbridge", "research-notebook", "result-inspector", "research-orchestrator",
+        "visualization-studio", "visual-analytics", "applied-analysis", "advanced-applied-analysis",
+        "deep-applied-math", "science-analysis", "science-protocol", "run-comparison",
+        "model-coupling", "pipeline-dag", "digital-twin", "engineering-decisions",
+        "operations-planning", "quality-reliability", "risk-economics", "requirements-verification",
+        "evidence-center", "reproducibility-pack", "local-ai", "run-vault", "openguin-advisory",
+        "engineering-vvuq", "kerr-geodesics", "kerr-platform", "kerr-shadow", "solar-system",
+        "lattice-dynamics", "deep-science", "remaining-science", "frequency-response",
+        "new-model-refinement", "model-depth", "undulator-spectrum", "radiation-stokes",
+        "radiation-quality", "radiation-seed-compare", "radia-forward", "radia-tolerance",
+        "radia-radiation-propagation",
     }
     missing_required = sorted(required_ids - set(ids))
     if missing_required:
@@ -135,6 +125,7 @@ def main() -> None:
                 "classified_ui_modules": len(classified_modules),
                 "direct_ui_modules": len(direct_modules),
                 "profile_scoped_surfaces": sum(1 for row in surfaces if row.launch_mode == "profile"),
+                "route_surfaces": sum(1 for row in surfaces if row.launch_mode == "route"),
                 "orphan_ui_modules": 0,
                 "desktop_catalog_wired": True,
             },

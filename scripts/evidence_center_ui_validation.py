@@ -46,6 +46,7 @@ def main() -> int:
         "resources/ui/physical_lab_evidence_center_patch.py",
         "resources/ui/physical_lab_evidence_center_ui.py",
         "resources/ui/physical_lab_project_surface_patch.py",
+        "resources/ui/physical_lab_surface_registry.py",
         "resources/ui/physical_lab_credibility.py",
         "resources/ui/physical_lab_claims.py",
         "resources/ui/physical_lab_cross_checks.py",
@@ -105,10 +106,12 @@ def main() -> int:
     surface_calls: list[tuple] = []
     original_advanced = advanced.render_advanced_experiments
     original_interop_renderer = project_interop_ui.render_project_interop
+    original_all_workspaces = surface_patch._render_all_workspaces
     had_surface_flag = hasattr(advanced, "_physical_lab_project_surface_patched")
     old_surface_flag = getattr(advanced, "_physical_lab_project_surface_patched", None)
     old_profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE")
     old_streamlit = sys.modules.get("streamlit")
+    nav_choice = {"value": "Project Workspace"}
 
     def base_advanced(namespace):
         surface_calls.append(("advanced", namespace))
@@ -119,14 +122,24 @@ def main() -> int:
     def fake_project_interop(st, profile):
         surface_calls.append(("interop", profile))
 
+    def fake_all_workspaces(st, profile):
+        surface_calls.append(("catalog", profile))
+
+    def fake_radio(label, options, **kwargs):
+        surface_calls.append(("navigator", label, tuple(options)))
+        return nav_choice["value"]
+
     fake_streamlit = types.ModuleType("streamlit")
     fake_streamlit.warning = lambda message: surface_calls.append(("warning", str(message)))
+    fake_streamlit.markdown = lambda *args, **kwargs: None
+    fake_streamlit.radio = fake_radio
 
     try:
         advanced.render_advanced_experiments = base_advanced
         advanced._physical_lab_project_surface_patched = False
         project_kernel.render_project_workspace = fake_project_surface
         project_interop_ui.render_project_interop = fake_project_interop
+        surface_patch._render_all_workspaces = fake_all_workspaces
         sys.modules["streamlit"] = fake_streamlit
         os.environ["PHYSICAL_LAB_UI_PROFILE"] = "numerical-methods"
 
@@ -137,7 +150,18 @@ def main() -> int:
         assert surface_calls == [
             ("advanced", {"fixture": "surface"}),
             ("project", "numerical-methods", {"fixture": "surface"}),
+            ("navigator", "Engineering Lab navigator", ("Project Workspace", "All Workspaces")),
             ("interop", "numerical-methods"),
+        ]
+
+        surface_calls.clear()
+        nav_choice["value"] = "All Workspaces"
+        wrapped_advanced({"fixture": "catalog"})
+        assert surface_calls == [
+            ("advanced", {"fixture": "catalog"}),
+            ("project", "numerical-methods", {"fixture": "catalog"}),
+            ("navigator", "Engineering Lab navigator", ("Project Workspace", "All Workspaces")),
+            ("catalog", "numerical-methods"),
         ]
 
         before_surface = advanced.render_advanced_experiments
@@ -153,6 +177,7 @@ def main() -> int:
         advanced.render_advanced_experiments = original_advanced
         project_kernel.render_project_workspace = original_workspace
         project_interop_ui.render_project_interop = original_interop_renderer
+        surface_patch._render_all_workspaces = original_all_workspaces
         if had_surface_flag:
             advanced._physical_lab_project_surface_patched = old_surface_flag
         elif hasattr(advanced, "_physical_lab_project_surface_patched"):
@@ -172,7 +197,8 @@ def main() -> int:
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
     print("- create-new-project stale-path guard: PASS")
-    print("- Lab advanced renderer -> Project management -> visible project surfaces: PASS")
+    print("- Lab advanced renderer -> Project management -> Project Workspace: PASS")
+    print("- Lab advanced renderer -> Project management -> All Workspaces catalog: PASS")
     print("- unsupported-profile guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")

@@ -1,0 +1,36 @@
+name: Surface Registry Integrity
+# Guards discoverability, desktop wiring, renderer classification, and DMG resources.
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/**'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/surface_registry_validation.py'
+      - '.github/workflows/surface-registry-integrity.yml'
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/**'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/surface_registry_validation.py'
+      - '.github/workflows/surface-registry-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile surface files
+        run: |
+          python -m py_compile \
+            src-tauri/resources/ui/physical_lab_surface_registry.py \
+            src-tauri/resources/ui/physical_lab_project_surface_patch.py \
+            src-tauri/resources/ui/physical_lab_project_interop_ui.py \
+            scripts/surface_registry_validation.py
+      - name: Validate unified surface registry
+        run: python scripts/surface_registry_validation.py

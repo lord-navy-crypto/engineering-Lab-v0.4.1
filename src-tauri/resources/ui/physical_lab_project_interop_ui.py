@@ -122,27 +122,27 @@ def _render_data_bridge(st: Any, profile: str, project_path: Path) -> None:
 
 def _render_data_group(st: Any, profile: str, project_path: Path) -> None:
     st.caption("Bring data in, inspect project datasets/results, and connect real-world measurements before deeper analysis.")
-    tab_data, tab_discovery, tab_labbridge, tab_results = st.tabs([
-        "Data Bridge",
-        "BetterBoard Discovery",
-        "LabBridge / Journey",
-        "Result Inspector",
-    ])
-    with tab_data:
+    tool = st.radio(
+        "Data tool",
+        ["Data Bridge", "BetterBoard Discovery", "LabBridge / Journey", "Result Inspector"],
+        horizontal=True,
+        key=f"pl_project_data_tool_{profile}",
+    )
+    if tool == "Data Bridge":
         _render_data_bridge(st, profile, project_path)
-    with tab_discovery:
+    elif tool == "BetterBoard Discovery":
         try:
             from physical_lab_betterboard_discovery_ui import render_betterboard_discovery
             render_betterboard_discovery(st, profile)
         except Exception as exc:
             st.warning(f"BetterBoard local discovery could not load: {exc}")
-    with tab_labbridge:
+    elif tool == "LabBridge / Journey":
         try:
             from physical_lab_labbridge_ui import render_labbridge
             render_labbridge(st, profile)
         except Exception as exc:
             st.warning(f"LabBridge / Lab Journey could not load: {exc}")
-    with tab_results:
+    else:
         try:
             from physical_lab_result_inspector_ui import render_result_inspector
             render_result_inspector(st, profile)
@@ -152,25 +152,25 @@ def _render_data_group(st: Any, profile: str, project_path: Path) -> None:
 
 def _render_analysis_group(st: Any, profile: str, project_path: Path) -> None:
     st.caption("Choose visualization, uncertainty-aware analytics, applied mathematics, or science-focused trade-off analysis.")
-    tab_visual, tab_analytics, tab_applied, tab_tradeoff = st.tabs([
-        "Visualization Studio",
-        "Visual Analytics",
-        "Applied Math & Statistics",
-        "Science Analysis",
-    ])
-    with tab_visual:
+    tool = st.radio(
+        "Analysis tool",
+        ["Visualization Studio", "Visual Analytics", "Applied Math & Statistics", "Science Analysis"],
+        horizontal=True,
+        key=f"pl_project_analysis_tool_{profile}",
+    )
+    if tool == "Visualization Studio":
         try:
             from physical_lab_visualization_studio_ui import render_visualization_studio
             render_visualization_studio(st, profile)
         except Exception as exc:
             st.warning(f"Visualization Studio could not load: {exc}")
-    with tab_analytics:
+    elif tool == "Visual Analytics":
         try:
             from physical_lab_visual_analytics_ui import render_visual_analytics
             render_visual_analytics(st, profile)
         except Exception as exc:
             st.warning(f"Visual Analytics Workbench could not load: {exc}")
-    with tab_applied:
+    elif tool == "Applied Math & Statistics":
         try:
             from physical_lab_applied_analysis_ui import render_applied_analysis
             render_applied_analysis(st, profile)
@@ -182,7 +182,7 @@ def _render_analysis_group(st: Any, profile: str, project_path: Path) -> None:
             render_sweep_design_bridge(st, profile)
         except Exception as exc:
             st.warning(f"Applied Mathematics & Statistics could not load: {exc}")
-    with tab_tradeoff:
+    else:
         try:
             from physical_lab_tradeoff_analysis_ui import render_tradeoff_analysis
             render_tradeoff_analysis(st, profile)
@@ -194,31 +194,31 @@ def _render_analysis_group(st: Any, profile: str, project_path: Path) -> None:
 
 def _render_model_group(st: Any, profile: str) -> None:
     st.caption("Build bounded model controls, compare runs, connect models, and inspect workflow dependencies.")
-    tab_modelspec, tab_compare, tab_coupling, tab_dag = st.tabs([
-        "ModelSpec DIY",
-        "Run Comparison",
-        "Model Coupling",
-        "Pipeline DAG",
-    ])
-    with tab_modelspec:
+    tool = st.radio(
+        "Model / workflow tool",
+        ["ModelSpec DIY", "Run Comparison", "Model Coupling", "Pipeline DAG"],
+        horizontal=True,
+        key=f"pl_project_model_tool_{profile}",
+    )
+    if tool == "ModelSpec DIY":
         try:
             from physical_lab_modelspec_diy_ui import render_modelspec_diy
             render_modelspec_diy(st, profile)
         except Exception as exc:
             st.warning(f"ModelSpec DIY workspace could not load: {exc}")
-    with tab_compare:
+    elif tool == "Run Comparison":
         try:
             from physical_lab_run_comparison_ui import render_run_comparison
             render_run_comparison(st, profile)
         except Exception as exc:
             st.warning(f"Run Comparison / Staleness Dashboard could not load: {exc}")
-    with tab_coupling:
+    elif tool == "Model Coupling":
         try:
             from physical_lab_model_coupling_ui import render_model_coupling
             render_model_coupling(st, profile)
         except Exception as exc:
             st.warning(f"Model-to-Model Coupling could not load: {exc}")
-    with tab_dag:
+    else:
         try:
             from physical_lab_pipeline_graph_ui import render_pipeline_graph
             render_pipeline_graph(st, profile)
@@ -275,7 +275,7 @@ def render_project_interop(st: Any, profile: str) -> None:
     st.markdown("---")
     with st.expander("🧰 Engineering Lab · Project Tools", expanded=True):
         st.caption(
-            "Choose a task family first. Only the selected family is rendered, so the workspace stays readable and avoids initializing unrelated project tools on every rerun."
+            "Choose a task family, then one tool. Only that tool is rendered, keeping the workspace readable and avoiding unrelated module initialization on every rerun."
         )
         tool_group = st.radio(
             "What do you want to do?",

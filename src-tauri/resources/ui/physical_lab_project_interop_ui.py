@@ -19,6 +19,86 @@ PROJECT_TOOL_GROUPS = [
     "Reproducibility",
 ]
 
+PROJECT_SURFACES = [
+    "Project Home",
+    "U-Tube Research Studio",
+    "Project Tools",
+]
+
+
+def _render_project_home(st: Any, profile: str, project_path: Path) -> None:
+    """Compact project landing page with status and obvious next actions."""
+    doc = projects.open_project(project_path)
+    summary = projects.project_summary(project_path)
+    datasets = list_canonical_datasets(project_path)
+
+    st.markdown(f"## 🧭 {summary.get('name') or project_path.stem}")
+    question = str(summary.get("research_question") or "").strip()
+    if question:
+        st.markdown(f"**Research question:** {question}")
+    else:
+        st.info("No research question is set yet. Add one in the .physlab Project panel to keep analysis anchored to a clear question.")
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Experiments", int(summary.get("experiment_count") or 0))
+    m2.metric("Jobs", int(summary.get("job_count") or 0))
+    m3.metric("Results", int(summary.get("result_count") or 0))
+    m4.metric("Datasets", len(datasets))
+    m5.metric("Profiles", len(summary.get("profiles") or []))
+
+    updated = str(summary.get("updated_at") or "")
+    project_id = str(summary.get("project_id") or "")
+    st.caption(
+        f"Project ID: {project_id or '—'} · Updated: {updated or '—'} · "
+        "Counts describe indexed project records; they do not imply scientific validation."
+    )
+
+    statuses = dict(summary.get("job_statuses") or {})
+    if statuses:
+        st.markdown("#### Compute status")
+        cols = st.columns(min(5, max(1, len(statuses))))
+        for idx, (status, count) in enumerate(sorted(statuses.items())):
+            cols[idx % len(cols)].metric(str(status).replace("_", " ").title(), int(count or 0))
+
+    st.markdown("#### Start here")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("**🧪 U-Tube research**")
+        st.caption("Open model visualization, uncertainty, DIY data comparison, robust design, digital twin and hysteresis tools.")
+        if st.button("Open U-Tube Studio", type="primary", width="stretch", key=f"pl_home_utube_{profile}"):
+            st.session_state[f"pl_project_surface_{profile}"] = "U-Tube Research Studio"
+            st.rerun()
+    with c2:
+        st.markdown("**📊 Data & analysis**")
+        st.caption("Bring in measurements, inspect results, visualize data, run applied analysis, and compare runs.")
+        if st.button("Open Project Tools", width="stretch", key=f"pl_home_tools_{profile}"):
+            st.session_state[f"pl_project_surface_{profile}"] = "Project Tools"
+            st.rerun()
+    with c3:
+        st.markdown("**📦 Reproducibility**")
+        st.caption("Package project metadata, datasets, analysis artifacts, environment evidence and reports into a portable ZIP.")
+        if st.button("Open Reproducibility", width="stretch", key=f"pl_home_repro_{profile}"):
+            st.session_state[f"pl_project_surface_{profile}"] = "Project Tools"
+            st.session_state[f"pl_project_tool_group_{profile}"] = "Reproducibility"
+            st.rerun()
+
+    description = str(doc.get("description") or "").strip()
+    profiles = [str(x) for x in (summary.get("profiles") or [])]
+    with st.expander("Project details", expanded=False):
+        st.write(description or "No project description yet.")
+        st.caption("Profiles: " + (", ".join(profiles) if profiles else "—"))
+        if datasets:
+            st.markdown("**Recent project datasets**")
+            st.dataframe([
+                {
+                    "name": d.get("name"),
+                    "rows": d.get("row_count"),
+                    "columns": len(d.get("columns") or {}),
+                    "profile": d.get("profile"),
+                }
+                for d in datasets[-5:]
+            ], hide_index=True, width="stretch")
+
 
 def _render_utube_research_studio(st: Any, profile: str) -> None:
     """Expose the U-Tube workspaces at project level instead of burying them in Applied Math."""
@@ -259,6 +339,28 @@ def _render_reproducibility_group(st: Any, profile: str, project_path: Path) -> 
         st.caption(pack["boundary"])
 
 
+def _render_project_tools(st: Any, profile: str, project_path: Path) -> None:
+    st.markdown("### 🧰 Project Tools")
+    st.caption(
+        "Choose a task family, then one tool. Only that tool is rendered, keeping the workspace readable and avoiding unrelated module initialization on every rerun."
+    )
+    tool_group = st.radio(
+        "What do you want to do?",
+        PROJECT_TOOL_GROUPS,
+        horizontal=True,
+        key=f"pl_project_tool_group_{profile}",
+    )
+    st.markdown("---")
+    if tool_group == "Data & LabBridge":
+        _render_data_group(st, profile, project_path)
+    elif tool_group == "Visualize & Analyze":
+        _render_analysis_group(st, profile, project_path)
+    elif tool_group == "Model & Workflow":
+        _render_model_group(st, profile)
+    else:
+        _render_reproducibility_group(st, profile, project_path)
+
+
 def render_project_interop(st: Any, profile: str) -> None:
     selector_key = f"pl_project_select_{profile}"
     if str(st.session_state.get(selector_key) or "") == "Create new project":
@@ -271,24 +373,16 @@ def render_project_interop(st: Any, profile: str) -> None:
         return
 
     st.markdown("---")
-    _render_utube_research_studio(st, profile)
+    surface = st.radio(
+        "Project workspace",
+        PROJECT_SURFACES,
+        horizontal=True,
+        key=f"pl_project_surface_{profile}",
+    )
     st.markdown("---")
-    with st.expander("🧰 Engineering Lab · Project Tools", expanded=True):
-        st.caption(
-            "Choose a task family, then one tool. Only that tool is rendered, keeping the workspace readable and avoiding unrelated module initialization on every rerun."
-        )
-        tool_group = st.radio(
-            "What do you want to do?",
-            PROJECT_TOOL_GROUPS,
-            horizontal=True,
-            key=f"pl_project_tool_group_{profile}",
-        )
-        st.markdown("---")
-        if tool_group == "Data & LabBridge":
-            _render_data_group(st, profile, project_path)
-        elif tool_group == "Visualize & Analyze":
-            _render_analysis_group(st, profile, project_path)
-        elif tool_group == "Model & Workflow":
-            _render_model_group(st, profile)
-        else:
-            _render_reproducibility_group(st, profile, project_path)
+    if surface == "Project Home":
+        _render_project_home(st, profile, project_path)
+    elif surface == "U-Tube Research Studio":
+        _render_utube_research_studio(st, profile)
+    else:
+        _render_project_tools(st, profile, project_path)

@@ -1,7 +1,10 @@
 """Unified Result Inspector / Materializer UI for Physical Lab projects."""
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
+
+import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
 from physical_lab_environment_manifest import build_environment_manifest, list_environment_manifests, save_environment_manifest
@@ -66,6 +69,226 @@ def _build_inspection(result: dict[str, Any]) -> tuple[dict[str, Any], dict[str,
     return inspection, sanity, explicit_uncertainty
 
 
+def _schema_parent(path: str) -> str | None:
+    text = str(path or "").strip()
+    if not text or text == "$":
+        return None
+    if text.endswith("]"):
+        bracket = text.rfind("[")
+        if bracket > 0:
+            return text[:bracket] or "$"
+    dot = text.rfind(".")
+    if dot > 0:
+        return text[:dot]
+    return "$"
+
+
+def _schema_label(path: str) -> str:
+    text = str(path or "")
+    if text == "$":
+        return "$"
+    if text.endswith("]"):
+        bracket = text.rfind("[")
+        if bracket >= 0:
+            return text[bracket:]
+    return text.rsplit(".", 1)[-1]
+
+
+def _schema_tree_layout(inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build deterministic structural tree metadata from the existing inventory only."""
+    rows: list[dict[str, Any]] = []
+    for order, item in enumerate(inventory):
+        path = str(item.get("path") or "")
+        if not path:
+            continue
+        parent = _schema_parent(path)
+        depth = 0
+        cursor = parent
+        seen: set[str] = set()
+        while cursor is not None and cursor not in seen:
+            seen.add(cursor)
+            depth += 1
+            cursor = _schema_parent(cursor)
+        rows.append(
+            {
+                "path": path,
+                "parent": parent,
+                "depth": depth,
+                "order": order,
+                "label": _schema_label(path),
+                "kind": item.get("kind"),
+                "role": item.get("role"),
+                "unit": item.get("unit"),
+                "shape": item.get("shape"),
+            }
+        )
+    return rows
+
+
+def _render_schema_tree(st: Any, inventory: list[dict[str, Any]], profile: str) -> None:
+    st.markdown("#### Schema map")
+    layout = _schema_tree_layout(inventory)
+    if not layout:
+        st.info("No structural inventory is available for a schema map.")
+        return
+
+    # Preserve inventory order vertically and use structural depth horizontally.
+    positions = {row["path"]: (float(row["depth"]), float(-idx)) for idx, row in enumerate(layout)}
+    fig = go.Figure()
+    for row in layout:
+        parent = row["parent"]
+        if parent not in positions:
+            continue
+        x0, y0 = positions[parent]
+        x1, y1 = positions[row["path"]]
+        fig.add_trace(
+            go.Scatter(
+                x=[x0, x1],
+                y=[y0, y1],
+                mode="lines",
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+    x_values = []
+    y_values = []
+    labels = []
+    hover = []
+    for row in layout:
+        x, y = positions[row["path"]]
+        x_values.append(x)
+        y_values.append(y)
+        labels.append(row["label"])
+        hover.append(
+            "<br>".join(
+                [
+                    f"Path: {row['path']}",
+                    f"Kind: {row.get('kind') or 'unspecified'}",
+                    f"Role: {row.get('role') or 'unclassified'}",
+                    f"Unit: {row.get('unit') or 'unspecified'}",
+                    f"Shape: {row.get('shape') if row.get('shape') is not None else 'unspecified'}",
+                ]
+            )
+        )
+    fig.add_trace(
+        go.Scatter(
+            x=x_values,
+            y=y_values,
+            mode="markers+text",
+            text=labels,
+            textposition="middle right",
+            hovertext=hover,
+            hoverinfo="text",
+            showlegend=False,
+        )
+    )
+    fig.update_layout(
+        height=max(380, min(920, 150 + 28 * len(layout))),
+        xaxis={"title": "Structural depth", "dtick": 1, "zeroline": False},
+        yaxis={"visible": False},
+        margin={"l": 25, "r": 170, "t": 20, "b": 45},
+        hovermode="closest",
+    )
+    st.plotly_chart(fig, width="stretch", key=f"pl_result_schema_map_{profile}")
+    st.caption(
+        "Structural view of the existing result inventory. Paths, roles, units and shapes are displayed only when already present; "
+        "unregistered scientific meaning is not inferred."
+    )
+
+
+def _identity_summary(identity: dict[str, Any]) -> tuple[str, str]:
+    preferred = (
+        "job_id",
+        "sweep_job_id",
+        "result_id",
+        "dataset_id",
+        "point_index",
+        "design_index",
+        "id",
+    )
+    parts = []
+    for key in preferred:
+        if key in identity and identity.get(key) is not None:
+            parts.append(f"{key}={identity.get(key)}")
+    if not parts:
+        for key in sorted(identity)[:4]:
+            value = identity.get(key)
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                parts.append(f"{key}={value}")
+    label = parts[0] if parts else "source identity"
+    detail = "<br>".join(parts) if parts else "No compact scalar identity fields available"
+    return label, detail
+
+
+def _render_provenance_chain(st: Any, identity: dict[str, Any], inspection: dict[str, Any], profile: str) -> None:
+    st.markdown("#### Provenance chain")
+    source_label, source_detail = _identity_summary(identity)
+    contract = inspection.get("contract") or {}
+    conformance = inspection.get("contract_conformance") or {}
+    nodes = [
+        {
+            "label": "Source",
+            "detail": source_detail,
+            "subtitle": source_label,
+        },
+        {
+            "label": "Persisted result",
+            "detail": f"sha256={inspection.get('result_sha256') or 'unavailable'}",
+            "subtitle": f"fields={inspection.get('field_count', '—')}",
+        },
+        {
+            "label": "Contract inspection",
+            "detail": (
+                f"registered={bool(contract.get('registered'))}<br>"
+                f"conformance={conformance.get('status') or 'UNSPECIFIED'}"
+            ),
+            "subtitle": str(conformance.get("status") or "UNSPECIFIED"),
+        },
+        {
+            "label": "Inspector view",
+            "detail": "read-only representation of persisted result evidence",
+            "subtitle": "READ-ONLY",
+        },
+    ]
+
+    fig = go.Figure()
+    for idx in range(len(nodes) - 1):
+        fig.add_trace(
+            go.Scatter(
+                x=[idx, idx + 1],
+                y=[0, 0],
+                mode="lines",
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(nodes))),
+            y=[0] * len(nodes),
+            mode="markers+text",
+            text=[f"{node['label']}<br>{node['subtitle']}" for node in nodes],
+            textposition="top center",
+            hovertext=[node["detail"] for node in nodes],
+            hoverinfo="text",
+            showlegend=False,
+        )
+    )
+    fig.update_layout(
+        height=270,
+        xaxis={"visible": False, "range": [-0.25, len(nodes) - 0.75]},
+        yaxis={"visible": False, "range": [-0.5, 0.6]},
+        margin={"l": 25, "r": 25, "t": 65, "b": 20},
+        hovermode="closest",
+    )
+    st.plotly_chart(fig, width="stretch", key=f"pl_result_provenance_chain_{profile}")
+    st.caption(
+        "Read-only lineage view built from the persisted source identity, result hash, and contract inspection already available to Result Inspector. "
+        "It does not modify the result or certify correctness, validation, independence, or provenance completeness."
+    )
+
+
 def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], profile: str, prepared: tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] | None = None) -> tuple[dict[str,Any],dict[str,Any]]:
     inspection, sanity, explicit_uncertainty = prepared or _build_inspection(result)
     contract = inspection["contract"]
@@ -88,6 +311,9 @@ def _render_inspection(st: Any, result: dict[str,Any], identity: dict[str,Any], 
     if sanity["checks"]:
         with st.expander("Numerical sanity checks", expanded=(sanity["status"] != "PASS")):
             st.dataframe(sanity["checks"], hide_index=True, width="stretch")
+
+    _render_schema_tree(st, inspection["inventory"], profile)
+    _render_provenance_chain(st, identity, inspection, profile)
 
     with st.expander("Result schema contract", expanded=(conformance["status"] != "PASS")):
         if contract["registered"]:

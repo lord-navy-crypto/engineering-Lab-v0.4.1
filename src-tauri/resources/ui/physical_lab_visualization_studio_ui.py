@@ -186,17 +186,17 @@ def _save_recipe(project_path: Path, recipe: dict[str, Any]) -> dict[str, Any]:
     return {**record, "path": str(path)}
 
 
-def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_path: Path, source: dict[str, Any]) -> None:
+def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_path: Path, source: dict[str, Any]) -> dict[str, Any] | None:
     numeric = numeric_columns(frame)
     if not numeric:
         st.warning("The selected source has no numeric columns that can be plotted.")
-        return
+        return None
     frame, filter_spec = _filter_frame(st, frame, profile)
     frame, derived_spec = _derived_variable(st, frame, profile)
     numeric = numeric_columns(frame)
     if frame.empty:
         st.warning("The current filter removed all rows.")
-        return
+        return None
 
     guidance = _guidance_defaults(st, profile, numeric)
     chart_options = ["Line", "Scatter", "Bar", "Histogram", "Heatmap", "3D Scatter"]
@@ -232,7 +232,7 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
         ys = st.multiselect("Y axis / series", available_y, default=[hinted_y], key=f"pl_vizstudio_y_{profile}")
         if not ys:
             st.info("Select at least one Y field.")
-            return
+            return None
 
     c4, c5, c6 = st.columns(3)
     x_log = c4.toggle("Log X", value=False, key=f"pl_vizstudio_logx_{profile}")
@@ -265,23 +265,6 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
     except Exception as exc:
         st.error(f"Could not render the selected view: {exc}")
 
-    st.markdown("##### Important data")
-    st.dataframe(summary(plot_frame, ys), hide_index=True, width="stretch")
-    if ys:
-        rank_field = st.selectbox("Rank important rows by", ys, key=f"pl_vizstudio_rank_field_{profile}")
-        r1, r2 = st.columns(2)
-        direction = r1.selectbox("Ranking", ["Largest", "Smallest"], key=f"pl_vizstudio_rank_dir_{profile}")
-        rank_n = int(r2.number_input("Rows", min_value=1, max_value=min(50, max(len(plot_frame), 1)), value=min(5, max(len(plot_frame), 1)), step=1, key=f"pl_vizstudio_rank_n_{profile}"))
-        ranked = plot_frame.assign(__rank=pd.to_numeric(plot_frame[rank_field], errors="coerce")).sort_values("__rank", ascending=(direction == "Smallest")).drop(columns=["__rank"]).head(rank_n)
-        st.dataframe(ranked, hide_index=True, width="stretch")
-    row_index = st.number_input("Inspect exact row", min_value=0, max_value=max(len(plot_frame) - 1, 0), value=0, step=1, key=f"pl_vizstudio_row_{profile}")
-    if len(plot_frame): st.json(plot_frame.iloc[int(row_index)].to_dict())
-
-    d1, d2 = st.columns(2)
-    d1.download_button("Download current data CSV", data=plot_frame.to_csv(index=False).encode("utf-8"), file_name="engineering-lab-diy-view.csv", mime="text/csv", key=f"pl_vizstudio_download_{profile}")
-    if fig is not None:
-        d2.download_button("Download interactive plot HTML", data=fig.to_html(full_html=True, include_plotlyjs=True).encode("utf-8"), file_name="engineering-lab-diy-plot.html", mime="text/html", key=f"pl_vizstudio_html_{profile}")
-
     recipe = {
         "schema": RECIPE_SCHEMA,
         "created_at_unix": time.time(),
@@ -291,16 +274,47 @@ def _render_tabular_plot(st: Any, frame: pd.DataFrame, profile: str, project_pat
         "view": {"chart_type": chart_type, "x": x, "y": ys, "z": z_field, "transform": transform_mode, "log_x": bool(x_log), "log_y": bool(y_log), "title": title, "filter": filter_spec, "derived": derived_spec},
         "boundary": BOUNDARY,
     }
-    if st.button("Save reproducible View Recipe", key=f"pl_vizstudio_recipe_save_{profile}"):
-        saved = _save_recipe(project_path, recipe)
+    return {"plot_frame": plot_frame, "ys": ys, "fig": fig, "recipe": recipe, "source": source}
+
+
+def _render_plot_inspect_export(st: Any, profile: str, project_path: Path, view_state: dict[str, Any]) -> None:
+    plot_frame = view_state["plot_frame"]
+    ys = list(view_state.get("ys") or [])
+    fig = view_state.get("fig")
+    source = dict(view_state.get("source") or {})
+    st.markdown("#### Inspect & Export")
+    st.caption("Review the currently built view, inspect important rows, then export data/plot artifacts or save the reproducible view recipe.")
+    st.dataframe(summary(plot_frame, ys), hide_index=True, width="stretch")
+    if ys:
+        rank_field = st.selectbox("Rank important rows by", ys, key=f"pl_vizstudio_rank_field_{profile}")
+        r1, r2 = st.columns(2)
+        direction = r1.selectbox("Ranking", ["Largest", "Smallest"], key=f"pl_vizstudio_rank_dir_{profile}")
+        rank_n = int(r2.number_input("Rows", min_value=1, max_value=min(50, max(len(plot_frame), 1)), value=min(5, max(len(plot_frame), 1)), step=1, key=f"pl_vizstudio_rank_n_{profile}"))
+        ranked = plot_frame.assign(__rank=pd.to_numeric(plot_frame[rank_field], errors="coerce")).sort_values("__rank", ascending=(direction == "Smallest")).drop(columns=["__rank"]).head(rank_n)
+        st.dataframe(ranked, hide_index=True, width="stretch")
+    row_index = st.number_input("Inspect exact row", min_value=0, max_value=max(len(plot_frame) - 1, 0), value=0, step=1, key=f"pl_vizstudio_row_{profile}")
+    if len(plot_frame):
+        with st.expander("Exact row values", expanded=False):
+            st.json(plot_frame.iloc[int(row_index)].to_dict())
+
+    if source.get("kind") == "result":
+        with st.expander("Matrix / field viewer", expanded=False):
+            _render_result_matrices(st, source.get("raw") or {}, profile)
+
+    d1, d2 = st.columns(2)
+    d1.download_button("Download current data CSV", data=plot_frame.to_csv(index=False).encode("utf-8"), file_name="engineering-lab-diy-view.csv", mime="text/csv", key=f"pl_vizstudio_download_{profile}")
+    if fig is not None:
+        d2.download_button("Download interactive plot HTML", data=fig.to_html(full_html=True, include_plotlyjs=True).encode("utf-8"), file_name="engineering-lab-diy-plot.html", mime="text/html", key=f"pl_vizstudio_html_{profile}")
+    if st.button("Save reproducible View Recipe", type="primary", key=f"pl_vizstudio_recipe_save_{profile}"):
+        saved = _save_recipe(project_path, dict(view_state["recipe"]))
         st.success(f"Saved {saved['recipe_id']} · sha256 {saved['sha256'][:16]}…")
 
 
 def _render_result_matrices(st: Any, result: dict[str, Any], profile: str) -> None:
     matrices = [row for row in numeric_inventory(result) if row["kind"] == "matrix"]
     if not matrices:
+        st.caption("No numeric matrix field is available in this result.")
         return
-    st.markdown("##### Matrix / field viewer")
     path = st.selectbox("Matrix field", [str(row["path"]) for row in matrices], key=f"pl_vizstudio_matrix_{profile}")
     arr = matrix_by_path(result, path)
     mode = st.selectbox("Matrix display", ["raw", "absolute", "log10 |z|", "z-score"], key=f"pl_vizstudio_matrix_mode_{profile}")
@@ -374,8 +388,8 @@ def _render_scan_builder(st: Any, profile: str) -> None:
 
     recent = list_sweep_jobs(profile=profile, limit=20)
     if recent:
-        st.markdown("##### Recent scans")
-        st.dataframe([{"id": r.get("id"), "adapter": r.get("adapter_label"), "points": r.get("point_count"), "status": r.get("status"), "progress": r.get("progress"), "failed": r.get("failed_points"), "cached": r.get("cached_points")} for r in recent], hide_index=True, width="stretch")
+        with st.expander("Recent scans", expanded=False):
+            st.dataframe([{"id": r.get("id"), "adapter": r.get("adapter_label"), "points": r.get("point_count"), "status": r.get("status"), "progress": r.get("progress"), "failed": r.get("failed_points"), "cached": r.get("cached_points")} for r in recent], hide_index=True, width="stretch")
 
 
 def render_visualization_studio(st: Any, profile: str) -> None:
@@ -385,21 +399,56 @@ def render_visualization_studio(st: Any, profile: str) -> None:
         return
     project_path = Path(active)
     st.markdown("### Visualization Studio")
-    st.caption("Choose what to look at after computation: axes, fields, filters, transforms, safe derived variables, chart type, matrix view and parameter scans are independent from the model implementation.")
+    st.caption("Work in stages: choose data, build a view, inspect/export the built view, or launch a bounded parameter scan.")
     guidance = st.session_state.get(f"pl_modelspec_guidance_{profile}")
     if isinstance(guidance, dict):
         with st.expander(f"ModelSpec guidance · {guidance.get('name', 'Research model')}", expanded=False):
             st.json({"parameters": guidance.get("parameters"), "outputs": guidance.get("outputs"), "visualizations": guidance.get("visualizations"), "boundary": guidance.get("boundary")})
-    tab_plot, tab_scan = st.tabs(["DIY Plot Builder", "DIY Scan Builder"])
-    with tab_plot:
+
+    workflow = st.radio(
+        "Visualization workflow",
+        ["Choose Data", "Build View", "Inspect & Export", "Parameter Scan"],
+        horizontal=True,
+        key=f"pl_vizstudio_workflow_{profile}",
+    )
+    selected_key = f"pl_vizstudio_selected_source_{profile}"
+    view_key = f"pl_vizstudio_built_view_{profile}"
+
+    if workflow == "Choose Data":
         selected = _select_source(st, project_path, profile)
         if selected:
             frame = selected["frame"]
+            st.session_state[selected_key] = selected
             a, b, c = st.columns(3)
-            a.metric("Source", selected["kind"]); b.metric("Rows", len(frame)); c.metric("Numeric fields", len(numeric_columns(frame)))
-            with st.expander("Source identity", expanded=False): st.json(selected["identity"])
-            _render_tabular_plot(st, frame, profile, project_path, selected)
-            if selected["kind"] == "result": _render_result_matrices(st, selected["raw"], profile)
-    with tab_scan:
+            a.metric("Source", selected["kind"])
+            b.metric("Rows", len(frame))
+            c.metric("Numeric fields", len(numeric_columns(frame)))
+            with st.expander("Source identity", expanded=False):
+                st.json(selected["identity"])
+            st.caption("Source selected. Continue to Build View to configure axes, transforms, filters and chart type.")
+    elif workflow == "Build View":
+        selected = st.session_state.get(selected_key)
+        if not isinstance(selected, dict):
+            st.info("Choose a visualization data source first in Choose Data.")
+        else:
+            frame = selected["frame"]
+            a, b, c = st.columns(3)
+            a.metric("Source", selected.get("kind"))
+            b.metric("Rows", len(frame))
+            c.metric("Numeric fields", len(numeric_columns(frame)))
+            built = _render_tabular_plot(st, frame, profile, project_path, selected)
+            if built:
+                st.session_state[view_key] = built
+                st.success("View built. Open Inspect & Export for ranking, exact-row inspection, downloads and reproducible recipe saving.")
+    elif workflow == "Inspect & Export":
+        built = st.session_state.get(view_key)
+        if not isinstance(built, dict):
+            st.info("Build a view first in Build View.")
+        else:
+            fig = built.get("fig")
+            if fig is not None:
+                st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": True})
+            _render_plot_inspect_export(st, profile, project_path, built)
+    else:
         _render_scan_builder(st, profile)
     st.caption(BOUNDARY)

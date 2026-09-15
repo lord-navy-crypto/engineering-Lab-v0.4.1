@@ -193,25 +193,35 @@ def _render_openguin(st: Any, project_path: Path, profile: str) -> None:
     st.caption(
         "Engineering Lab remains the scientific record. OpenPenguin receives bounded structured evidence and may return suggestions/proposals; an AI packet never executes a measurement, solver run, parameter change or validation decision."
     )
-    focus = st.text_input("Optional research focus for OpenPenguin", value="", key=f"pl_labbridge_ai_focus_{profile}")
-    context = build_ai_context_packet(project_path, profile=profile, focus=focus)
-    status = probe_openguin()
-    a, b, c, d = st.columns(4)
-    a.metric("AI context packet", context["packet_id"][:24])
-    b.metric("Context SHA", context["content_sha256"][:16] + "…")
-    c.metric("OpenPenguin", "ONLINE" if status["available"] else "OFFLINE")
-    d.metric("Adapter", status["mode"])
-    with st.expander("Structured OpenPenguin context", expanded=False):
-        st.json(context)
-    with st.expander("OpenPenguin LabBridge API contract", expanded=False):
-        st.json(native_api_contract())
-        st.caption("Native LabBridge is preferred when available; Engineering Lab falls back to the existing Ollama-compatible OpenPenguin endpoint without changing scientific semantics.")
-    st.download_button("Export AI Context Packet", data=json.dumps(context, indent=2, sort_keys=True).encode("utf-8"), file_name=f"{context['packet_id']}.json", mime="application/json", key=f"pl_labbridge_ai_context_download_{profile}")
+    task = st.radio(
+        "OpenPenguin task",
+        ["Context & Status", "Ask OpenPenguin", "Review Advisory", "Import Advisory"],
+        horizontal=True,
+        key=f"pl_openguin_task_{profile}",
+    )
 
-    st.markdown("##### Ask OpenPenguin locally")
-    if not status["available"]:
-        st.info("OpenPenguin private runtime is not currently available at 127.0.0.1:11435. File-based AI Context export remains available.")
-    else:
+    if task in {"Context & Status", "Ask OpenPenguin"}:
+        focus = st.text_input("Optional research focus for OpenPenguin", value="", key=f"pl_labbridge_ai_focus_{profile}")
+        context = build_ai_context_packet(project_path, profile=profile, focus=focus)
+        status = probe_openguin()
+        a, b, c, d = st.columns(4)
+        a.metric("AI context packet", context["packet_id"][:24])
+        b.metric("Context SHA", context["content_sha256"][:16] + "…")
+        c.metric("OpenPenguin", "ONLINE" if status["available"] else "OFFLINE")
+        d.metric("Adapter", status["mode"])
+
+        if task == "Context & Status":
+            with st.expander("Structured OpenPenguin context", expanded=False):
+                st.json(context)
+            with st.expander("OpenPenguin LabBridge API contract", expanded=False):
+                st.json(native_api_contract())
+                st.caption("Native LabBridge is preferred when available; Engineering Lab falls back to the existing Ollama-compatible OpenPenguin endpoint without changing scientific semantics.")
+            st.download_button("Export AI Context Packet", data=json.dumps(context, indent=2, sort_keys=True).encode("utf-8"), file_name=f"{context['packet_id']}.json", mime="application/json", key=f"pl_labbridge_ai_context_download_{profile}")
+            return
+
+        if not status["available"]:
+            st.info("OpenPenguin private runtime is not currently available at 127.0.0.1:11435. Use Context & Status to export a file-based AI Context packet.")
+            return
         if status["mode"] == "native-labbridge":
             st.success("OpenPenguin native LabBridge API detected.")
         else:
@@ -219,53 +229,64 @@ def _render_openguin(st: Any, project_path: Path, profile: str) -> None:
         models = list(status.get("models") or [])
         if not models:
             st.warning("OpenPenguin runtime is reachable but reports no installed model.")
-        else:
-            c1, c2 = st.columns([2, 1])
-            model = c1.selectbox("OpenPenguin model", models, key=f"pl_labbridge_op_model_{profile}")
-            temperature = c2.slider("Advisory creativity", 0.0, 0.8, 0.2, 0.05, key=f"pl_labbridge_op_temp_{profile}")
-            question = st.text_area(
-                "Research question for OpenPenguin",
-                value="Explain the strongest evidence in this project, identify the largest remaining uncertainty, and suggest one falsifiable next experiment.",
-                height=120,
-                key=f"pl_labbridge_op_question_{profile}",
-            )
-            if st.button("Ask OpenPenguin · read-only", type="primary", disabled=not question.strip(), key=f"pl_labbridge_op_ask_{profile}"):
-                try:
-                    suggestion = request_advisory(context, question=question, model=model, temperature=temperature)
-                    st.session_state[f"pl_labbridge_op_packet_{profile}"] = suggestion
-                except Exception as exc:
-                    st.error(f"OpenPenguin request failed: {exc}")
-            suggestion = st.session_state.get(f"pl_labbridge_op_packet_{profile}")
-            if isinstance(suggestion, dict) and suggestion.get("summary"):
-                st.markdown("**OpenPenguin advisory**")
-                st.write(suggestion["summary"])
-                st.caption(f"AISuggestion packet {suggestion.get('packet_id')} · executed={bool(suggestion.get('executed'))}")
-                if st.button("Record this advisory in Lab Journey", key=f"pl_labbridge_op_record_{profile}"):
-                    try:
-                        out = record_ai_advisory(project_path, suggestion)
-                    except Exception as exc:
-                        st.error(f"Could not record OpenPenguin advisory: {exc}")
-                    else:
-                        st.success(f"Recorded {out['journey_event']['event_id']} · no action executed")
-                        st.rerun()
+            return
+        c1, c2 = st.columns([2, 1])
+        model = c1.selectbox("OpenPenguin model", models, key=f"pl_labbridge_op_model_{profile}")
+        temperature = c2.slider("Advisory creativity", 0.0, 0.8, 0.2, 0.05, key=f"pl_labbridge_op_temp_{profile}")
+        question = st.text_area(
+            "Research question for OpenPenguin",
+            value="Explain the strongest evidence in this project, identify the largest remaining uncertainty, and suggest one falsifiable next experiment.",
+            height=120,
+            key=f"pl_labbridge_op_question_{profile}",
+        )
+        if st.button("Ask OpenPenguin · read-only", type="primary", disabled=not question.strip(), key=f"pl_labbridge_op_ask_{profile}"):
+            try:
+                suggestion = request_advisory(context, question=question, model=model, temperature=temperature)
+                st.session_state[f"pl_labbridge_op_packet_{profile}"] = suggestion
+                st.success("Advisory received. Open Review Advisory to inspect or record it.")
+            except Exception as exc:
+                st.error(f"OpenPenguin request failed: {exc}")
+        return
 
-    st.markdown("##### Import OpenPenguin advisory packet")
-    advisory_file = st.file_uploader("OpenPenguin AISuggestion / ActionProposal JSON", type=["json"], key=f"pl_labbridge_ai_advisory_{profile}")
-    if advisory_file:
-        try:
-            packet = _json_upload(advisory_file)
-            check = validate_ai_advisory(packet)
-            if check["valid"]:
-                st.success("Advisory packet integrity PASS · advisory remains unexecuted.")
+    if task == "Review Advisory":
+        suggestion = st.session_state.get(f"pl_labbridge_op_packet_{profile}")
+        if not isinstance(suggestion, dict) or not suggestion.get("summary"):
+            st.info("No current OpenPenguin advisory in this session. Use Ask OpenPenguin first.")
+            return
+        st.markdown("**OpenPenguin advisory**")
+        st.write(suggestion["summary"])
+        st.caption(f"AISuggestion packet {suggestion.get('packet_id')} · executed={bool(suggestion.get('executed'))}")
+        with st.expander("Advisory packet", expanded=False):
+            st.json(suggestion)
+        if st.button("Record this advisory in Lab Journey", type="primary", key=f"pl_labbridge_op_record_{profile}"):
+            try:
+                out = record_ai_advisory(project_path, suggestion)
+            except Exception as exc:
+                st.error(f"Could not record OpenPenguin advisory: {exc}")
             else:
-                st.error("; ".join(check["errors"]))
-            st.json(packet)
-            if st.button("Record imported advisory in Lab Journey", disabled=not check["valid"], key=f"pl_labbridge_ai_record_{profile}"):
-                out = record_ai_advisory(project_path, packet)
-                st.success(f"Recorded {out['journey_event']['event_id']} · executed=false")
+                st.success(f"Recorded {out['journey_event']['event_id']} · no action executed")
                 st.rerun()
-        except Exception as exc:
-            st.error(f"Could not read advisory packet: {exc}")
+        return
+
+    advisory_file = st.file_uploader("OpenPenguin AISuggestion / ActionProposal JSON", type=["json"], key=f"pl_labbridge_ai_advisory_{profile}")
+    if not advisory_file:
+        st.info("Choose an OpenPenguin AISuggestion or ActionProposal JSON packet to validate it before recording.")
+        return
+    try:
+        packet = _json_upload(advisory_file)
+        check = validate_ai_advisory(packet)
+        if check["valid"]:
+            st.success("Advisory packet integrity PASS · advisory remains unexecuted.")
+        else:
+            st.error("; ".join(check["errors"]))
+        with st.expander("Imported advisory packet", expanded=False):
+            st.json(packet)
+        if st.button("Record imported advisory in Lab Journey", type="primary", disabled=not check["valid"], key=f"pl_labbridge_ai_record_{profile}"):
+            out = record_ai_advisory(project_path, packet)
+            st.success(f"Recorded {out['journey_event']['event_id']} · executed=false")
+            st.rerun()
+    except Exception as exc:
+        st.error(f"Could not read advisory packet: {exc}")
 
 
 def render_labbridge(st: Any, profile: str) -> None:

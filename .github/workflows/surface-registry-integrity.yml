@@ -27,6 +27,8 @@ jobs:
       - name: Compile surface files
         run: |
           python -m py_compile \
+            src-tauri/resources/ui/physical_lab_surface_registry.py \
+            src-tauri/resources/ui/physical_lab_project_surface_patch.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
             scripts/surface_registry_validation.py
       - name: Validate unified surface registry

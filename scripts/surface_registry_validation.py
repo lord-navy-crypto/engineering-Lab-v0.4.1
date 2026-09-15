@@ -10,7 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "src-tauri" / "resources" / "ui"
 REGISTRY_PATH = UI_ROOT / "physical_lab_surface_registry.py"
-PROJECT_UI = UI_ROOT / "physical_lab_project_interop_ui.py"
+DESKTOP_SURFACE = UI_ROOT / "physical_lab_project_surface_patch.py"
 TAURI = ROOT / "src-tauri" / "tauri.conf.json"
 
 
@@ -31,11 +31,18 @@ def load_registry():
 
 
 def main() -> None:
-    project_text = PROJECT_UI.read_text(encoding="utf-8")
-    if '"All Workspaces"' not in project_text:
-        fail("project surface does not expose All Workspaces")
-    if "physical_lab_surface_registry" not in project_text:
-        fail("project surface is not wired to surface registry")
+    desktop_text = DESKTOP_SURFACE.read_text(encoding="utf-8")
+    required_wiring = {
+        '"All Workspaces"': "desktop surface does not expose All Workspaces",
+        "physical_lab_surface_registry": "desktop surface is not wired to surface registry",
+        "_render_all_workspaces": "desktop surface does not render the All Workspaces catalog",
+        "render_project_workspace": "desktop surface lost Project Kernel wiring",
+        "render_project_interop": "desktop surface lost Project Workspace wiring",
+        '"Engineering Lab navigator"': "desktop surface lacks the top-level workspace navigator",
+    }
+    for marker, error in required_wiring.items():
+        if marker not in desktop_text:
+            fail(error)
 
     registry = load_registry()
     surfaces = list(getattr(registry, "SURFACES", ()))
@@ -74,6 +81,10 @@ def main() -> None:
             fail(f"classified UI module is not bundled: {filename}")
 
     for row in surfaces:
+        if row.category not in getattr(registry, "CATEGORIES", ()):
+            fail(f"surface {row.surface_id} has unknown category {row.category!r}")
+        if row.launch_mode not in {"direct", "route", "profile", "embedded"}:
+            fail(f"surface {row.surface_id} has unsupported launch mode {row.launch_mode!r}")
         if row.launch_mode == "direct":
             if not row.module or not row.callable_name:
                 fail(f"direct surface {row.surface_id} lacks module/callable")
@@ -87,9 +98,15 @@ def main() -> None:
 
     required_ids = {
         "utube-studio",
+        "utube-physical",
+        "utube-uncertainty",
+        "utube-advanced",
         "visualization-studio",
         "visual-analytics",
         "applied-analysis",
+        "advanced-applied-analysis",
+        "deep-applied-math",
+        "science-analysis",
         "run-comparison",
         "model-coupling",
         "pipeline-dag",
@@ -101,6 +118,11 @@ def main() -> None:
         "digital-twin",
         "research-orchestrator",
         "evidence-center",
+        "kerr-geodesics",
+        "solar-system",
+        "lattice-dynamics",
+        "undulator-spectrum",
+        "radiation-stokes",
     }
     missing_required = sorted(required_ids - set(ids))
     if missing_required:
@@ -112,7 +134,9 @@ def main() -> None:
                 "surface_count": len(surfaces),
                 "classified_ui_modules": len(classified_modules),
                 "direct_ui_modules": len(direct_modules),
+                "profile_scoped_surfaces": sum(1 for row in surfaces if row.launch_mode == "profile"),
                 "orphan_ui_modules": 0,
+                "desktop_catalog_wired": True,
             },
             sort_keys=True,
         )

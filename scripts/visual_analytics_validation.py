@@ -19,6 +19,7 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     import physical_lab_visual_analytics as va
+    import physical_lab_visual_analytics_ui as vau
 
     a = pd.DataFrame({"x": [1, 2, 3], "y": [10.0, 20.0, 30.0], "note": ["a", "b", "c"]})
     b = pd.DataFrame({"x": [4, 5], "y": [40, 50], "other": [1.0, 2.0]})
@@ -61,6 +62,19 @@ def main() -> int:
 
     selection = {"selection": {"points": [{"point_index": 2}, {"pointNumber": 0}, {"point_index": 2}, {"point_index": 99}]}}
     require(va.selection_indices(selection, 3) == [2, 0], "selection decoder did not deduplicate/bound indices")
+
+    # Multi-trace Plotly point indices are local to each trace. The linked-view UI
+    # must prefer explicit customdata carrying the global row position.
+    linked_selection = {
+        "selection": {
+            "points": [
+                {"point_index": 0, "customdata": [3]},
+                {"point_index": 1, "customdata": 4},
+                {"point_index": 0, "customdata": [3]},
+            ]
+        }
+    }
+    require(vau._linked_selection_indices(linked_selection, 5) == [3, 4], "linked-view selection ignored global customdata row identity")
 
     panels = [
         {"kind": "uncertainty-plot", "source": {"id": "dataset:a"}, "x": "t", "y": "signal", "error_mode": "Symmetric field", "symmetric": "signal_sigma"},

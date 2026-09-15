@@ -14,6 +14,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
       - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
+      - 'scripts/visual_analytics_linked_view_validation.py'
       - 'scripts/scientific_visualization_validation.py'
       - 'scripts/science_analysis_recipe_validation.py'
       - 'scripts/science_analysis_advanced_validation.py'
@@ -28,6 +29,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
       - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'scripts/visual_analytics_validation.py'
+      - 'scripts/visual_analytics_linked_view_validation.py'
       - 'scripts/scientific_visualization_validation.py'
       - 'scripts/science_analysis_recipe_validation.py'
       - 'scripts/science_analysis_advanced_validation.py'
@@ -51,11 +53,14 @@ jobs:
           python -m py_compile src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
           python -m py_compile scripts/visual_analytics_validation.py
+          python -m py_compile scripts/visual_analytics_linked_view_validation.py
           python -m py_compile scripts/scientific_visualization_validation.py
           python -m py_compile scripts/science_analysis_recipe_validation.py
           python -m py_compile scripts/science_analysis_advanced_validation.py
       - name: Validate interactive analytics
         run: python scripts/visual_analytics_validation.py
+      - name: Validate task workflow and linked selection views
+        run: python scripts/visual_analytics_linked_view_validation.py
       - name: Validate units UQ sensitivity and response surfaces
         run: python scripts/scientific_visualization_validation.py
       - name: Validate reproducible science analysis helpers

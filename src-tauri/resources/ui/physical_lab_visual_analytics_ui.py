@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
+from physical_lab_ui_semantics import render_context_header, render_object_card
 from physical_lab_project_interop import list_canonical_datasets
 from physical_lab_result_inspector import load_project_result
 from physical_lab_sweep_executor import list_sweep_jobs, read_sweep_result
@@ -400,6 +401,24 @@ def render_visual_analytics(st: Any, profile: str) -> None:
     labels = {s["id"]: s["label"] for s in sources}
     chosen = st.selectbox("Primary source", [s["id"] for s in sources], format_func=lambda x: labels.get(x, x), key=f"pl_va_primary_{profile}")
     source = next(s for s in sources if s["id"] == chosen)
+    source_object_type = {"dataset": "DATASET", "result": "RESULT", "sweep": "RESULT"}.get(str(source.get("kind") or "").lower(), "UNKNOWN")
+    render_context_header(
+        st,
+        project=project_path.stem,
+        workspace="Visual Analytics",
+        task="Selection & Linked Views",
+        source=str(source.get("label") or source.get("id") or "source"),
+    )
+    render_object_card(
+        st,
+        object_type=source_object_type,
+        title=str(source.get("label") or source.get("id") or "source"),
+        metadata={
+            "source_id": source.get("id"),
+            "rows": len(source.get("frame") or []),
+            **dict(source.get("identity") or {}),
+        },
+    )
     a, b, c = st.columns(3)
     a.metric("Source type", source["kind"])
     b.metric("Rows", len(source["frame"]))

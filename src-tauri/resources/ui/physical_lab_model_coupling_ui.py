@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import physical_lab_project_kernel as projects
+from physical_lab_ui_semantics import render_context_header, render_object_card, render_status_card
 from physical_lab_project_interop import list_canonical_datasets
 from physical_lab_model_coupling import (
     REDUCERS,
@@ -383,6 +384,32 @@ def render_model_coupling(st: Any, profile: str) -> None:
     packet = st.session_state.get(f"pl_couple_packet_{profile}")
     if not isinstance(packet, dict):
         packet = None
+
+    render_context_header(st, project=project_path.stem, workspace="Model Coupling", task=task)
+    if packet:
+        render_object_card(
+            st,
+            object_type="DATASET",
+            title=str(packet.get("source_dataset_id") or "source dataset"),
+            metadata={"sha256": packet.get("source_dataset_sha256")},
+        )
+        render_object_card(
+            st,
+            object_type="MODEL",
+            title=str(packet.get("target_adapter") or "downstream model"),
+            metadata={"profile": packet.get("target_profile"), "packet_sha256": packet.get("packet_sha256")},
+        )
+        queued_state = st.session_state.get(_queued_key(profile))
+        execution_state = "NOT APPLICABLE"
+        if isinstance(queued_state, dict) and str(queued_state.get("packet_sha256") or "") == str(packet.get("packet_sha256") or ""):
+            execution_state = "PENDING" if queued_state.get("execution_started") else "QUEUED"
+        render_status_card(
+            st,
+            validation="NOT ESTABLISHED",
+            scientific="NOT ESTABLISHED",
+            provenance="PARTIAL",
+            execution=execution_state,
+        )
 
     if task == "Configure Mapping":
         if not datasets:

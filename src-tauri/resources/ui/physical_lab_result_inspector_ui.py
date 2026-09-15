@@ -7,6 +7,7 @@ from typing import Any
 import plotly.graph_objects as go
 
 import physical_lab_project_kernel as projects
+from physical_lab_ui_semantics import render_context_header, render_object_card, render_status_card
 from physical_lab_environment_manifest import build_environment_manifest, list_environment_manifests, save_environment_manifest
 from physical_lab_result_contracts import annotate_inventory, find_uncertainty_objects, validate_contract_inventory
 from physical_lab_result_inspector import (
@@ -440,6 +441,35 @@ def render_result_inspector(st: Any, profile: str) -> None:
     result,identity=selected
     prepared = _build_inspection(result)
     inspection, sanity, _uncertainty = prepared
+
+    source_name = str(identity.get("job_id") or identity.get("sweep_job_id") or identity.get("result_id") or "persisted result")
+    render_context_header(
+        st,
+        project=project_path.stem,
+        workspace="Result Inspector",
+        task=workspace,
+        source=source_name,
+    )
+    if workspace == "Inspect Result":
+        render_object_card(
+            st,
+            object_type="RESULT",
+            title=source_name,
+            metadata={
+                "schema": result.get("schema") or "untyped",
+                "fields": inspection.get("field_count"),
+                "sha256": inspection.get("result_sha256"),
+            },
+        )
+        conformance_status = str((inspection.get("contract_conformance") or {}).get("status") or "NOT ESTABLISHED")
+        provenance_state = "RECORDED" if identity and inspection.get("result_sha256") else ("PARTIAL" if identity or inspection.get("result_sha256") else "UNSPECIFIED")
+        render_status_card(
+            st,
+            validation=conformance_status,
+            scientific="NOT ESTABLISHED",
+            provenance=provenance_state,
+            execution=str(identity.get("status") or "NOT APPLICABLE"),
+        )
 
     a,b,c = st.columns(3)
     a.metric("Selected schema", str(result.get("schema") or "untyped"))

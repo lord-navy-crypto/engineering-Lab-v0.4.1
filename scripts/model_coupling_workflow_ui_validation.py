@@ -44,23 +44,39 @@ def main() -> int:
 
     tree = ast.parse(source)
     funcs = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    for name in ("_queue_downstream_model", "_start_queued_downstream_model", "_render_mapping_flow", "render_model_coupling"):
+    required_funcs = (
+        "_queue_downstream_model",
+        "_start_queued_downstream_model",
+        "_render_mapping_flow",
+        "_render_review",
+        "_render_save_execute",
+        "render_model_coupling",
+    )
+    for name in required_funcs:
         assert name in funcs, f"missing required function: {name}"
 
     queue_calls = calls_in(funcs["_queue_downstream_model"])
     start_calls = calls_in(funcs["_start_queued_downstream_model"])
     flow_calls = calls_in(funcs["_render_mapping_flow"])
+    review_calls = calls_in(funcs["_render_review"])
+    execute_calls = calls_in(funcs["_render_save_execute"])
+    render_calls = calls_in(funcs["render_model_coupling"])
 
+    # Execution semantics: queue and start remain distinct code paths.
     assert "queue_packet" in queue_calls, "queue helper must create the queued job"
     assert "start_sweep_job" not in queue_calls, "queue helper must not start execution"
     assert "start_sweep_job" in start_calls, "start helper must explicitly start the queued job"
     assert "queue_packet" not in start_calls, "start helper must not create a new queued job"
-    assert "plotly_chart" in flow_calls, "mapping flow helper must render the visual mapping"
 
-    render_calls = calls_in(funcs["render_model_coupling"])
-    assert "_queue_downstream_model" in render_calls
-    assert "_start_queued_downstream_model" in render_calls
-    assert "_render_mapping_flow" in render_calls
+    # Visual flow is rendered by the Review Packet stage.
+    assert "plotly_chart" in flow_calls, "mapping flow helper must render the visual mapping"
+    assert "_render_mapping_flow" in review_calls, "Review Packet must render the mapping flow"
+
+    # Save / Execute owns both explicit actions; the top-level renderer owns stages.
+    assert "_queue_downstream_model" in execute_calls, "Save / Execute must expose explicit queue"
+    assert "_start_queued_downstream_model" in execute_calls, "Save / Execute must expose explicit start"
+    for name in ("_render_configure", "_render_review", "_render_save_execute", "_render_provenance"):
+        assert name in render_calls, f"top-level staged renderer missing call: {name}"
 
     print("PASS: staged Model Coupling workflow + visual mapping + explicit queue/start boundary")
     return 0

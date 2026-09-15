@@ -27,7 +27,10 @@ jobs:
           python -m py_compile scripts/project_interop_validation.py
       - name: Validate project datasets and reproducibility pack
         run: python scripts/project_interop_validation.py
-      - name: Verify DMG resource wiring
+      - name: Verify DMG resource wiring and project-selection guard
         run: |
           grep -q 'physical_lab_project_interop.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_project_interop_ui.py' src-tauri/tauri.conf.json
+          grep -q 'pl_project_select_' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Create new project' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'U-Tube Research Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py

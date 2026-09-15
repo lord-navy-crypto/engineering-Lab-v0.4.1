@@ -102,8 +102,13 @@ def _bootstrap_tab(st: Any, project_path: Path, source: dict[str, Any], profile:
     if not numeric:
         st.info("Bootstrap requires a numeric field.")
         return
-    sub_boot, sub_mc = st.tabs(["Bootstrap", "Monte Carlo propagation"])
-    with sub_boot:
+    method = st.radio(
+        "Uncertainty method",
+        ["Bootstrap", "Monte Carlo propagation"],
+        horizontal=True,
+        key=f"pl_applied_uncertainty_method_{profile}",
+    )
+    if method == "Bootstrap":
         c1, c2, c3 = st.columns(3)
         field = c1.selectbox("Field", numeric, key=f"pl_applied_boot_field_{profile}")
         statistic = c2.selectbox("Statistic", ["mean", "median", "std"], key=f"pl_applied_boot_stat_{profile}")
@@ -122,35 +127,36 @@ def _bootstrap_tab(st: Any, project_path: Path, source: dict[str, Any], profile:
         st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
         st.caption("This is a percentile bootstrap interval under resampling of the observed rows; dependence, bias and sampling design remain separate assumptions.")
         _save(st, project_path, source, kind="bootstrap", configuration={"field": field, "statistic": statistic, "resamples": resamples, "confidence": confidence, "seed": seed}, summary={k: result[k] for k in ("n", "estimate", "bootstrap_standard_error", "interval")}, key=f"pl_applied_save_boot_{profile}")
-    with sub_mc:
-        selected = st.multiselect("Input fields", numeric, default=numeric[:min(3, len(numeric))], key=f"pl_applied_mc_fields_{profile}")
-        if not selected:
-            st.info("Select at least one input field.")
-            return
-        st.caption("For this first version, each selected field uses its observed sample mean and sample standard deviation as an explicit Normal input assumption. Coefficients define a linear output y = Σ cᵢxᵢ.")
-        coeff_text = st.text_input("Coefficients (comma-separated)", value=",".join(["1"] * len(selected)), key=f"pl_applied_mc_coeff_{profile}")
-        try:
-            coefficients = [float(x.strip()) for x in coeff_text.split(",") if x.strip()]
-        except ValueError:
-            coefficients = []
-        if len(coefficients) != len(selected):
-            st.warning("Provide exactly one coefficient per selected field.")
-            return
-        work = frame[selected].apply(pd.to_numeric, errors="coerce")
-        means = [float(work[c].mean()) for c in selected]
-        stds = [float(work[c].std(ddof=1)) for c in selected]
-        samples = int(st.number_input("Monte Carlo samples", min_value=100, max_value=20000, value=5000, step=100, key=f"pl_applied_mc_n_{profile}"))
-        seed = int(st.number_input("Monte Carlo seed", min_value=0, value=0, step=1, key=f"pl_applied_mc_seed_{profile}"))
-        try:
-            result = monte_carlo_propagation(means=means, standard_uncertainties=stds, coefficients=coefficients, samples=samples, seed=seed)
-        except Exception as exc:
-            st.warning(f"Monte Carlo propagation unavailable: {exc}")
-            return
-        st.dataframe([{"field": f, "assumed_mean": m, "assumed_std": s, "coefficient": c} for f, m, s, c in zip(selected, means, stds, coefficients)], hide_index=True, width="stretch")
-        fig = px.histogram(x=result["distribution"], nbins=60, title="Propagated output distribution")
-        st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-        st.caption(f"Mean={result['mean']:.6g} · SD={result['standard_deviation']:.6g} · 95% percentile interval={result['percentile_95']}. Normality and independence are explicit assumptions here, not inferred truths.")
-        _save(st, project_path, source, kind="monte-carlo-propagation", configuration={"fields": selected, "coefficients": coefficients, "samples": samples, "seed": seed, "assumption": "independent-normal-inputs-using-observed-sample-mean-sd"}, summary={k: result[k] for k in ("mean", "standard_deviation", "percentile_95", "median")}, key=f"pl_applied_save_mc_{profile}")
+        return
+
+    selected = st.multiselect("Input fields", numeric, default=numeric[:min(3, len(numeric))], key=f"pl_applied_mc_fields_{profile}")
+    if not selected:
+        st.info("Select at least one input field.")
+        return
+    st.caption("For this first version, each selected field uses its observed sample mean and sample standard deviation as an explicit Normal input assumption. Coefficients define a linear output y = Σ cᵢxᵢ.")
+    coeff_text = st.text_input("Coefficients (comma-separated)", value=",".join(["1"] * len(selected)), key=f"pl_applied_mc_coeff_{profile}")
+    try:
+        coefficients = [float(x.strip()) for x in coeff_text.split(",") if x.strip()]
+    except ValueError:
+        coefficients = []
+    if len(coefficients) != len(selected):
+        st.warning("Provide exactly one coefficient per selected field.")
+        return
+    work = frame[selected].apply(pd.to_numeric, errors="coerce")
+    means = [float(work[c].mean()) for c in selected]
+    stds = [float(work[c].std(ddof=1)) for c in selected]
+    samples = int(st.number_input("Monte Carlo samples", min_value=100, max_value=20000, value=5000, step=100, key=f"pl_applied_mc_n_{profile}"))
+    seed = int(st.number_input("Monte Carlo seed", min_value=0, value=0, step=1, key=f"pl_applied_mc_seed_{profile}"))
+    try:
+        result = monte_carlo_propagation(means=means, standard_uncertainties=stds, coefficients=coefficients, samples=samples, seed=seed)
+    except Exception as exc:
+        st.warning(f"Monte Carlo propagation unavailable: {exc}")
+        return
+    st.dataframe([{"field": f, "assumed_mean": m, "assumed_std": s, "coefficient": c} for f, m, s, c in zip(selected, means, stds, coefficients)], hide_index=True, width="stretch")
+    fig = px.histogram(x=result["distribution"], nbins=60, title="Propagated output distribution")
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    st.caption(f"Mean={result['mean']:.6g} · SD={result['standard_deviation']:.6g} · 95% percentile interval={result['percentile_95']}. Normality and independence are explicit assumptions here, not inferred truths.")
+    _save(st, project_path, source, kind="monte-carlo-propagation", configuration={"fields": selected, "coefficients": coefficients, "samples": samples, "seed": seed, "assumption": "independent-normal-inputs-using-observed-sample-mean-sd"}, summary={k: result[k] for k in ("mean", "standard_deviation", "percentile_95", "median")}, key=f"pl_applied_save_mc_{profile}")
 
 
 def _doe_tab(st: Any, project_path: Path, profile: str) -> None:
@@ -227,20 +233,28 @@ def render_applied_analysis(st: Any, profile: str) -> None:
     st.caption("Regression diagnostics, resampling, uncertainty propagation, experiment design and safe parameter estimation over existing Engineering Lab data.")
     if not sources:
         st.info("No project result, completed sweep or canonical dataset is available yet. DOE can still be designed prospectively below.")
-        tab_doe = st.tabs(["Design of Experiments"])[0]
-        with tab_doe:
-            _doe_tab(st, project_path, profile)
+        _doe_tab(st, project_path, profile)
+        st.caption(BOUNDARY)
         return
+
+    task = st.radio(
+        "Analysis task",
+        ["Regression + Diagnostics", "Bootstrap + Monte Carlo", "Design of Experiments", "Parameter Estimation"],
+        horizontal=True,
+        key=f"pl_applied_task_{profile}",
+    )
+    if task == "Design of Experiments":
+        _doe_tab(st, project_path, profile)
+        st.caption(BOUNDARY)
+        return
+
     labels = {s["id"]: s["label"] for s in sources}
     selected_id = st.selectbox("Analysis source", [s["id"] for s in sources], format_func=lambda x: labels.get(x, x), key=f"pl_applied_source_{profile}")
     source = next(s for s in sources if s["id"] == selected_id)
-    tab_reg, tab_boot, tab_doe, tab_fit = st.tabs(["Regression + Diagnostics", "Bootstrap + Monte Carlo", "Design of Experiments", "Parameter Estimation"])
-    with tab_reg:
+    if task == "Regression + Diagnostics":
         _regression_tab(st, project_path, source, profile)
-    with tab_boot:
+    elif task == "Bootstrap + Monte Carlo":
         _bootstrap_tab(st, project_path, source, profile)
-    with tab_doe:
-        _doe_tab(st, project_path, profile)
-    with tab_fit:
+    else:
         _parameter_tab(st, project_path, source, profile)
     st.caption(BOUNDARY)

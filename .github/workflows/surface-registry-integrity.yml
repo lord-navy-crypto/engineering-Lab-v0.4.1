@@ -1,4 +1,5 @@
 name: Surface Registry Integrity
+# Guards discoverability, desktop wiring, renderer classification, and DMG resources.
 
 on:
   pull_request:

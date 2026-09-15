@@ -1,0 +1,36 @@
+name: Apply Visual Analytics Frame Fix
+
+on:
+  push:
+    branches:
+      - feature/shared-scientific-ui-semantics
+    paths:
+      - 'scripts/apply_va_frame_fix.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/shared-scientific-ui-semantics
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact fix
+        run: python scripts/apply_va_frame_fix.py
+      - name: Verify source compiles and semantic validator passes
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_visual_analytics_ui.py
+          python scripts/ui_semantics_validation.py
+      - name: Commit fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src-tauri/resources/ui/physical_lab_visual_analytics_ui.py
+          git commit -m 'Fix Visual Analytics DataFrame metadata handling'
+          git push origin HEAD:feature/shared-scientific-ui-semantics

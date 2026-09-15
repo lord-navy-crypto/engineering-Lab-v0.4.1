@@ -113,57 +113,69 @@ def _cv_tab(st: Any, source: dict[str, Any], profile: str) -> None:
 def _factorial_morris_tab(st: Any, source: dict[str, Any], profile: str) -> None:
     frame: pd.DataFrame = source["frame"]
     numeric = numeric_columns(frame)
-    sub_factorial, sub_morris_design, sub_morris_analyze = st.tabs(["Two-level factorial effects", "Morris design", "Morris effects"])
-    with sub_factorial:
+    method = st.radio(
+        "Screening method",
+        ["Two-level factorial effects", "Morris design", "Morris effects"],
+        horizontal=True,
+        key=f"pl_adv_screening_method_{profile}",
+    )
+
+    if method == "Two-level factorial effects":
         if len(numeric) < 2:
             st.info("Factorial effects require factors and a numeric response.")
-        else:
-            response = st.selectbox("Response", numeric, index=len(numeric)-1, key=f"pl_adv_fact_y_{profile}")
-            factors = st.multiselect("Two-level factors", [c for c in numeric if c != response], key=f"pl_adv_fact_x_{profile}")
-            interactions = st.checkbox("Include pairwise interactions", value=True, key=f"pl_adv_fact_inter_{profile}")
-            if factors:
-                try:
-                    result = factorial_effects(frame, factors, response, include_interactions=interactions)
-                    effects = pd.DataFrame(result["effects"])
-                    fig = px.bar(effects, x="term", y="effect", color="kind", title=f"Factorial effects → {response}")
-                    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-                    st.dataframe(effects, hide_index=True, width="stretch")
-                    st.caption(result["boundary"])
-                except Exception as exc:
-                    st.warning(f"Factorial effects unavailable: {exc}")
-    with sub_morris_design:
+            return
+        response = st.selectbox("Response", numeric, index=len(numeric)-1, key=f"pl_adv_fact_y_{profile}")
+        factors = st.multiselect("Two-level factors", [c for c in numeric if c != response], key=f"pl_adv_fact_x_{profile}")
+        interactions = st.checkbox("Include pairwise interactions", value=True, key=f"pl_adv_fact_inter_{profile}")
+        if not factors:
+            return
+        try:
+            result = factorial_effects(frame, factors, response, include_interactions=interactions)
+            effects = pd.DataFrame(result["effects"])
+            fig = px.bar(effects, x="term", y="effect", color="kind", title=f"Factorial effects → {response}")
+            st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+            st.dataframe(effects, hide_index=True, width="stretch")
+            st.caption(result["boundary"])
+        except Exception as exc:
+            st.warning(f"Factorial effects unavailable: {exc}")
+        return
+
+    if method == "Morris design":
         factors = _factor_text(st, profile, "morris")
-        if factors:
-            a, b, c = st.columns(3)
-            trajectories = int(a.number_input("Trajectories", min_value=2, max_value=100, value=8, key=f"pl_adv_morris_t_{profile}"))
-            levels = int(b.number_input("Grid levels", min_value=4, max_value=20, value=6, key=f"pl_adv_morris_l_{profile}"))
-            seed = int(c.number_input("Seed", min_value=0, value=0, key=f"pl_adv_morris_seed_{profile}"))
-            try:
-                design = morris_design(factors, trajectories=trajectories, levels=levels, seed=seed)
-                table = pd.DataFrame(design["rows"])
-                st.metric("Proposed runs", len(table))
-                st.dataframe(table.head(500), hide_index=True, width="stretch")
-                st.download_button("Download Morris design CSV", data=table.to_csv(index=False).encode(), file_name="morris-design.csv", mime="text/csv", key=f"pl_adv_morris_dl_{profile}")
-                st.caption(design["boundary"])
-            except Exception as exc:
-                st.warning(f"Morris design unavailable: {exc}")
-    with sub_morris_analyze:
-        meta = {"__trajectory", "__step", "__changed_factor"}
-        if not meta.issubset(frame.columns):
-            st.info("This source is not a completed Morris table; it must preserve __trajectory, __step and __changed_factor metadata plus a response column.")
-        else:
-            response = st.selectbox("Morris response", [c for c in numeric if c not in {"__trajectory", "__step"}], key=f"pl_adv_morris_y_{profile}")
-            factors = st.multiselect("Morris factor columns", [c for c in numeric if c not in {"__trajectory", "__step", response}], key=f"pl_adv_morris_fx_{profile}")
-            if factors:
-                try:
-                    effects = morris_effects(frame, response, factors)
-                    if not effects.empty:
-                        fig = px.scatter(effects, x="mu_star", y="sigma", text="factor", size="elementary_effects", title="Morris screening · μ* vs σ")
-                        st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
-                        st.dataframe(effects, hide_index=True, width="stretch")
-                        st.caption("μ* screens overall elementary-effect magnitude; σ indicates variation/nonlinearity/interactions. Neither is a causal effect estimate.")
-                except Exception as exc:
-                    st.warning(f"Morris effects unavailable: {exc}")
+        if not factors:
+            return
+        a, b, c = st.columns(3)
+        trajectories = int(a.number_input("Trajectories", min_value=2, max_value=100, value=8, key=f"pl_adv_morris_t_{profile}"))
+        levels = int(b.number_input("Grid levels", min_value=4, max_value=20, value=6, key=f"pl_adv_morris_l_{profile}"))
+        seed = int(c.number_input("Seed", min_value=0, value=0, key=f"pl_adv_morris_seed_{profile}"))
+        try:
+            design = morris_design(factors, trajectories=trajectories, levels=levels, seed=seed)
+            table = pd.DataFrame(design["rows"])
+            st.metric("Proposed runs", len(table))
+            st.dataframe(table.head(500), hide_index=True, width="stretch")
+            st.download_button("Download Morris design CSV", data=table.to_csv(index=False).encode(), file_name="morris-design.csv", mime="text/csv", key=f"pl_adv_morris_dl_{profile}")
+            st.caption(design["boundary"])
+        except Exception as exc:
+            st.warning(f"Morris design unavailable: {exc}")
+        return
+
+    meta = {"__trajectory", "__step", "__changed_factor"}
+    if not meta.issubset(frame.columns):
+        st.info("This source is not a completed Morris table; it must preserve __trajectory, __step and __changed_factor metadata plus a response column.")
+        return
+    response = st.selectbox("Morris response", [c for c in numeric if c not in {"__trajectory", "__step"}], key=f"pl_adv_morris_y_{profile}")
+    factors = st.multiselect("Morris factor columns", [c for c in numeric if c not in {"__trajectory", "__step", response}], key=f"pl_adv_morris_fx_{profile}")
+    if not factors:
+        return
+    try:
+        effects = morris_effects(frame, response, factors)
+        if not effects.empty:
+            fig = px.scatter(effects, x="mu_star", y="sigma", text="factor", size="elementary_effects", title="Morris screening · μ* vs σ")
+            st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+            st.dataframe(effects, hide_index=True, width="stretch")
+            st.caption("μ* screens overall elementary-effect magnitude; σ indicates variation/nonlinearity/interactions. Neither is a causal effect estimate.")
+    except Exception as exc:
+        st.warning(f"Morris effects unavailable: {exc}")
 
 
 def _doe_sweep_tab(st: Any, profile: str) -> None:
@@ -218,20 +230,35 @@ def render_applied_analysis_advanced(st: Any, profile: str) -> None:
     sources = _sources(project_path)
     st.markdown("#### Advanced Applied Analysis")
     st.caption("Robust fitting, cross-validation, factorial/Morris screening, and a guarded DOE → Sweep bridge.")
-    if sources:
-        labels = {s["id"]: s["label"] for s in sources}
-        selected_id = st.selectbox("Advanced-analysis source", [s["id"] for s in sources], format_func=lambda x: labels.get(x, x), key=f"pl_adv_source_{profile}")
-        source = next(s for s in sources if s["id"] == selected_id)
-        tab_robust, tab_cv, tab_screen, tab_bridge = st.tabs(["Robust Regression", "Model Selection", "Factorial + Morris", "DOE → Sweep"])
-        with tab_robust:
-            _robust_tab(st, source, profile)
-        with tab_cv:
-            _cv_tab(st, source, profile)
-        with tab_screen:
-            _factorial_morris_tab(st, source, profile)
-        with tab_bridge:
-            _doe_sweep_tab(st, profile)
-    else:
-        st.info("No existing data source is available; the guarded DOE → Sweep bridge remains available below.")
+
+    tasks = ["Robust Regression", "Model Selection", "Factorial + Morris", "DOE → Sweep"] if sources else ["DOE → Sweep"]
+    task = st.radio(
+        "Advanced analysis task",
+        tasks,
+        horizontal=True,
+        key=f"pl_adv_task_{profile}",
+    )
+
+    if task == "DOE → Sweep":
+        if not sources:
+            st.info("No existing data source is available; the guarded DOE → Sweep bridge remains available because it is prospective and source-independent.")
         _doe_sweep_tab(st, profile)
+        st.caption(BOUNDARY)
+        return
+
+    if not sources:
+        st.info("No existing data source is available for this analysis task.")
+        st.caption(BOUNDARY)
+        return
+
+    labels = {s["id"]: s["label"] for s in sources}
+    selected_id = st.selectbox("Advanced-analysis source", [s["id"] for s in sources], format_func=lambda x: labels.get(x, x), key=f"pl_adv_source_{profile}")
+    source = next(s for s in sources if s["id"] == selected_id)
+
+    if task == "Robust Regression":
+        _robust_tab(st, source, profile)
+    elif task == "Model Selection":
+        _cv_tab(st, source, profile)
+    else:
+        _factorial_morris_tab(st, source, profile)
     st.caption(BOUNDARY)

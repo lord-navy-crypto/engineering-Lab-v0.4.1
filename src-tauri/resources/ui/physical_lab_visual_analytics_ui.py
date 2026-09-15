@@ -415,7 +415,7 @@ def render_visual_analytics(st: Any, profile: str) -> None:
         title=str(source.get("label") or source.get("id") or "source"),
         metadata={
             "source_id": source.get("id"),
-            "rows": len(source.get("frame") or []),
+            "rows": len(source["frame"]) if source.get("frame") is not None else 0,
             **dict(source.get("identity") or {}),
         },
     )

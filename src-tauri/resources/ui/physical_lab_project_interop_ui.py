@@ -49,6 +49,9 @@ def _render_utube_research_studio(st: Any, profile: str) -> None:
 
 
 def render_project_interop(st: Any, profile: str) -> None:
+    selector_key = f"pl_project_select_{profile}"
+    if str(st.session_state.get(selector_key) or "") == "Create new project":
+        return
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
     if not active:
         return

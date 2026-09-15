@@ -64,6 +64,7 @@
       "resources/ui/physical_lab_sweep_design_bridge_ui.py": "ui/physical_lab_sweep_design_bridge_ui.py",
       "resources/ui/physical_lab_project_interop.py": "ui/physical_lab_project_interop.py",
       "resources/ui/physical_lab_project_interop_ui.py": "ui/physical_lab_project_interop_ui.py",
+      "resources/ui/physical_lab_surface_registry.py": "ui/physical_lab_surface_registry.py",
       "resources/ui/physical_lab_lab_journey.py": "ui/physical_lab_lab_journey.py",
       "resources/ui/physical_lab_labbridge.py": "ui/physical_lab_labbridge.py",
       "resources/ui/physical_lab_labbridge_ui.py": "ui/physical_lab_labbridge_ui.py",

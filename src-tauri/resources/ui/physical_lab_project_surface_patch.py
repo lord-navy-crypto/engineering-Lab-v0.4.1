@@ -62,6 +62,12 @@ def install() -> None:
                     st.warning(f"Legacy .physlab compatibility sync could not complete: {bridge_exc}")
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace)
+
+            # Project management remains in its compact .physlab expander above.
+            # Render the actual research surfaces afterwards so Project Home,
+            # U-Tube Research Studio and Project Tools are visible in the main UI.
+            from physical_lab_project_interop_ui import render_project_interop
+            render_project_interop(st, profile)
         except Exception as exc:
             try:
                 import streamlit as st

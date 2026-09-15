@@ -63,6 +63,12 @@ jobs:
           grep -q 'Experiment Notebook' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'Lab Journey' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           grep -q 'OpenPenguin Bridge' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'OpenPenguin task' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Context & Status' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Ask OpenPenguin' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Review Advisory' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'Import Advisory' src-tauri/resources/ui/physical_lab_labbridge_ui.py
+          grep -q 'pl_openguin_task_' src-tauri/resources/ui/physical_lab_labbridge_ui.py
           if grep -q 'st.tabs' src-tauri/resources/ui/physical_lab_labbridge_ui.py; then
             echo 'LabBridge must not render all complex workspaces through st.tabs'
             exit 1

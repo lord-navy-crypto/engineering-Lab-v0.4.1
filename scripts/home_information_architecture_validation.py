@@ -2,11 +2,13 @@
 """Validate first-principles Home architecture and shared native discovery wiring."""
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
+ADAPTERS = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_native_workbench_adapters.py"
 HOME_LAYOUT = ROOT / "src-tauri" / "resources" / "home_layout.json"
 HOME_UI = ROOT / "web" / "home_progressive.js"
 WORKBENCH = ROOT / "web" / "surface_catalog.js"
@@ -19,6 +21,7 @@ UTUBE_FAMILY = [
     "utube-studio",
     "utube-physical",
     "utube-uncertainty",
+    "utube-experiment-planner",
     "utube-advanced",
     "utube-robust",
     "utube-hysteresis",
@@ -40,8 +43,19 @@ def require(text: str, marker: str, message: str) -> None:
         fail(message)
 
 
+def effective_surfaces() -> list[dict]:
+    rows = json.loads(read_text(SURFACES))
+    spec = importlib.util.spec_from_file_location("_home_native_adapters", ADAPTERS)
+    if spec is None or spec.loader is None:
+        fail("unable to load native surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
+
+
 def main() -> None:
-    surfaces = json.loads(read_text(SURFACES))
+    surfaces = effective_surfaces()
     surface_ids = {str(row.get("id") or "") for row in surfaces if isinstance(row, dict)}
 
     layout = json.loads(read_text(HOME_LAYOUT))
@@ -69,7 +83,7 @@ def main() -> None:
     if utube is None:
         fail("Home layout missing rotating-utube featured family")
     if list(utube.get("surfaceIds") or []) != UTUBE_FAMILY:
-        fail("rotating-utube featured family must preserve the canonical six-entry order")
+        fail("rotating-utube featured family must preserve the canonical seven-entry order including Experiment Planner")
 
     home_ui = read_text(HOME_UI)
     for marker, message in {
@@ -109,6 +123,7 @@ def main() -> None:
         "capability_launcher.js": "frontend prepare step does not bundle shared capability launcher",
         "home_progressive.js": "frontend prepare step does not bundle progressive Home source",
         "__PHYSICAL_LAB_HOME_LAYOUT__": "frontend prepare step does not embed Home layout metadata",
+        "merge_native_surface_rows": "frontend prepare step does not apply reviewed native surface extensions",
     }.items():
         require(prepare, marker, message)
 
@@ -119,6 +134,8 @@ def main() -> None:
             "window.PhysicalLabCapabilityLauncher": "prepared app.js lacks shared capability launcher",
             "homeTaskGrid": "prepared app.js lacks progressive Home UI",
             "renderUnifiedSearch": "prepared app.js lacks unified discovery",
+            "utube-experiment-planner": "prepared app.js lacks focused U-Tube Experiment Planner",
+            "radiation-sensitivity": "prepared app.js lacks promoted Radiation Sensitivity surface",
         }.items():
             require(built, marker, message)
 
@@ -126,6 +143,7 @@ def main() -> None:
         "task_families": sorted(REQUIRED_TASK_FAMILIES),
         "referenced_capabilities": len(referenced),
         "utube_featured_entries": len(UTUBE_FAMILY),
+        "effective_surface_rows": len(surfaces),
         "shared_launcher": True,
         "unified_search": True,
         "home_information_architecture": True,

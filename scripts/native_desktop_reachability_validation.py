@@ -28,6 +28,14 @@ VALID_ARGUMENT_MODES = {
     "st_profile", "st_profile_project", "st_project_profile", "st_project_profile_refs",
     "st_profile_namespace", "st_namespace", "native_route",
 }
+UTUBE_FAMILY_IDS = (
+    "utube-studio",
+    "utube-physical",
+    "utube-uncertainty",
+    "utube-advanced",
+    "utube-robust",
+    "utube-hysteresis",
+)
 
 
 def fail(message: str) -> None:
@@ -88,6 +96,10 @@ def main() -> None:
         fail("every native catalog row requires a non-empty id")
     if len(ids) != len(set(ids)):
         fail("native surface ids must be unique")
+
+    missing_utube = [item for item in UTUBE_FAMILY_IDS if item not in ids]
+    if missing_utube:
+        fail("U-Tube experiment family missing native capabilities: " + ", ".join(missing_utube))
 
     by_source = {str(row.get("sourceSurfaceId") or ""): row for row in catalog if row.get("sourceSurfaceId")}
     missing_registry = sorted(str(surface.surface_id) for surface in registry_surfaces if str(surface.surface_id) not in by_source)
@@ -152,6 +164,8 @@ def main() -> None:
             "data-surface-open": "Workbench has no actionable capability controls",
             "showWorkbench": "Workbench navigation does not activate its injected native view",
             "backFromLab": "Workbench-launched hosts are not cleaned up on return",
+            "UTUBE_PRIORITY": "Workbench does not explicitly prioritize the U-Tube experiment family",
+            "utubeFamilyGrid": "Workbench lacks a featured U-Tube experiment family surface",
         },
     )
     require_markers(
@@ -196,6 +210,7 @@ def main() -> None:
         "registry_surfaces": len(registry_surfaces),
         "embedded_ui_modules": len(embedded_modules),
         "native_catalog_rows": len(catalog),
+        "utube_family_capabilities": len(UTUBE_FAMILY_IDS),
         "uncovered_registry_surfaces": 0,
         "uncovered_embedded_modules": 0,
         "native_desktop_reachability": True,

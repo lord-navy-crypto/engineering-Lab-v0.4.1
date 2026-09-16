@@ -28,6 +28,57 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const byId = (id) => document.getElementById(id);
 
+  function ensureWorkbenchChrome() {
+    if (!document.querySelector('[data-view="capabilities"]')) {
+      const nav = document.querySelector('.nav');
+      const labs = nav?.querySelector('[data-view="labs"]');
+      const button = document.createElement('button');
+      button.className = 'nav-item';
+      button.dataset.view = 'capabilities';
+      button.innerHTML = '<span>⌘</span>Workbench';
+      if (nav) nav.insertBefore(button, labs?.nextSibling || nav.children[1] || null);
+    }
+    if (!byId('capabilitiesView')) {
+      const main = document.querySelector('main.main');
+      const firstView = main?.querySelector('.view');
+      const section = document.createElement('section');
+      section.id = 'capabilitiesView';
+      section.className = 'view';
+      section.innerHTML = `
+        <div class="research-hero workbench-hero">
+          <div><div class="eyebrow">EVERY USER-FACING CAPABILITY • ONE FRONT DOOR</div><h2>Engineering Workbench</h2>
+          <p>Discover and open every registered workspace and previously embedded child tool without knowing its hidden Lab route.</p></div>
+          <div class="research-badge">Native reachability</div>
+        </div>
+        <div id="capabilitySummary" class="stats capability-summary"></div>
+        <div class="workbench-toolbar">
+          <div class="search-wrap workbench-search"><span>⌕</span><input id="capabilitySearch" placeholder="Search all capabilities, profiles and routes" /></div>
+          <div id="capabilityFilters" class="filters capability-filters"></div>
+        </div>
+        <div id="capabilityGrid" class="capability-grid"><div class="empty-state">Open Workbench to load the capability catalog.</div></div>`;
+      if (main) main.insertBefore(section, firstView || null);
+    }
+    if (!byId('workbenchNativeStyles')) {
+      const style = document.createElement('style');
+      style.id = 'workbenchNativeStyles';
+      style.textContent = `
+        .workbench-toolbar{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:18px 0 20px}
+        .workbench-search{min-width:320px;flex:1;max-width:620px}.capability-filters{display:flex;gap:8px;flex-wrap:wrap}
+        .filter-chip{border:1px solid var(--border,#30384a);background:var(--panel,#171d29);color:inherit;border-radius:999px;padding:8px 12px;cursor:pointer}
+        .filter-chip.active{background:rgba(95,134,255,.18);border-color:rgba(120,154,255,.8)}
+        .capability-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;padding-bottom:28px}
+        .capability-card{border:1px solid var(--border,#30384a);background:var(--panel,#171d29);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:10px;min-height:260px}
+        .capability-card h3{margin:0;font-size:18px}.capability-card p{margin:0;opacity:.78;line-height:1.45;flex:1}
+        .capability-card-head,.capability-meta{display:flex;gap:7px;flex-wrap:wrap}.capability-card-head span,.capability-meta span,.capability-profiles{font-size:12px}
+        .capability-category,.capability-access,.capability-meta span{border:1px solid var(--border,#30384a);border-radius:999px;padding:5px 8px}
+        .capability-access{opacity:.75}.capability-profiles{opacity:.65;line-height:1.4}.capability-card .primary{align-self:flex-start;margin-top:4px}
+        .capability-summary .stat-card span{display:block;opacity:.68;margin-top:4px}
+        @media(max-width:900px){.capability-grid{grid-template-columns:1fr}.workbench-search{min-width:100%;max-width:none}}
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
   function candidateHosts(surface) {
     const declared = Array.isArray(surface.profiles) ? surface.profiles.filter(Boolean) : [];
     return declared.length ? declared : GENERIC_HOSTS;
@@ -92,17 +143,10 @@
       const full = FULL_MODE_SURFACES.has(surface.id);
       const disabled = busySurface === surface.id ? 'disabled' : '';
       return `<article class="capability-card">
-        <div class="capability-card-head">
-          <span class="capability-category">${esc(surface.category)}</span>
-          <span class="capability-access">${esc(accessLabel(surface))}</span>
-        </div>
+        <div class="capability-card-head"><span class="capability-category">${esc(surface.category)}</span><span class="capability-access">${esc(accessLabel(surface))}</span></div>
         <h3>${esc(surface.label)}</h3>
         <p>${esc(descriptions[surface.id] || surface.routeHint || 'Engineering Lab interactive workspace.')}</p>
-        <div class="capability-meta">
-          <span>Host · ${esc(launch.host)}</span>
-          <span>${full ? 'Full mode' : 'Safe mode'}</span>
-          <span>${esc(hostState)}</span>
-        </div>
+        <div class="capability-meta"><span>Host · ${esc(launch.host)}</span><span>${full ? 'Full mode' : 'Safe mode'}</span><span>${esc(hostState)}</span></div>
         ${surface.profiles?.length ? `<div class="capability-profiles">Profiles: ${esc(surface.profiles.join(', '))}</div>` : ''}
         <button class="primary" data-surface-open="${esc(surface.id)}" ${disabled}>${busySurface === surface.id ? 'Preparing…' : 'Prepare & Open'}</button>
       </article>`;
@@ -120,6 +164,7 @@
   }
 
   async function loadCatalog() {
+    ensureWorkbenchChrome();
     try {
       surfaces = await invoke('list_surface_catalog');
       await refreshStatuses();
@@ -146,9 +191,7 @@
         status = statuses.get(launch.host);
       }
       const ready = launch.mode === 'full' ? status?.fullReady : status?.safeReady;
-      if (!ready && launch.mode === 'full') {
-        throw new Error(`${surface.label} needs ${launch.host} Full mode and its fragile scientific dependencies are not ready. Open Dependency Center to repair them.`);
-      }
+      if (!ready && launch.mode === 'full') throw new Error(`${surface.label} needs ${launch.host} Full mode. Repair its fragile scientific dependencies in Dependency Center, then open it again.`);
       if (!ready) throw new Error(`${launch.host} is not ready after preparation.`);
 
       const info = await invoke('launch_module', {moduleId: launch.host, mode: launch.mode, surfaceId: surface.id});
@@ -159,8 +202,7 @@
       if (title) title.textContent = surface.label;
       if (url) url.textContent = `${launch.host} · ${launch.mode.toUpperCase()} · ${info.url}`;
       if (frame) frame.src = info.url;
-      if (typeof window.showView === 'function') window.showView('lab');
-      else if (typeof showView === 'function') showView('lab');
+      if (typeof showView === 'function') showView('lab');
     } catch (error) {
       alert(`Could not open ${surface.label}: ${error}`);
     } finally {
@@ -171,16 +213,13 @@
 
   document.addEventListener('click', (event) => {
     const category = event.target.closest('[data-surface-category]');
-    if (category) {
-      activeCategory = category.dataset.surfaceCategory;
-      render();
-      return;
-    }
+    if (category) { activeCategory = category.dataset.surfaceCategory; render(); return; }
     const open = event.target.closest('[data-surface-open]');
     if (open) prepareAndOpen(open.dataset.surfaceOpen);
   });
 
   document.addEventListener('DOMContentLoaded', () => {
+    ensureWorkbenchChrome();
     const input = byId('capabilitySearch');
     if (input) input.addEventListener('input', (event) => { query = event.target.value || ''; render(); });
     const nav = document.querySelector('[data-view="capabilities"]');

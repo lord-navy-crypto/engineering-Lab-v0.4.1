@@ -1,7 +1,7 @@
 """Native desktop deep-link entry for Engineering Lab user-facing capabilities.
 
-This module is navigation-only. It never changes scientific algorithms, validation
-meaning, provenance meaning, or queued/execution semantics.
+Navigation only: this layer never changes scientific algorithms, validation meaning,
+provenance meaning, or queued/execution semantics.
 """
 from __future__ import annotations
 
@@ -77,6 +77,24 @@ def _artifact_refs(project_path: Path) -> list[str]:
         return []
 
 
+def _renderer_signature_mode(renderer: Any, declared: str) -> str:
+    """Normalize legacy renderer signatures without fabricating state.
+
+    Older shared workspaces predate the manifest and may declare ``st_profile``
+    while their real callable is ``(st, namespace)`` or ``(st, profile, namespace)``.
+    The real Python signature wins for those two bounded compatibility cases.
+    """
+    try:
+        names = [p.name.lower() for p in inspect.signature(renderer).parameters.values()]
+    except Exception:
+        return declared
+    if len(names) >= 3 and names[2] in {"namespace", "ns"}:
+        return "st_profile_namespace"
+    if len(names) == 2 and names[1] in {"namespace", "ns"}:
+        return "st_namespace"
+    return declared
+
+
 def _invoke_renderer(
     st: Any,
     row: Mapping[str, Any],
@@ -90,7 +108,7 @@ def _invoke_renderer(
         return
     module = importlib.import_module(module_name)
     renderer = getattr(module, callable_name)
-    mode = str(row.get("argumentMode") or "st_profile")
+    mode = _renderer_signature_mode(renderer, str(row.get("argumentMode") or "st_profile"))
 
     if mode == "st_profile_namespace":
         renderer(st, profile, namespace or {})
@@ -113,21 +131,7 @@ def _invoke_renderer(
         if project is not None:
             renderer(st, project, profile, _artifact_refs(project))
         return
-
-    # Most registry rows are (st, profile). A few native RADIA workspaces predate
-    # that convention and are (st, namespace) or (st, profile, namespace). Detect
-    # those signatures rather than fabricating profile/namespace state.
-    try:
-        params = list(inspect.signature(renderer).parameters.values())
-        names = [p.name.lower() for p in params]
-    except Exception:
-        names = []
-    if len(names) >= 3 and names[2] in {"namespace", "ns"}:
-        renderer(st, profile, namespace or {})
-    elif len(names) >= 2 and names[1] in {"namespace", "ns"}:
-        renderer(st, namespace or {})
-    else:
-        renderer(st, profile)
+    renderer(st, profile)
 
 
 def _render_route(
@@ -190,8 +194,7 @@ def render_requested_surface(
         )
         return
 
-    st.markdown("---")
-    st.markdown(f"## 🧭 Desktop Requested Workspace · {row.get('label') or capability_id}")
+    st.markdown(f"## 🧭 {row.get('label') or capability_id}")
     st.caption(
         "Opened directly from the Engineering Lab native Workbench. Desktop reachability does not imply scientific validation, "
         "and opening this page does not start queued work."
@@ -215,24 +218,28 @@ def install() -> None:
     original = advanced.render_advanced_experiments
 
     def wrapped(namespace):
-        original(namespace)
         try:
             import streamlit as st
             requested = _requested_surface(st)
-            if not requested:
+            if requested:
+                profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
+                token = f"{profile}:{requested}"
+                state = getattr(st, "session_state", None)
+                if state is not None:
+                    state[SESSION_KEY] = token
+                # A desktop deep-link is a focused workspace. Do not render the
+                # complete legacy advanced stack above it and force the user to
+                # discover the requested capability again by scrolling.
+                render_requested_surface(st, namespace, profile, requested)
                 return
-            profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
-            token = f"{profile}:{requested}"
-            state = getattr(st, "session_state", None)
-            if state is not None:
-                state[SESSION_KEY] = token
-            render_requested_surface(st, namespace, profile, requested)
         except Exception as exc:
             try:
                 import streamlit as st
                 st.warning(f"Desktop requested workspace could not load: {exc}")
+                return
             except Exception:
-                pass
+                return
+        original(namespace)
 
     advanced.render_advanced_experiments = wrapped
     advanced._physical_lab_native_surface_entry_patched = True

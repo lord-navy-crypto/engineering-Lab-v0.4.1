@@ -2,12 +2,13 @@
   const launcher = window.PhysicalLabCapabilityLauncher;
   if (!launcher) return;
 
-  const UTUBE_PRIORITY = ['utube-studio','utube-physical','utube-uncertainty','utube-advanced','utube-robust','utube-hysteresis'];
+  const UTUBE_PRIORITY = ['utube-studio','utube-physical','utube-uncertainty','utube-experiment-planner','utube-advanced','utube-robust','utube-hysteresis'];
   const CORE_PLATFORM_PRIORITY = ['application-scenarios','compute-workspace','diagnostics-workspace','measurement-registry','model-campaign','model-engineering','engineering-design-workflow'];
   const descriptions = {
     'utube-studio':'Coordinated rotating U-tube research hub connecting model, experiment, uncertainty and engineering studies.',
     'utube-physical':'Physical model and data views: operating point, threshold map, theory ↔ experiment, convergence and free energy.',
     'utube-uncertainty':'U-tube uncertainty studies and explicit numerical/experimental uncertainty views.',
+    'utube-experiment-planner':'Focused two-resolution sampling proposal around the finite-volume threshold prediction, with explicit planning-not-safety semantics.',
     'utube-advanced':'Advanced physics and engineering, including inverse design, experiment planning and DIY data views.',
     'utube-robust':'Robust design, adaptive experiments, verification and U-tube digital-twin workflows.',
     'utube-hysteresis':'Dynamic threshold and measured ramp hysteresis fitting with rate-envelope prediction.',
@@ -20,8 +21,11 @@
     'engineering-design-workflow':'Requirements, Pareto design comparison, finite-ensemble screening, measured residuals, thermal/control and batch planning.',
     'data-bridge':'Promote parsed numeric tables into reusable canonical project datasets.',
     'project-workspace':'Canonical project home connecting data, analysis, modeling and reproducibility.',
-    'radiation-interactions':'Pairwise manufacturing-error non-additivity screening.',
-    'radiation-response-surface':'Bounded two-factor radiation response-surface exploration.'
+    'radiation-sensitivity':'Focused one-factor manufacturing-error to radiation screening with bounded solver runs and explicit non-causal semantics.',
+    'radiation-quality':'Radiation quality degradation with an actionable RADIA → trajectory → radiation prerequisite when no ensemble exists yet.',
+    'radiation-seed-compare':'Seed-to-seed radiation comparison with the propagation prerequisite exposed instead of an empty workspace.',
+    'radiation-interactions':'Pairwise manufacturing-error non-additivity screening; setup guidance appears when fewer than two error families are active.',
+    'radiation-response-surface':'Bounded two-factor radiation response-surface exploration with explicit setup guidance.'
   };
 
   let surfaces = launcher.allSurfaces();
@@ -60,7 +64,7 @@
       section.className = 'view';
       section.innerHTML = `
         <div class="research-hero workbench-hero"><div><div class="eyebrow">EVERY USER-FACING CAPABILITY • ONE FRONT DOOR</div><h2>Engineering Workbench</h2><p>Discover and open every registered workspace and previously embedded child tool without knowing its hidden Lab route.</p></div><div class="research-badge">Native reachability</div></div>
-        <section class="family-feature utube-feature"><div class="family-feature-head"><div><div class="eyebrow">FEATURED EXPERIMENT FAMILY</div><h3>Rotating U-Tube Research</h3><p>Main model, new experiments and engineering follow-ons stay together and directly launchable.</p></div><span id="utubeFamilyCount" class="family-count">0 / ${UTUBE_PRIORITY.length}</span></div><div id="utubeFamilyGrid" class="featured-workspace-grid"></div></section>
+        <section class="family-feature utube-feature"><div class="family-feature-head"><div><div class="eyebrow">FEATURED EXPERIMENT FAMILY</div><h3>Rotating U-Tube Research</h3><p>Main model, focused experiment planning, uncertainty and engineering follow-ons stay together and directly launchable.</p></div><span id="utubeFamilyCount" class="family-count">0 / ${UTUBE_PRIORITY.length}</span></div><div id="utubeFamilyGrid" class="featured-workspace-grid"></div></section>
         <section class="family-feature core-platform-feature"><div class="family-feature-head"><div><div class="eyebrow">RECOVERED CORE WORKSPACES</div><h3>Core Engineering Platform</h3><p>Platform tools that previously existed below the visible desktop are now first-class entry points with their real prerequisites and renderers.</p></div><span id="corePlatformCount" class="family-count">0 / ${CORE_PLATFORM_PRIORITY.length}</span></div><div id="corePlatformGrid" class="featured-workspace-grid"></div></section>
         <div id="capabilitySummary" class="stats capability-summary"></div>
         <div class="workbench-toolbar"><div class="search-wrap workbench-search"><span>⌕</span><input id="capabilitySearch" placeholder="Search all capabilities, profiles and routes" /></div><div id="capabilityFilters" class="filters capability-filters"></div></div>

@@ -19,7 +19,7 @@
     'radiation-response-surface': 'Bounded two-factor radiation response-surface exploration.'
   };
 
-  let surfaces = [];
+  let surfaces = Array.isArray(window.__PHYSICAL_LAB_SURFACES__) ? window.__PHYSICAL_LAB_SURFACES__ : [];
   let statuses = new Map();
   let activeCategory = 'All';
   let query = '';
@@ -165,14 +165,14 @@
 
   async function loadCatalog() {
     ensureWorkbenchChrome();
-    try {
-      surfaces = await invoke('list_surface_catalog');
-      await refreshStatuses();
-      render();
-    } catch (error) {
-      const grid = byId('capabilityGrid');
-      if (grid) grid.innerHTML = `<div class="empty-state">Workbench catalog could not load: ${esc(error)}</div>`;
-    }
+    surfaces = Array.isArray(window.__PHYSICAL_LAB_SURFACES__) ? window.__PHYSICAL_LAB_SURFACES__ : surfaces;
+    await refreshStatuses();
+    render();
+  }
+
+  function withSurfaceQuery(url, surfaceId) {
+    const joiner = String(url).includes('?') ? '&' : '?';
+    return `${url}${joiner}surface=${encodeURIComponent(surfaceId)}`;
   }
 
   async function prepareAndOpen(surfaceId) {
@@ -194,14 +194,15 @@
       if (!ready && launch.mode === 'full') throw new Error(`${surface.label} needs ${launch.host} Full mode. Repair its fragile scientific dependencies in Dependency Center, then open it again.`);
       if (!ready) throw new Error(`${launch.host} is not ready after preparation.`);
 
-      const info = await invoke('launch_module', {moduleId: launch.host, mode: launch.mode, surfaceId: surface.id});
+      const info = await invoke('launch_module', {moduleId: launch.host, mode: launch.mode});
       window.__physicalLabSurfaceHost = launch.host;
       const title = byId('openLabTitle');
       const url = byId('openLabUrl');
       const frame = byId('labFrame');
+      const deepLink = withSurfaceQuery(info.url, surface.id);
       if (title) title.textContent = surface.label;
-      if (url) url.textContent = `${launch.host} · ${launch.mode.toUpperCase()} · ${info.url}`;
-      if (frame) frame.src = info.url;
+      if (url) url.textContent = `${launch.host} · ${launch.mode.toUpperCase()} · ${surface.id}`;
+      if (frame) frame.src = deepLink;
       if (typeof showView === 'function') showView('lab');
     } catch (error) {
       alert(`Could not open ${surface.label}: ${error}`);
@@ -231,6 +232,7 @@
       window.__physicalLabSurfaceHost = '';
       try { await invoke('stop_module', {moduleId: host}); } catch (_) {}
     }, true);
+    loadCatalog();
   });
 
   window.PhysicalLabWorkbench = {loadCatalog, prepareAndOpen};

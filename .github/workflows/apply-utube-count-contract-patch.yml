@@ -1,0 +1,36 @@
+name: Apply U-Tube count contract patch
+
+on:
+  push:
+    branches:
+      - feature/native-desktop-reachability
+    paths:
+      - 'scripts/apply_utube_count_contract_patch.py'
+      - '.github/workflows/apply-utube-count-contract-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/native-desktop-reachability
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply focused contract patch
+        run: python scripts/apply_utube_count_contract_patch.py
+      - name: Commit patched contracts
+        run: |
+          if git diff --quiet -- scripts/self_check.py src-tauri/resources/ui/physical_lab_sitecustomize_base.py; then
+            echo 'No patch needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/self_check.py src-tauri/resources/ui/physical_lab_sitecustomize_base.py
+          git commit -m 'test: recognize first-class U-Tube Lab across source checks'
+          git push origin HEAD:feature/native-desktop-reachability

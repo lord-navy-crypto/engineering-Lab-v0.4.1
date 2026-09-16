@@ -6,6 +6,7 @@ on:
       - feature/native-desktop-reachability
   pull_request:
     paths:
+      - 'src-tauri/resources/modules.json'
       - 'src-tauri/resources/surfaces.json'
       - 'src-tauri/resources/render_entry_classification.json'
       - 'src-tauri/resources/ui/physical_lab_*.py'
@@ -16,6 +17,7 @@ on:
       - 'scripts/native_desktop_reachability_validation.py'
       - 'scripts/render_entry_reachability_validation.py'
       - 'scripts/native_surface_bundle_validation.py'
+      - 'scripts/utube_first_class_lab_validation.py'
       - '.github/workflows/native-desktop-reachability-integrity.yml'
 
 jobs:
@@ -31,6 +33,7 @@ jobs:
           python -m py_compile scripts/native_desktop_reachability_validation.py
           python -m py_compile scripts/render_entry_reachability_validation.py
           python -m py_compile scripts/native_surface_bundle_validation.py
+          python -m py_compile scripts/utube_first_class_lab_validation.py
           python -m py_compile src-tauri/resources/ui/physical_lab_native_surface_entry.py
           python -m py_compile src-tauri/resources/ui/physical_lab_native_workbench_adapters.py
           python -m py_compile src-tauri/resources/ui/sitecustomize.py
@@ -42,3 +45,5 @@ jobs:
         run: python scripts/render_entry_reachability_validation.py
       - name: Verify native renderer bundle coverage
         run: python scripts/native_surface_bundle_validation.py
+      - name: Validate first-class U-Tube Lab
+        run: python scripts/utube_first_class_lab_validation.py

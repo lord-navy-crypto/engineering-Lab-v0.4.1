@@ -6,7 +6,7 @@
   const FULL_MODE_SURFACES = new Set([
     'radia-forward', 'radia-tolerance', 'radia-radiation-propagation',
     'radiation-stokes', 'radiation-quality', 'radiation-seed-compare',
-    'radiation-interactions', 'radiation-response-surface', 'undulator-spectrum'
+    'radiation-interactions', 'radiation-response-surface'
   ]);
   const descriptions = {
     'utube-studio': 'Rotating U-tube model, uncertainty, robust design, digital twin and hysteresis.',
@@ -77,6 +77,16 @@
       `;
       document.head.appendChild(style);
     }
+  }
+
+  function showWorkbench() {
+    ensureWorkbenchChrome();
+    document.querySelectorAll('.view').forEach((view) => view.classList.remove('active-view'));
+    document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === 'capabilities'));
+    byId('capabilitiesView')?.classList.add('active-view');
+    if (byId('viewTitle')) byId('viewTitle').textContent = 'Engineering Workbench';
+    if (byId('viewSubtitle')) byId('viewSubtitle').textContent = 'Every user-facing Engineering Lab capability, reachable from the native desktop.';
+    loadCatalog();
   }
 
   function candidateHosts(surface) {
@@ -212,6 +222,13 @@
     }
   }
 
+  async function stopWorkbenchHost() {
+    const host = window.__physicalLabSurfaceHost;
+    if (!host) return;
+    window.__physicalLabSurfaceHost = '';
+    try { await invoke('stop_module', {moduleId: host}); } catch (_) {}
+  }
+
   document.addEventListener('click', (event) => {
     const category = event.target.closest('[data-surface-category]');
     if (category) { activeCategory = category.dataset.surfaceCategory; render(); return; }
@@ -224,16 +241,11 @@
     const input = byId('capabilitySearch');
     if (input) input.addEventListener('input', (event) => { query = event.target.value || ''; render(); });
     const nav = document.querySelector('[data-view="capabilities"]');
-    if (nav) nav.addEventListener('click', () => loadCatalog());
-    const close = byId('closeLab');
-    if (close) close.addEventListener('click', async () => {
-      const host = window.__physicalLabSurfaceHost;
-      if (!host) return;
-      window.__physicalLabSurfaceHost = '';
-      try { await invoke('stop_module', {moduleId: host}); } catch (_) {}
-    }, true);
+    if (nav) nav.addEventListener('click', (event) => { event.preventDefault(); showWorkbench(); });
+    const back = byId('backFromLab');
+    if (back) back.addEventListener('click', () => { stopWorkbenchHost(); }, true);
     loadCatalog();
   });
 
-  window.PhysicalLabWorkbench = {loadCatalog, prepareAndOpen};
+  window.PhysicalLabWorkbench = {loadCatalog, prepareAndOpen, showWorkbench};
 })();

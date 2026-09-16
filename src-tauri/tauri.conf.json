@@ -165,6 +165,7 @@
       "resources/ui/physical_lab_science_protocol.py": "ui/physical_lab_science_protocol.py",
       "resources/ui/physical_lab_science_protocol_ui.py": "ui/physical_lab_science_protocol_ui.py",
       "resources/ui/physical_lab_analysis_plan_store.py": "ui/physical_lab_analysis_plan_store.py",
+      "resources/ui/physical_lab_native_workbench_adapters.py": "ui/physical_lab_native_workbench_adapters.py",
       "resources/ui/physical_lab_model_builder.py": "ui/physical_lab_model_builder.py"
     },
     "macOS": {"minimumSystemVersion": "11.0", "dmg": {"appPosition": {"x": 180, "y": 220}, "applicationFolderPosition": {"x": 480, "y": 220}}}

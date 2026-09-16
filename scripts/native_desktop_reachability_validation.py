@@ -11,30 +11,21 @@ ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "src-tauri" / "resources" / "ui"
 REGISTRY_PATH = UI_ROOT / "physical_lab_surface_registry.py"
 CATALOG_PATH = ROOT / "src-tauri" / "resources" / "surfaces.json"
-INDEX_PATH = ROOT / "web" / "index.html"
 CATALOG_JS_PATH = ROOT / "web" / "surface_catalog.js"
-LIB_PATH = ROOT / "src-tauri" / "src" / "lib.rs"
+PREPARE_PATH = ROOT / "scripts" / "prepare.py"
+DEEP_LINK_PATH = UI_ROOT / "physical_lab_native_surface_entry.py"
 SITECUSTOMIZE_PATH = UI_ROOT / "sitecustomize.py"
 TAURI_PATH = ROOT / "src-tauri" / "tauri.conf.json"
+DIST_APP = ROOT / "dist" / "app.js"
 
 SUPPORTED_ROUTE_TARGETS = {
-    "utube-studio",
-    "data-bridge",
-    "measurement-registry",
-    "betterboard-inbox",
-    "research-notebook",
-    "reproducibility-pack",
-    "openguin-advisory",
-    "project-workspace",
+    "utube-studio", "data-bridge", "measurement-registry", "betterboard-inbox",
+    "research-notebook", "reproducibility-pack", "openguin-advisory", "project-workspace",
 }
 VALID_LAUNCH_MODES = {"direct", "profile", "route", "embedded"}
 VALID_ARGUMENT_MODES = {
-    "st_profile",
-    "st_profile_project",
-    "st_project_profile",
-    "st_project_profile_refs",
-    "st_profile_namespace",
-    "native_route",
+    "st_profile", "st_profile_project", "st_project_profile", "st_project_profile_refs",
+    "st_profile_namespace", "st_namespace", "native_route",
 }
 
 
@@ -109,7 +100,6 @@ def main() -> None:
         launch_mode = str(row.get("launchMode") or "")
         argument_mode = str(row.get("argumentMode") or "")
         profiles = [str(x) for x in (row.get("profiles") or []) if str(x)]
-        preferred = [str(x) for x in (row.get("preferredProfiles") or []) if str(x)]
         target_module = str(row.get("targetModule") or "")
         target_callable = str(row.get("targetCallable") or "")
         route_target = str(row.get("routeTarget") or "")
@@ -122,8 +112,6 @@ def main() -> None:
             fail(f"native capability {item_id} has unsupported argumentMode {argument_mode!r}")
         if launch_mode == "profile" and not profiles:
             fail(f"profile capability {item_id} requires at least one legal host profile")
-        if preferred and any(profile not in profiles and profiles for profile in preferred):
-            fail(f"capability {item_id} has preferredProfiles outside its legal profiles")
         if launch_mode in {"direct", "profile"} or (launch_mode == "embedded" and argument_mode != "native_route"):
             if not target_module or not target_callable:
                 fail(f"capability {item_id} lacks a direct-render target")
@@ -138,48 +126,55 @@ def main() -> None:
                 fail(f"capability {item_id} has unsupported routeTarget {route_target!r}")
 
     require_markers(
-        INDEX_PATH,
-        {
-            'data-view="capabilities"': "native sidebar lacks Workbench entry",
-            'id="capabilitiesView"': "native desktop lacks capabilitiesView",
-            'surface_catalog.js': "native desktop does not load surface_catalog.js",
-        },
-    )
-    require_markers(
         CATALOG_JS_PATH,
         {
-            "list_surface_catalog": "Workbench does not load native surface catalog",
+            "data-view=\"capabilities\"": "Workbench does not create a native sidebar entry",
+            "capabilitiesView": "Workbench does not create the native capabilities view",
+            "__PHYSICAL_LAB_SURFACES__": "Workbench does not consume the canonical embedded surface catalog",
             "module_statuses": "Workbench does not inspect host readiness",
             "install_module": "Workbench cannot prepare a missing host Lab",
             "launch_module": "Workbench cannot launch a capability",
-            "surfaceId": "Workbench does not pass capability deep-link id",
+            "surface=${encodeURIComponent(surfaceId)}": "Workbench does not deep-link the requested surface into the iframe URL",
             "data-surface-open": "Workbench has no actionable capability controls",
         },
     )
     require_markers(
-        LIB_PATH,
+        PREPARE_PATH,
         {
-            "struct SurfaceSpec": "Rust backend lacks SurfaceSpec",
-            "fn surface_specs()": "Rust backend lacks surfaces.json parser",
-            "fn list_surface_catalog": "Rust backend lacks list_surface_catalog command",
-            "surface_id: Option<String>": "launch_module lacks optional surface deep-link argument",
-            "PHYSICAL_LAB_INITIAL_SURFACE": "launch_module does not export initial surface to Streamlit",
-            "list_surface_catalog,": "list_surface_catalog is not registered with Tauri",
+            "surfaces.json": "frontend prepare step does not consume surfaces.json",
+            "surface_catalog.js": "frontend prepare step does not bundle Workbench source",
+            "__PHYSICAL_LAB_SURFACES__": "frontend prepare step does not embed native catalog JSON",
+        },
+    )
+    require_markers(
+        DEEP_LINK_PATH,
+        {
+            'query_params.get("surface"': "Streamlit deep-link entry does not consume iframe surface query",
+            "render_requested_surface": "Streamlit deep-link entry lacks requested-surface renderer",
+            "native_route": "Streamlit deep-link entry lacks route dispatch",
+            "st_profile_namespace": "Streamlit deep-link entry lacks namespace-aware child dispatch",
         },
     )
     require_markers(
         SITECUSTOMIZE_PATH,
-        {
-            "physical_lab_native_surface_entry": "sitecustomize does not install native surface entry patch",
-        },
+        {"physical_lab_native_surface_entry": "sitecustomize does not install native surface entry patch"},
     )
     require_markers(
         TAURI_PATH,
         {
-            "surfaces.json": "tauri.conf.json does not bundle surfaces.json",
-            "physical_lab_native_surface_entry.py": "tauri.conf.json does not bundle native surface entry module",
+            '"resources/surfaces.json": "surfaces.json"': "tauri.conf.json does not bundle surfaces.json",
+            '"resources/ui/physical_lab_native_surface_entry.py"': "tauri.conf.json does not bundle native surface entry module",
         },
     )
+    if DIST_APP.exists():
+        require_markers(
+            DIST_APP,
+            {
+                "Native Engineering Workbench": "prepared app.js lacks Workbench bundle",
+                "window.__PHYSICAL_LAB_SURFACES__": "prepared app.js lacks embedded surface catalog",
+                "data-surface-open": "prepared app.js lacks capability actions",
+            },
+        )
 
     print(json.dumps({
         "registry_surfaces": len(registry_surfaces),

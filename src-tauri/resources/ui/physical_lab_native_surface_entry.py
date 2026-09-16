@@ -12,11 +12,10 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
-SESSION_KEY = "_pl_native_surface_consumed_v1"
+SESSION_KEY = "_pl_native_surface_active_v1"
 
 
 def _catalog_path() -> Path:
-    # resources/ui/<this file> -> resources/surfaces.json
     return Path(__file__).resolve().parents[1] / "surfaces.json"
 
 
@@ -28,6 +27,21 @@ def _catalog() -> dict[str, dict[str, Any]]:
     if not isinstance(rows, list):
         return {}
     return {str(row.get("id")): row for row in rows if isinstance(row, dict) and row.get("id")}
+
+
+def _requested_surface(st: Any) -> str:
+    """Read the iframe deep-link without depending on Tauri process mutation."""
+    try:
+        value = st.query_params.get("surface", "")
+        if isinstance(value, (list, tuple)):
+            value = value[0] if value else ""
+        return str(value or "").strip()
+    except Exception:
+        try:
+            values = st.experimental_get_query_params().get("surface", [])
+            return str(values[0] if values else "").strip()
+        except Exception:
+            return ""
 
 
 def _active_project(st: Any) -> Path | None:
@@ -147,7 +161,6 @@ def _render_route(
     elif route == "reproducibility-pack":
         interop._render_reproducibility_group(st, profile, project)
     elif route == "measurement-registry":
-        # Measurement/calibration records are owned by the canonical Project Kernel.
         try:
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace or {})
@@ -203,23 +216,17 @@ def install() -> None:
 
     def wrapped(namespace):
         original(namespace)
-        requested = os.environ.get("PHYSICAL_LAB_INITIAL_SURFACE", "").strip()
-        if not requested:
-            return
-        profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
         try:
             import streamlit as st
-            state = getattr(st, "session_state", None)
+            requested = _requested_surface(st)
+            if not requested:
+                return
+            profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
             token = f"{profile}:{requested}"
-            # Consume the desktop request once per session while keeping the
-            # rendered workspace persistent across ordinary Streamlit reruns.
+            state = getattr(st, "session_state", None)
             if state is not None:
-                state.setdefault(SESSION_KEY, token)
-                active = str(state.get(SESSION_KEY) or token)
-            else:
-                active = token
-            _, active_id = active.split(":", 1) if ":" in active else (profile, requested)
-            render_requested_surface(st, namespace, profile, active_id)
+                state[SESSION_KEY] = token
+            render_requested_surface(st, namespace, profile, requested)
         except Exception as exc:
             try:
                 import streamlit as st

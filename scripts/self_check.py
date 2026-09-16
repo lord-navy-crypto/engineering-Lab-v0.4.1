@@ -32,11 +32,11 @@ if missing:
 
 mods = json.loads((root/'src-tauri/resources/modules.json').read_text())
 ids = [m['id'] for m in mods]
-assert len(mods) == 13, f'Expected 13 modules, found {len(mods)}'
+assert len(mods) == 14, f'Expected 14 modules, found {len(mods)}'
 assert len(ids) == len(set(ids)), 'Duplicate module ids'
-assert sum(m['kind']=='lab' for m in mods) == 10
+assert sum(m['kind']=='lab' for m in mods) == 11
 assert sum(m['kind']=='runtime' for m in mods) == 3
-bundled_ids={'kerr-geodesics','solar-system-dynamics','honeycomb-lattice'}
+bundled_ids={'kerr-geodesics','solar-system-dynamics','honeycomb-lattice','rotating-utube'}
 assert {m['id'] for m in mods if m.get('bundled',False)} == bundled_ids
 assert all(not m.get('fragileDependencies') for m in mods if m.get('bundled',False))
 assert all(m['repo'].startswith('lord-navy-crypto/') for m in mods)
@@ -124,7 +124,7 @@ assert 'physical_lab_evidence_center_patch' in ui_wrapper
 assert 'physical_lab_project_surface_patch' in ui_wrapper
 for profile in ['numerical-methods','ising-monte-carlo','random-walk-monte-carlo','nonlinear-chaos','oscillation-integration','radia-magnet-studio','radiation-platform']:
     assert profile in ui_base
-for profile in ['kerr-geodesics','solar-system-dynamics','honeycomb-lattice']:
+for profile in ['kerr-geodesics','solar-system-dynamics','honeycomb-lattice','rotating-utube']:
     assert profile in ui_base, profile
 assert 'pl-result-grid' in ui_base
 assert 'Quick preset' in ui_base
@@ -153,8 +153,8 @@ assert 'render_project_workspace' in project_surface
 assert 'render_advanced_experiments' in project_surface
 
 print(f'Physical Lab v{canonical_version} Research Workspace self-check: PASS')
-print('Modules: 13 (10 labs + 3 runtime/builders)')
-print('Top-level Labs: 10')
+print('Modules: 14 (11 labs + 3 runtime/builders)')
+print('Top-level Labs: 11')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')
@@ -185,7 +185,7 @@ print('Research workspace + measurement bridge + integrity matrix: configured')
 print('Pipeline contracts + campaign queues + run comparison: configured')
 print('Reproducibility export + task cancellation: configured')
 print('Enhanced external simulation profiles: 7')
-print('Top-level Labs: 10')
+print('Top-level Labs: 11')
 print('Responsive KPI/result-card system: configured')
 print('Shared Project surface + Evidence Center: configured')
 print('Research Model Builder: static AST → ModelSpec → adapter → preview/equivalence → Project bundle configured')

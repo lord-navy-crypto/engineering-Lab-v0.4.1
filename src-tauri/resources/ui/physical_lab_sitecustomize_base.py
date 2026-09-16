@@ -20,6 +20,7 @@ ENABLED_PROFILES = {
     "kerr-geodesics",
     "solar-system-dynamics",
     "honeycomb-lattice",
+    "rotating-utube",
     "radiation-platform",
     "radia-magnet-studio",
 }

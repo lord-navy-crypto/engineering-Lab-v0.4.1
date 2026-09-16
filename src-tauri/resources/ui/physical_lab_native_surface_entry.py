@@ -22,6 +22,8 @@ def _catalog_path() -> Path:
 def _catalog() -> dict[str, dict[str, Any]]:
     try:
         rows = json.loads(_catalog_path().read_text(encoding="utf-8"))
+        from physical_lab_native_workbench_adapters import merge_native_surface_rows
+        rows = merge_native_surface_rows(rows)
     except Exception:
         return {}
     if not isinstance(rows, list):
@@ -78,12 +80,7 @@ def _artifact_refs(project_path: Path) -> list[str]:
 
 
 def _renderer_signature_mode(renderer: Any, declared: str) -> str:
-    """Normalize legacy renderer signatures without fabricating state.
-
-    Older shared workspaces predate the manifest and may declare ``st_profile``
-    while their real callable is ``(st, namespace)`` or ``(st, profile, namespace)``.
-    The real Python signature wins for those two bounded compatibility cases.
-    """
+    """Normalize older rows defensively; reviewed metadata should already be truthful."""
     try:
         names = [p.name.lower() for p in inspect.signature(renderer).parameters.values()]
     except Exception:
@@ -227,9 +224,6 @@ def install() -> None:
                 state = getattr(st, "session_state", None)
                 if state is not None:
                     state[SESSION_KEY] = token
-                # A desktop deep-link is a focused workspace. Do not render the
-                # complete legacy advanced stack above it and force the user to
-                # discover the requested capability again by scrolling.
                 render_requested_surface(st, namespace, profile, requested)
                 return
         except Exception as exc:

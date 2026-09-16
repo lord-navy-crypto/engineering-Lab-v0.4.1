@@ -4,7 +4,7 @@
       "id": "experiment",
       "label": "Run an Experiment",
       "description": "Open a physical model or experiment family, then move into uncertainty and experiment planning.",
-      "featured": ["utube-studio", "utube-physical", "utube-uncertainty"],
+      "featured": ["utube-studio", "utube-physical", "utube-uncertainty", "utube-experiment-planner"],
       "destination": "labs",
       "filterCategory": "Experiments & Physics"
     },
@@ -28,7 +28,7 @@
       "id": "analyze",
       "label": "Analyze / Validate Results",
       "description": "Inspect results, visualize evidence and move into explicit V&V, reliability and reproducibility work.",
-      "featured": ["result-inspector", "visualization-studio", "visual-analytics", "engineering-vvuq", "evidence-center", "reproducibility-pack"],
+      "featured": ["result-inspector", "visualization-studio", "visual-analytics", "engineering-vvuq", "evidence-center", "reproducibility-pack", "radiation-sensitivity"],
       "destination": "results",
       "filterCategory": "Visualization & Analysis"
     }
@@ -37,11 +37,12 @@
     {
       "id": "rotating-utube",
       "label": "Rotating U-Tube Research",
-      "description": "A complete experiment sequence from physical model and data through uncertainty, planning, robust design and hysteresis.",
+      "description": "A complete experiment sequence from physical model and data through uncertainty, focused experiment planning, robust design and hysteresis.",
       "surfaceIds": [
         "utube-studio",
         "utube-physical",
         "utube-uncertainty",
+        "utube-experiment-planner",
         "utube-advanced",
         "utube-robust",
         "utube-hysteresis"

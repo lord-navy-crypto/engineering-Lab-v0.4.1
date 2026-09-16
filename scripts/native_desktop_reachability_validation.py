@@ -29,12 +29,8 @@ VALID_ARGUMENT_MODES = {
     "st_profile_namespace", "st_namespace", "native_route",
 }
 UTUBE_FAMILY_IDS = (
-    "utube-studio",
-    "utube-physical",
-    "utube-uncertainty",
-    "utube-advanced",
-    "utube-robust",
-    "utube-hysteresis",
+    "utube-studio", "utube-physical", "utube-uncertainty",
+    "utube-advanced", "utube-robust", "utube-hysteresis",
 )
 
 
@@ -69,6 +65,15 @@ def renderer_args(path: Path, callable_name: str) -> list[str]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == callable_name:
             return [arg.arg for arg in node.args.args]
     return []
+
+
+def inferred_signature_mode(args: list[str], declared: str) -> str:
+    lowered = [name.lower() for name in args]
+    if len(lowered) >= 3 and lowered[2] in {"namespace", "ns"}:
+        return "st_profile_namespace"
+    if len(lowered) == 2 and lowered[1] in {"namespace", "ns"}:
+        return "st_namespace"
+    return declared
 
 
 def require_markers(path: Path, markers: dict[str, str]) -> None:
@@ -115,6 +120,7 @@ def main() -> None:
     if missing_embedded:
         fail("embedded UI modules missing native child capabilities: " + ", ".join(missing_embedded))
 
+    normalized_signature_rows: list[str] = []
     for row in catalog:
         item_id = str(row.get("id") or "")
         category = str(row.get("category") or "")
@@ -142,11 +148,9 @@ def main() -> None:
             args = renderer_args(module_path, target_callable)
             if not args:
                 fail(f"capability {item_id} target callable does not exist: {target_module}.{target_callable}")
-            lowered = [name.lower() for name in args]
-            if len(lowered) >= 3 and lowered[2] in {"namespace", "ns"} and argument_mode == "st_profile":
-                fail(f"capability {item_id} renderer requires namespace; use st_profile_namespace")
-            if len(lowered) == 2 and lowered[1] in {"namespace", "ns"} and argument_mode == "st_profile":
-                fail(f"capability {item_id} renderer requires namespace; use st_namespace")
+            inferred = inferred_signature_mode(args, argument_mode)
+            if inferred != argument_mode:
+                normalized_signature_rows.append(f"{item_id}:{argument_mode}->{inferred}")
         if launch_mode == "route" or argument_mode == "native_route":
             if route_target not in SUPPORTED_ROUTE_TARGETS:
                 fail(f"capability {item_id} has unsupported routeTarget {route_target!r}")
@@ -160,12 +164,13 @@ def main() -> None:
             "module_statuses": "Workbench does not inspect host readiness",
             "install_module": "Workbench cannot prepare a missing host Lab",
             "launch_module": "Workbench cannot launch a capability",
-            "surface=${encodeURIComponent(surfaceId)}": "Workbench does not deep-link the requested surface into the iframe URL",
+            "surface=${encodeURIComponent(id)}": "Workbench does not deep-link the requested surface into the iframe URL",
             "data-surface-open": "Workbench has no actionable capability controls",
             "showWorkbench": "Workbench navigation does not activate its injected native view",
             "backFromLab": "Workbench-launched hosts are not cleaned up on return",
             "UTUBE_PRIORITY": "Workbench does not explicitly prioritize the U-Tube experiment family",
             "utubeFamilyGrid": "Workbench lacks a featured U-Tube experiment family surface",
+            "sortSurfacesForWorkbench": "Workbench does not deterministically sort featured capabilities",
         },
     )
     require_markers(
@@ -182,7 +187,11 @@ def main() -> None:
             'query_params.get("surface"': "Streamlit deep-link entry does not consume iframe surface query",
             "render_requested_surface": "Streamlit deep-link entry lacks requested-surface renderer",
             "native_route": "Streamlit deep-link entry lacks route dispatch",
+            "_renderer_signature_mode": "Streamlit deep-link entry does not normalize legacy renderer signatures",
+            "inspect.signature": "Streamlit deep-link entry does not inspect real renderer signatures",
             "st_profile_namespace": "Streamlit deep-link entry lacks namespace-aware child dispatch",
+            "if requested:": "Desktop deep-link does not enter focused requested-workspace mode",
+            "original(namespace)": "Normal Lab sessions no longer fall back to the existing advanced stack",
         },
     )
     require_markers(
@@ -203,6 +212,7 @@ def main() -> None:
                 "Native Engineering Workbench": "prepared app.js lacks Workbench bundle",
                 "window.__PHYSICAL_LAB_SURFACES__": "prepared app.js lacks embedded surface catalog",
                 "data-surface-open": "prepared app.js lacks capability actions",
+                "utubeFamilyGrid": "prepared app.js lacks featured U-Tube family UI",
             },
         )
 
@@ -211,6 +221,7 @@ def main() -> None:
         "embedded_ui_modules": len(embedded_modules),
         "native_catalog_rows": len(catalog),
         "utube_family_capabilities": len(UTUBE_FAMILY_IDS),
+        "signature_normalized_rows": normalized_signature_rows,
         "uncovered_registry_surfaces": 0,
         "uncovered_embedded_modules": 0,
         "native_desktop_reachability": True,

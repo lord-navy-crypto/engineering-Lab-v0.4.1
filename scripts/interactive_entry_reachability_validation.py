@@ -8,12 +8,14 @@ be explicitly classified here, so adding a buried control cannot silently pass C
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "src-tauri" / "resources" / "ui"
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
+ADAPTERS = UI_ROOT / "physical_lab_native_workbench_adapters.py"
 CLASSIFICATIONS = ROOT / "src-tauri" / "resources" / "interactive_entry_classification.json"
 RENDER_CLASSIFICATIONS = ROOT / "src-tauri" / "resources" / "render_entry_classification.json"
 
@@ -70,6 +72,19 @@ def interactive_functions(path: Path) -> list[dict[str, object]]:
     return sorted(found, key=lambda item: (int(item["line"]), str(item["function"])))
 
 
+def _effective_surface_rows() -> list[dict]:
+    rows = json.loads(SURFACES.read_text(encoding="utf-8"))
+    if not isinstance(rows, list):
+        raise AssertionError("surfaces.json must be an array")
+    spec = importlib.util.spec_from_file_location("_native_workbench_adapters_interactive_audit", ADAPTERS)
+    if spec is None or spec.loader is None:
+        raise AssertionError("unable to load native Workbench surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
+
+
 def _load_private_classifications() -> dict[tuple[str, str], dict]:
     rows = json.loads(CLASSIFICATIONS.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
@@ -104,7 +119,7 @@ def _load_render_classifications() -> dict[tuple[str, str], dict]:
 
 
 def main() -> None:
-    surfaces = json.loads(SURFACES.read_text(encoding="utf-8"))
+    surfaces = _effective_surface_rows()
     surface_ids = {str(row.get("id") or "") for row in surfaces if isinstance(row, dict)}
     surface_targets = {
         (str(row.get("targetModule") or ""), str(row.get("targetCallable") or "")): str(row.get("id") or "")
@@ -184,6 +199,7 @@ def main() -> None:
         "interactive_functions": len(discovered),
         "classification_counts": counts,
         "classification_sources": sources,
+        "effective_surface_rows": len(surfaces),
         "unclassified_interactive_functions": 0,
         "interactive_reachability_audit": True,
         "container_control_detection": True,

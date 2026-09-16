@@ -1,0 +1,32 @@
+name: Native Desktop Reachability Integrity
+
+on:
+  push:
+    branches:
+      - feature/native-desktop-reachability
+  pull_request:
+    paths:
+      - 'src-tauri/resources/surfaces.json'
+      - 'src-tauri/resources/ui/physical_lab_surface_registry.py'
+      - 'src-tauri/resources/ui/physical_lab_native_surface_entry.py'
+      - 'src-tauri/resources/ui/sitecustomize.py'
+      - 'src-tauri/src/lib.rs'
+      - 'src-tauri/tauri.conf.json'
+      - 'web/index.html'
+      - 'web/surface_catalog.js'
+      - 'web/styles.css'
+      - 'scripts/native_desktop_reachability_validation.py'
+      - '.github/workflows/native-desktop-reachability-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile reachability validator
+        run: python -m py_compile scripts/native_desktop_reachability_validation.py
+      - name: Validate native desktop reachability
+        run: python scripts/native_desktop_reachability_validation.py

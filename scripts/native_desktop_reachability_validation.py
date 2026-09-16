@@ -2,6 +2,7 @@
 """Validate that every user-facing Engineering Lab capability is reachable from the native desktop."""
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -52,6 +53,14 @@ def read_catalog() -> list[dict]:
     if not all(isinstance(row, dict) for row in value):
         fail("every native surface catalog entry must be an object")
     return value
+
+
+def renderer_args(path: Path, callable_name: str) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == callable_name:
+            return [arg.arg for arg in node.args.args]
+    return []
 
 
 def require_markers(path: Path, markers: dict[str, str]) -> None:
@@ -118,9 +127,14 @@ def main() -> None:
             module_path = UI_ROOT / f"{target_module}.py"
             if not module_path.exists():
                 fail(f"capability {item_id} target module does not exist: {target_module}")
-            source = module_path.read_text(encoding="utf-8")
-            if f"def {target_callable}(" not in source:
+            args = renderer_args(module_path, target_callable)
+            if not args:
                 fail(f"capability {item_id} target callable does not exist: {target_module}.{target_callable}")
+            lowered = [name.lower() for name in args]
+            if len(lowered) >= 3 and lowered[2] in {"namespace", "ns"} and argument_mode == "st_profile":
+                fail(f"capability {item_id} renderer requires namespace; use st_profile_namespace")
+            if len(lowered) == 2 and lowered[1] in {"namespace", "ns"} and argument_mode == "st_profile":
+                fail(f"capability {item_id} renderer requires namespace; use st_namespace")
         if launch_mode == "route" or argument_mode == "native_route":
             if route_target not in SUPPORTED_ROUTE_TARGETS:
                 fail(f"capability {item_id} has unsupported routeTarget {route_target!r}")
@@ -136,6 +150,8 @@ def main() -> None:
             "launch_module": "Workbench cannot launch a capability",
             "surface=${encodeURIComponent(surfaceId)}": "Workbench does not deep-link the requested surface into the iframe URL",
             "data-surface-open": "Workbench has no actionable capability controls",
+            "showWorkbench": "Workbench navigation does not activate its injected native view",
+            "backFromLab": "Workbench-launched hosts are not cleaned up on return",
         },
     )
     require_markers(

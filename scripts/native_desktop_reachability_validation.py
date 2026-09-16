@@ -32,6 +32,11 @@ UTUBE_FAMILY_IDS = (
     "utube-studio", "utube-physical", "utube-uncertainty",
     "utube-advanced", "utube-robust", "utube-hysteresis",
 )
+CORE_PLATFORM_IDS = (
+    "application-scenarios", "compute-workspace", "diagnostics-workspace",
+    "measurement-registry", "model-campaign", "model-engineering",
+    "engineering-design-workflow",
+)
 
 
 def fail(message: str) -> None:
@@ -105,6 +110,9 @@ def main() -> None:
     missing_utube = [item for item in UTUBE_FAMILY_IDS if item not in ids]
     if missing_utube:
         fail("U-Tube experiment family missing native capabilities: " + ", ".join(missing_utube))
+    missing_core = [item for item in CORE_PLATFORM_IDS if item not in ids]
+    if missing_core:
+        fail("core engineering platform missing native capabilities: " + ", ".join(missing_core))
 
     by_source = {str(row.get("sourceSurfaceId") or ""): row for row in catalog if row.get("sourceSurfaceId")}
     missing_registry = sorted(str(surface.surface_id) for surface in registry_surfaces if str(surface.surface_id) not in by_source)
@@ -170,6 +178,9 @@ def main() -> None:
             "backFromLab": "Workbench-launched hosts are not cleaned up on return",
             "UTUBE_PRIORITY": "Workbench does not explicitly prioritize the U-Tube experiment family",
             "utubeFamilyGrid": "Workbench lacks a featured U-Tube experiment family surface",
+            "CORE_PLATFORM_PRIORITY": "Workbench does not explicitly prioritize recovered core workspaces",
+            "corePlatformGrid": "Workbench lacks a featured core engineering platform surface",
+            "renderCorePlatform": "Workbench does not render recovered core workspaces as a focused section",
             "sortSurfacesForWorkbench": "Workbench does not deterministically sort featured capabilities",
         },
     )
@@ -213,6 +224,7 @@ def main() -> None:
                 "window.__PHYSICAL_LAB_SURFACES__": "prepared app.js lacks embedded surface catalog",
                 "data-surface-open": "prepared app.js lacks capability actions",
                 "utubeFamilyGrid": "prepared app.js lacks featured U-Tube family UI",
+                "corePlatformGrid": "prepared app.js lacks featured core engineering platform UI",
             },
         )
 
@@ -221,6 +233,7 @@ def main() -> None:
         "embedded_ui_modules": len(embedded_modules),
         "native_catalog_rows": len(catalog),
         "utube_family_capabilities": len(UTUBE_FAMILY_IDS),
+        "core_platform_capabilities": len(CORE_PLATFORM_IDS),
         "signature_normalized_rows": normalized_signature_rows,
         "uncovered_registry_surfaces": 0,
         "uncovered_embedded_modules": 0,

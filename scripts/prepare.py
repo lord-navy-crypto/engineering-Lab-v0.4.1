@@ -8,27 +8,43 @@ WEB = ROOT / "web"
 DIST = ROOT / "dist"
 ICONS = ROOT / "src-tauri" / "icons"
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
+HOME_LAYOUT = ROOT / "src-tauri" / "resources" / "home_layout.json"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
 for name in ("index.html", "styles.css", "app.js"):
     copy2(WEB / name, DIST / name)
 
-# Keep Workbench source isolated for review, then concatenate it into the existing
-# classic app.js bundle. The canonical surfaces.json is embedded as inert JSON
-# data so the initial Tauri shell can enumerate every capability without adding
-# a parallel Rust registry or a second frontend build system.
+# Keep native navigation sources isolated for review, then concatenate them into
+# the existing classic app.js bundle. Canonical JSON manifests are embedded as
+# inert data so Home and Workbench share one source of truth without adding a
+# parallel Rust registry or a second frontend build system.
 workbench = WEB / "surface_catalog.js"
+launcher = WEB / "capability_launcher.js"
 if workbench.is_file() and SURFACES.is_file():
     rows = json.loads(SURFACES.read_text(encoding="utf-8"))
     if not isinstance(rows, list) or not rows:
         raise SystemExit("src-tauri/resources/surfaces.json must be a non-empty JSON array")
+    home_layout = {}
+    if HOME_LAYOUT.is_file():
+        home_layout = json.loads(HOME_LAYOUT.read_text(encoding="utf-8"))
+        if not isinstance(home_layout, dict):
+            raise SystemExit("src-tauri/resources/home_layout.json must be a JSON object")
     app_bundle = DIST / "app.js"
     base = app_bundle.read_text(encoding="utf-8")
-    extra = workbench.read_text(encoding="utf-8")
+    launcher_source = launcher.read_text(encoding="utf-8") if launcher.is_file() else ""
+    workbench_source = workbench.read_text(encoding="utf-8")
     catalog_js = "window.__PHYSICAL_LAB_SURFACES__ = " + json.dumps(rows, ensure_ascii=False, separators=(",", ":")) + ";\n"
+    home_js = "window.__PHYSICAL_LAB_HOME_LAYOUT__ = " + json.dumps(home_layout, ensure_ascii=False, separators=(",", ":")) + ";\n"
     app_bundle.write_text(
-        base.rstrip() + "\n\n/* Native Engineering Workbench */\n" + catalog_js + extra + "\n",
+        base.rstrip()
+        + "\n\n/* Native Engineering navigation metadata */\n"
+        + catalog_js
+        + home_js
+        + ("\n/* Shared native capability launcher */\n" + launcher_source if launcher_source else "")
+        + "\n/* Native Engineering Workbench */\n"
+        + workbench_source
+        + "\n",
         encoding="utf-8",
     )
 
@@ -59,4 +75,4 @@ if not (ICONS / "icon.icns").exists():
     except ImportError:
         raise SystemExit("Physical Lab icons are missing and Pillow is unavailable. Restore src-tauri/icons from the source package.")
 
-print("Prepared Physical Lab frontend, native Workbench, and icons.")
+print("Prepared Physical Lab frontend, native navigation metadata, Workbench, and icons.")

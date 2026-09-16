@@ -7,13 +7,13 @@ on:
   pull_request:
     paths:
       - 'src-tauri/resources/surfaces.json'
-      - 'src-tauri/resources/ui/physical_lab_surface_registry.py'
-      - 'src-tauri/resources/ui/physical_lab_native_surface_entry.py'
+      - 'src-tauri/resources/ui/physical_lab_*.py'
       - 'src-tauri/resources/ui/sitecustomize.py'
       - 'src-tauri/tauri.conf.json'
       - 'web/surface_catalog.js'
       - 'scripts/prepare.py'
       - 'scripts/native_desktop_reachability_validation.py'
+      - 'scripts/render_entry_reachability_validation.py'
       - '.github/workflows/native-desktop-reachability-integrity.yml'
 
 jobs:
@@ -27,9 +27,12 @@ jobs:
       - name: Compile native reachability Python
         run: |
           python -m py_compile scripts/native_desktop_reachability_validation.py
+          python -m py_compile scripts/render_entry_reachability_validation.py
           python -m py_compile src-tauri/resources/ui/physical_lab_native_surface_entry.py
           python -m py_compile src-tauri/resources/ui/sitecustomize.py
       - name: Prepare native frontend bundle
         run: python scripts/prepare.py
       - name: Validate native desktop reachability
         run: python scripts/native_desktop_reachability_validation.py
+      - name: Audit packaged render entry points
+        run: python scripts/render_entry_reachability_validation.py

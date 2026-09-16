@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 from shutil import copy2
+import importlib.util
 import json
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,16 +10,30 @@ DIST = ROOT / "dist"
 ICONS = ROOT / "src-tauri" / "icons"
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
 HOME_LAYOUT = ROOT / "src-tauri" / "resources" / "home_layout.json"
+ADAPTERS = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_native_workbench_adapters.py"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
 for name in ("index.html", "styles.css", "app.js"):
     copy2(WEB / name, DIST / name)
 
+
+def merged_surface_rows(rows):
+    if not ADAPTERS.is_file():
+        return rows
+    spec = importlib.util.spec_from_file_location("_physical_lab_native_workbench_adapters_prepare", ADAPTERS)
+    if spec is None or spec.loader is None:
+        raise SystemExit("Unable to load native Workbench surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
+
+
 # Keep native navigation sources isolated for review, then concatenate them into
-# the existing classic app.js bundle. Canonical JSON manifests are embedded as
-# inert data so Home, Workbench and search share one source of truth without a
-# parallel Rust registry or a second frontend build system.
+# the existing classic app.js bundle. Canonical JSON manifests plus the reviewed
+# migration overlay are embedded as inert data so Home, Workbench and search share
+# the same effective capability catalog as the bundled Python deep-link entry.
 workbench = WEB / "surface_catalog.js"
 launcher = WEB / "capability_launcher.js"
 home_progressive = WEB / "home_progressive.js"
@@ -26,6 +41,7 @@ if workbench.is_file() and SURFACES.is_file():
     rows = json.loads(SURFACES.read_text(encoding="utf-8"))
     if not isinstance(rows, list) or not rows:
         raise SystemExit("src-tauri/resources/surfaces.json must be a non-empty JSON array")
+    rows = merged_surface_rows(rows)
     home_layout = {}
     if HOME_LAYOUT.is_file():
         home_layout = json.loads(HOME_LAYOUT.read_text(encoding="utf-8"))

@@ -12,6 +12,16 @@ ICONS.mkdir(parents=True, exist_ok=True)
 for name in ("index.html", "styles.css", "app.js"):
     copy2(WEB / name, DIST / name)
 
+# Keep Workbench source isolated for review, then concatenate it into the existing
+# classic app.js bundle so the initial Tauri shell gains the capability catalog
+# without introducing another frontend build system or script-src exception.
+workbench = WEB / "surface_catalog.js"
+if workbench.is_file():
+    app_bundle = DIST / "app.js"
+    base = app_bundle.read_text(encoding="utf-8")
+    extra = workbench.read_text(encoding="utf-8")
+    app_bundle.write_text(base.rstrip() + "\n\n/* Native Engineering Workbench */\n" + extra + "\n", encoding="utf-8")
+
 # Icons are committed with the source package. Regenerate only when missing.
 if not (ICONS / "icon.icns").exists():
     try:
@@ -39,4 +49,4 @@ if not (ICONS / "icon.icns").exists():
     except ImportError:
         raise SystemExit("Physical Lab icons are missing and Pillow is unavailable. Restore src-tauri/icons from the source package.")
 
-print("Prepared Physical Lab frontend and icons.")
+print("Prepared Physical Lab frontend, native Workbench, and icons.")

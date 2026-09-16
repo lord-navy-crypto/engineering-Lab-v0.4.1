@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = ROOT / "src-tauri" / "resources" / "modules.json"
 ENTRY = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_builtin_lab_entry.py"
+ADVANCED = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_utube_advanced_ui.py"
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
 
 
@@ -35,12 +36,17 @@ def main() -> None:
         "render_utube_experiment": "bundled U-Tube Lab does not render the physical model",
         "render_utube_uncertainty": "bundled U-Tube Lab does not render uncertainty",
         "render_utube_advanced": "bundled U-Tube Lab does not render advanced/experiment-planner views",
-        "render_utube_robust_engineering": "bundled U-Tube Lab does not expose robust design / digital twin",
-        "render_utube_hysteresis": "bundled U-Tube Lab does not expose dynamic threshold / hysteresis",
+        "render_requested_surface": "bundled U-Tube host does not honor direct Workbench deep-links",
     }
     for marker, error in markers.items():
         if marker not in entry:
             raise AssertionError(error)
+
+    advanced = ADVANCED.read_text(encoding="utf-8")
+    if "render_utube_robust_engineering(st, profile)" not in advanced:
+        raise AssertionError("U-Tube Advanced no longer continues into Robust Design / Digital Twin")
+    if "render_utube_hysteresis(st, profile)" not in advanced:
+        raise AssertionError("U-Tube Advanced no longer continues into Dynamic Threshold / Hysteresis")
 
     surfaces = json.loads(SURFACES.read_text(encoding="utf-8"))
     by_id = {str(item.get("id")): item for item in surfaces if isinstance(item, dict)}
@@ -50,13 +56,14 @@ def main() -> None:
             raise AssertionError(f"missing U-Tube Workbench surface: {surface_id}")
         preferred = list(surface.get("preferredProfiles") or [])
         profiles = list(surface.get("profiles") or [])
-        if surface_id != "utube-studio" and "rotating-utube" not in preferred + profiles:
+        if "rotating-utube" not in preferred + profiles:
             raise AssertionError(f"{surface_id} does not prefer/allow the first-class rotating-utube host")
 
     print(json.dumps({
         "first_class_utube_lab": True,
         "module_id": "rotating-utube",
         "utube_workbench_surfaces": 6,
+        "advanced_includes_robust_and_hysteresis": True,
     }, sort_keys=True))
 
 

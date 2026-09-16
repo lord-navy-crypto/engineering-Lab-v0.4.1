@@ -33,6 +33,7 @@ VALID_ARGUMENT_MODES = {
     "st_profile_project",
     "st_project_profile",
     "st_project_profile_refs",
+    "st_profile_namespace",
     "native_route",
 }
 

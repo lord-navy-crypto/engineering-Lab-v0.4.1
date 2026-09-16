@@ -15,6 +15,7 @@ on:
       - 'scripts/prepare.py'
       - 'scripts/native_desktop_reachability_validation.py'
       - 'scripts/render_entry_reachability_validation.py'
+      - 'scripts/native_surface_bundle_validation.py'
       - '.github/workflows/native-desktop-reachability-integrity.yml'
 
 jobs:
@@ -29,6 +30,7 @@ jobs:
         run: |
           python -m py_compile scripts/native_desktop_reachability_validation.py
           python -m py_compile scripts/render_entry_reachability_validation.py
+          python -m py_compile scripts/native_surface_bundle_validation.py
           python -m py_compile src-tauri/resources/ui/physical_lab_native_surface_entry.py
           python -m py_compile src-tauri/resources/ui/physical_lab_native_workbench_adapters.py
           python -m py_compile src-tauri/resources/ui/sitecustomize.py
@@ -38,3 +40,5 @@ jobs:
         run: python scripts/native_desktop_reachability_validation.py
       - name: Audit packaged render entry points
         run: python scripts/render_entry_reachability_validation.py
+      - name: Verify native renderer bundle coverage
+        run: python scripts/native_surface_bundle_validation.py

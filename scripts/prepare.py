@@ -17,10 +17,11 @@ for name in ("index.html", "styles.css", "app.js"):
 
 # Keep native navigation sources isolated for review, then concatenate them into
 # the existing classic app.js bundle. Canonical JSON manifests are embedded as
-# inert data so Home and Workbench share one source of truth without adding a
+# inert data so Home, Workbench and search share one source of truth without a
 # parallel Rust registry or a second frontend build system.
 workbench = WEB / "surface_catalog.js"
 launcher = WEB / "capability_launcher.js"
+home_progressive = WEB / "home_progressive.js"
 if workbench.is_file() and SURFACES.is_file():
     rows = json.loads(SURFACES.read_text(encoding="utf-8"))
     if not isinstance(rows, list) or not rows:
@@ -33,6 +34,7 @@ if workbench.is_file() and SURFACES.is_file():
     app_bundle = DIST / "app.js"
     base = app_bundle.read_text(encoding="utf-8")
     launcher_source = launcher.read_text(encoding="utf-8") if launcher.is_file() else ""
+    home_source = home_progressive.read_text(encoding="utf-8") if home_progressive.is_file() else ""
     workbench_source = workbench.read_text(encoding="utf-8")
     catalog_js = "window.__PHYSICAL_LAB_SURFACES__ = " + json.dumps(rows, ensure_ascii=False, separators=(",", ":")) + ";\n"
     home_js = "window.__PHYSICAL_LAB_HOME_LAYOUT__ = " + json.dumps(home_layout, ensure_ascii=False, separators=(",", ":")) + ";\n"
@@ -42,6 +44,7 @@ if workbench.is_file() and SURFACES.is_file():
         + catalog_js
         + home_js
         + ("\n/* Shared native capability launcher */\n" + launcher_source if launcher_source else "")
+        + ("\n/* First-principles progressive Home + unified discovery */\n" + home_source if home_source else "")
         + "\n/* Native Engineering Workbench */\n"
         + workbench_source
         + "\n",
@@ -75,4 +78,4 @@ if not (ICONS / "icon.icns").exists():
     except ImportError:
         raise SystemExit("Physical Lab icons are missing and Pillow is unavailable. Restore src-tauri/icons from the source package.")
 
-print("Prepared Physical Lab frontend, native navigation metadata, Workbench, and icons.")
+print("Prepared Physical Lab frontend, first-principles Home, unified search, Workbench, and icons.")

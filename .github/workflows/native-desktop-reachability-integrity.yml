@@ -10,11 +10,9 @@ on:
       - 'src-tauri/resources/ui/physical_lab_surface_registry.py'
       - 'src-tauri/resources/ui/physical_lab_native_surface_entry.py'
       - 'src-tauri/resources/ui/sitecustomize.py'
-      - 'src-tauri/src/lib.rs'
       - 'src-tauri/tauri.conf.json'
-      - 'web/index.html'
       - 'web/surface_catalog.js'
-      - 'web/styles.css'
+      - 'scripts/prepare.py'
       - 'scripts/native_desktop_reachability_validation.py'
       - '.github/workflows/native-desktop-reachability-integrity.yml'
 
@@ -26,7 +24,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile reachability validator
-        run: python -m py_compile scripts/native_desktop_reachability_validation.py
+      - name: Compile native reachability Python
+        run: |
+          python -m py_compile scripts/native_desktop_reachability_validation.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_native_surface_entry.py
+          python -m py_compile src-tauri/resources/ui/sitecustomize.py
+      - name: Prepare native frontend bundle
+        run: python scripts/prepare.py
       - name: Validate native desktop reachability
         run: python scripts/native_desktop_reachability_validation.py

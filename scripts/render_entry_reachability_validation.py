@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "src-tauri" / "resources" / "ui"
 CATALOG_PATH = ROOT / "src-tauri" / "resources" / "surfaces.json"
+ADAPTERS_PATH = UI_ROOT / "physical_lab_native_workbench_adapters.py"
 CLASSIFICATION_PATH = ROOT / "src-tauri" / "resources" / "render_entry_classification.json"
 VALID_CLASSES = {"native", "dependent-child", "aggregate", "legacy", "router", "helper"}
 
@@ -27,8 +29,19 @@ def public_renderers(path: Path) -> list[str]:
     ]
 
 
-def main() -> None:
+def effective_rows() -> list[dict]:
     rows = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    spec = importlib.util.spec_from_file_location("_render_audit_native_adapters", ADAPTERS_PATH)
+    if spec is None or spec.loader is None:
+        raise AssertionError("unable to load native surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
+
+
+def main() -> None:
+    rows = effective_rows()
     classes = json.loads(CLASSIFICATION_PATH.read_text(encoding="utf-8"))
     surface_ids = {str(row.get("id") or "") for row in rows if isinstance(row, dict)}
     targets = {
@@ -87,6 +100,7 @@ def main() -> None:
         "directly_targeted_render_entries": len(directly_targeted),
         "classified_non_target_entries": len(classified),
         "classification_counts": class_counts,
+        "effective_surface_rows": len(rows),
         "unclassified_render_entries": 0,
         "missing_native_render_surfaces": 0,
     }, sort_keys=True))

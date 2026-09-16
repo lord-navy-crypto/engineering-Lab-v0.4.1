@@ -8,12 +8,91 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+# Small canonical overlay for capabilities discovered after the original generated
+# surfaces.json was established. Existing IDs are merged field-by-field; new IDs
+# are appended. Keeping this beside the adapters means desktop preparation and the
+# bundled Python deep-link entry consume exactly the same migration metadata.
+NATIVE_SURFACE_OVERRIDES: tuple[dict[str, Any], ...] = (
+    {"id": "local-ai", "argumentMode": "st_profile_namespace"},
+    {"id": "engineering-vvuq", "argumentMode": "st_profile_namespace"},
+    {"id": "undulator-spectrum", "argumentMode": "st_namespace"},
+    {"id": "radiation-stokes", "argumentMode": "st_profile_namespace"},
+    {
+        "id": "radiation-quality",
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_radiation_quality_native",
+        "argumentMode": "st_profile_namespace",
+    },
+    {
+        "id": "radiation-seed-compare",
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_radiation_seed_compare_native",
+        "argumentMode": "st_profile_namespace",
+    },
+    {
+        "id": "radiation-interactions",
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_radiation_interactions_native",
+        "argumentMode": "st_profile_namespace",
+    },
+    {
+        "id": "radiation-response-surface",
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_radiation_response_surface_native",
+        "argumentMode": "st_profile_namespace",
+    },
+    {"id": "radia-forward", "argumentMode": "st_namespace"},
+    {"id": "radia-tolerance", "argumentMode": "st_namespace"},
+    {"id": "radia-radiation-propagation", "argumentMode": "st_namespace"},
+    {
+        "id": "utube-experiment-planner",
+        "label": "U-Tube Experiment Planner",
+        "category": "Experiments & Physics",
+        "kind": "embedded",
+        "launchMode": "direct",
+        "profiles": ["rotating-utube"],
+        "preferredProfiles": ["rotating-utube"],
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_utube_experiment_planner_native",
+        "argumentMode": "st_profile_namespace",
+        "routeHint": "Rotating U-Tube Research Studio → focused model-based experiment planning",
+    },
+    {
+        "id": "radiation-sensitivity",
+        "label": "Manufacturing → Radiation Sensitivity",
+        "category": "Engineering Decisions & Reliability",
+        "kind": "embedded",
+        "launchMode": "profile",
+        "profiles": ["radia-magnet-studio"],
+        "preferredProfiles": ["radia-magnet-studio"],
+        "targetModule": "physical_lab_native_workbench_adapters",
+        "targetCallable": "render_radiation_sensitivity_native",
+        "argumentMode": "st_profile_namespace",
+        "routeHint": "RADIA Magnet Studio → focused one-factor manufacturing/radiation screening",
+    },
+)
+
+
+def merge_native_surface_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge the reviewed migration overlay without changing row ordering."""
+    output = [dict(row) for row in rows if isinstance(row, dict)]
+    index = {str(row.get("id") or ""): i for i, row in enumerate(output) if row.get("id")}
+    for patch in NATIVE_SURFACE_OVERRIDES:
+        sid = str(patch.get("id") or "")
+        if not sid:
+            continue
+        if sid in index:
+            output[index[sid]].update(dict(patch))
+        else:
+            index[sid] = len(output)
+            output.append(dict(patch))
+    return output
+
 
 def render_application_scenarios(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
     """Expose the Mathematical Tool / Physics Scenario switch and its engineering review together."""
     from physical_lab_application_modes import render_application_mode
     from physical_lab_engineering_scenarios import render_engineering_scenario_review
-
     render_application_mode(st, profile, namespace or {})
     render_engineering_scenario_review(st, profile)
 
@@ -24,18 +103,14 @@ def render_compute_native(st: Any, profile: str, namespace: Mapping[str, Any] | 
 
 
 def render_diagnostics_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
-    """Expose diagnostics with compute-job events connected when the compute engine is available."""
     import physical_lab_compute_engine as compute_engine
     from physical_lab_diagnostics import render_diagnostics_workspace
-
     render_diagnostics_workspace(st, profile, compute_engine)
 
 
 def render_measurement_registry_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
-    """Keep project selection visible instead of silently returning when no project is active."""
     import physical_lab_project_kernel as projects
     from physical_lab_measurement_registry import render_measurement_workspace
-
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "").strip()
     project = Path(active).expanduser().resolve() if active else None
     if project is None or not (project / "project.json").is_file():
@@ -91,9 +166,7 @@ def render_utube_experiment_planner_native(st: Any, profile: str, namespace: Map
 
 
 def _render_radiation_propagation_prerequisite(st: Any, namespace: Mapping[str, Any] | None, *, target: str) -> None:
-    """Expose the prerequisite without starting it automatically."""
     from physical_lab_radia_radiation_propagation import render_radia_radiation_propagation
-
     st.info(
         f"{target} needs a completed RADIA → trajectory → radiation manufacturing ensemble first. "
         "Configure and explicitly run that prerequisite below; opening this page does not start a solve."
@@ -102,7 +175,6 @@ def _render_radiation_propagation_prerequisite(st: Any, namespace: Mapping[str, 
 
 
 def render_radiation_quality_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
-    """Make the radiation-quality prerequisite visible instead of returning an empty page."""
     if profile != "radia-magnet-studio":
         st.info("Radiation Quality Degradation is available through RADIA Magnet Studio.")
         return
@@ -114,7 +186,6 @@ def render_radiation_quality_native(st: Any, profile: str, namespace: Mapping[st
 
 
 def render_radiation_seed_compare_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
-    """Make seed-comparison prerequisites visible instead of returning an empty page."""
     if profile != "radia-magnet-studio":
         st.info("Radiation Seed Comparison is available through RADIA Magnet Studio.")
         return
@@ -125,8 +196,52 @@ def render_radiation_seed_compare_native(st: Any, profile: str, namespace: Mappi
     render_seed_radiation_comparison(st, profile, namespace)
 
 
+def _active_radiation_error_families(namespace: Mapping[str, Any] | None) -> list[str]:
+    from physical_lab_radiation_response_surface import ERROR_KEYS
+    params = dict((namespace or {}).get("current_params") or {})
+    active: list[str] = []
+    for key in ERROR_KEYS:
+        try:
+            if abs(float(params.get(key, 0.0) or 0.0)) > 0.0:
+                active.append(str(key))
+        except Exception:
+            continue
+    return active
+
+
+def render_radiation_interactions_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
+    if profile != "radia-magnet-studio":
+        st.info("Radiation Interactions is available through RADIA Magnet Studio.")
+        return
+    active = _active_radiation_error_families(namespace)
+    if len(active) < 2:
+        st.info(
+            "Pairwise Radiation Interactions needs at least two non-zero RADIA manufacturing-error families. "
+            "Enable two or more error magnitudes in Magnet Studio, then return here."
+        )
+        st.caption(f"Currently active: {', '.join(active) if active else 'none'}")
+        return
+    from physical_lab_radiation_interactions_ui import render_radiation_interactions_workspace
+    render_radiation_interactions_workspace(st, profile, namespace)
+
+
+def render_radiation_response_surface_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
+    if profile != "radia-magnet-studio":
+        st.info("Radiation Response Surface is available through RADIA Magnet Studio.")
+        return
+    active = _active_radiation_error_families(namespace)
+    if len(active) < 2:
+        st.info(
+            "Radiation Response Surface needs at least two non-zero RADIA manufacturing-error families. "
+            "Enable two or more error magnitudes in Magnet Studio, then return here."
+        )
+        st.caption(f"Currently active: {', '.join(active) if active else 'none'}")
+        return
+    from physical_lab_radiation_response_surface_ui import render_radiation_response_surface_workspace
+    render_radiation_response_surface_workspace(st, profile, namespace)
+
+
 def render_radiation_sensitivity_native(st: Any, profile: str, namespace: Mapping[str, Any] | None = None) -> None:
-    """Promote the existing one-factor manufacturing→radiation screening workspace."""
     if profile != "radia-magnet-studio":
         st.info("Radiation Sensitivity is available through RADIA Magnet Studio.")
         return

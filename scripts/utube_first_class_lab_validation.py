@@ -2,6 +2,7 @@
 """Require the rotating U-Tube research suite to be a first-class bundled Physics Lab."""
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -10,6 +11,22 @@ MODULES = ROOT / "src-tauri" / "resources" / "modules.json"
 ENTRY = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_builtin_lab_entry.py"
 ADVANCED = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_utube_advanced_ui.py"
 SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
+ADAPTERS = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_native_workbench_adapters.py"
+UTUBE_IDS = (
+    "utube-studio", "utube-physical", "utube-uncertainty", "utube-experiment-planner",
+    "utube-advanced", "utube-robust", "utube-hysteresis",
+)
+
+
+def effective_surfaces() -> list[dict]:
+    rows = json.loads(SURFACES.read_text(encoding="utf-8"))
+    spec = importlib.util.spec_from_file_location("_utube_native_adapters", ADAPTERS)
+    if spec is None or spec.loader is None:
+        raise AssertionError("unable to load native U-Tube surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
 
 
 def main() -> None:
@@ -48,9 +65,9 @@ def main() -> None:
     if "render_utube_hysteresis(st, profile)" not in advanced:
         raise AssertionError("U-Tube Advanced no longer continues into Dynamic Threshold / Hysteresis")
 
-    surfaces = json.loads(SURFACES.read_text(encoding="utf-8"))
+    surfaces = effective_surfaces()
     by_id = {str(item.get("id")): item for item in surfaces if isinstance(item, dict)}
-    for surface_id in ("utube-studio", "utube-physical", "utube-uncertainty", "utube-advanced", "utube-robust", "utube-hysteresis"):
+    for surface_id in UTUBE_IDS:
         surface = by_id.get(surface_id)
         if surface is None:
             raise AssertionError(f"missing U-Tube Workbench surface: {surface_id}")
@@ -58,11 +75,15 @@ def main() -> None:
         profiles = list(surface.get("profiles") or [])
         if "rotating-utube" not in preferred + profiles:
             raise AssertionError(f"{surface_id} does not prefer/allow the first-class rotating-utube host")
+    planner = by_id["utube-experiment-planner"]
+    if planner.get("targetCallable") != "render_utube_experiment_planner_native":
+        raise AssertionError("focused U-Tube Experiment Planner is not wired to its native adapter")
 
     print(json.dumps({
         "first_class_utube_lab": True,
         "module_id": "rotating-utube",
-        "utube_workbench_surfaces": 6,
+        "utube_workbench_surfaces": len(UTUBE_IDS),
+        "focused_experiment_planner": True,
         "advanced_includes_robust_and_hysteresis": True,
     }, sort_keys=True))
 

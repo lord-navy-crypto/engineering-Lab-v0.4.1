@@ -13,6 +13,7 @@ UI_ROOT = ROOT / "src-tauri" / "resources" / "ui"
 REGISTRY_PATH = UI_ROOT / "physical_lab_surface_registry.py"
 CATALOG_PATH = ROOT / "src-tauri" / "resources" / "surfaces.json"
 CATALOG_JS_PATH = ROOT / "web" / "surface_catalog.js"
+LAUNCHER_JS_PATH = ROOT / "web" / "capability_launcher.js"
 PREPARE_PATH = ROOT / "scripts" / "prepare.py"
 DEEP_LINK_PATH = UI_ROOT / "physical_lab_native_surface_entry.py"
 SITECUSTOMIZE_PATH = UI_ROOT / "sitecustomize.py"
@@ -168,14 +169,10 @@ def main() -> None:
         {
             "data-view=\"capabilities\"": "Workbench does not create a native sidebar entry",
             "capabilitiesView": "Workbench does not create the native capabilities view",
-            "__PHYSICAL_LAB_SURFACES__": "Workbench does not consume the canonical embedded surface catalog",
-            "module_statuses": "Workbench does not inspect host readiness",
-            "install_module": "Workbench cannot prepare a missing host Lab",
-            "launch_module": "Workbench cannot launch a capability",
-            "surface=${encodeURIComponent(id)}": "Workbench does not deep-link the requested surface into the iframe URL",
+            "PhysicalLabCapabilityLauncher": "Workbench does not consume the shared capability launcher",
+            "launcher.prepareAndOpen": "Workbench cannot launch through the shared capability launcher",
             "data-surface-open": "Workbench has no actionable capability controls",
             "showWorkbench": "Workbench navigation does not activate its injected native view",
-            "backFromLab": "Workbench-launched hosts are not cleaned up on return",
             "UTUBE_PRIORITY": "Workbench does not explicitly prioritize the U-Tube experiment family",
             "utubeFamilyGrid": "Workbench lacks a featured U-Tube experiment family surface",
             "CORE_PLATFORM_PRIORITY": "Workbench does not explicitly prioritize recovered core workspaces",
@@ -185,10 +182,22 @@ def main() -> None:
         },
     )
     require_markers(
+        LAUNCHER_JS_PATH,
+        {
+            "module_statuses": "shared capability launcher does not inspect host readiness",
+            "install_module": "shared capability launcher cannot prepare a missing host Lab",
+            "launch_module": "shared capability launcher cannot launch a capability",
+            "stop_module": "shared capability launcher cannot clean up active hosts",
+            "surface=${encodeURIComponent(id)}": "shared capability launcher does not deep-link the requested surface",
+            "window.PhysicalLabCapabilityLauncher": "shared capability launcher is not exported",
+        },
+    )
+    require_markers(
         PREPARE_PATH,
         {
             "surfaces.json": "frontend prepare step does not consume surfaces.json",
             "surface_catalog.js": "frontend prepare step does not bundle Workbench source",
+            "capability_launcher.js": "frontend prepare step does not bundle shared launcher source",
             "__PHYSICAL_LAB_SURFACES__": "frontend prepare step does not embed native catalog JSON",
         },
     )
@@ -222,6 +231,7 @@ def main() -> None:
             {
                 "Native Engineering Workbench": "prepared app.js lacks Workbench bundle",
                 "window.__PHYSICAL_LAB_SURFACES__": "prepared app.js lacks embedded surface catalog",
+                "window.PhysicalLabCapabilityLauncher": "prepared app.js lacks shared capability launcher",
                 "data-surface-open": "prepared app.js lacks capability actions",
                 "utubeFamilyGrid": "prepared app.js lacks featured U-Tube family UI",
                 "corePlatformGrid": "prepared app.js lacks featured core engineering platform UI",
@@ -237,6 +247,7 @@ def main() -> None:
         "signature_normalized_rows": normalized_signature_rows,
         "uncovered_registry_surfaces": 0,
         "uncovered_embedded_modules": 0,
+        "shared_native_launcher": True,
         "native_desktop_reachability": True,
     }, sort_keys=True))
 

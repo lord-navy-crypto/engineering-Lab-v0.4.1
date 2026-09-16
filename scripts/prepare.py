@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 from pathlib import Path
 from shutil import copy2
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 DIST = ROOT / "dist"
 ICONS = ROOT / "src-tauri" / "icons"
+SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
@@ -13,14 +15,22 @@ for name in ("index.html", "styles.css", "app.js"):
     copy2(WEB / name, DIST / name)
 
 # Keep Workbench source isolated for review, then concatenate it into the existing
-# classic app.js bundle so the initial Tauri shell gains the capability catalog
-# without introducing another frontend build system or script-src exception.
+# classic app.js bundle. The canonical surfaces.json is embedded as inert JSON
+# data so the initial Tauri shell can enumerate every capability without adding
+# a parallel Rust registry or a second frontend build system.
 workbench = WEB / "surface_catalog.js"
-if workbench.is_file():
+if workbench.is_file() and SURFACES.is_file():
+    rows = json.loads(SURFACES.read_text(encoding="utf-8"))
+    if not isinstance(rows, list) or not rows:
+        raise SystemExit("src-tauri/resources/surfaces.json must be a non-empty JSON array")
     app_bundle = DIST / "app.js"
     base = app_bundle.read_text(encoding="utf-8")
     extra = workbench.read_text(encoding="utf-8")
-    app_bundle.write_text(base.rstrip() + "\n\n/* Native Engineering Workbench */\n" + extra + "\n", encoding="utf-8")
+    catalog_js = "window.__PHYSICAL_LAB_SURFACES__ = " + json.dumps(rows, ensure_ascii=False, separators=(",", ":")) + ";\n"
+    app_bundle.write_text(
+        base.rstrip() + "\n\n/* Native Engineering Workbench */\n" + catalog_js + extra + "\n",
+        encoding="utf-8",
+    )
 
 # Icons are committed with the source package. Regenerate only when missing.
 if not (ICONS / "icon.icns").exists():

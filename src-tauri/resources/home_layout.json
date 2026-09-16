@@ -1,0 +1,52 @@
+{
+  "taskFamilies": [
+    {
+      "id": "experiment",
+      "label": "Run an Experiment",
+      "description": "Open a physical model or experiment family, then move into uncertainty and experiment planning.",
+      "featured": ["utube-studio", "utube-physical", "utube-uncertainty", "utube-experiment-planner"],
+      "destination": "labs",
+      "filterCategory": "Experiments & Physics"
+    },
+    {
+      "id": "measure",
+      "label": "Measure / Import Data",
+      "description": "Bring measured data into a Project with calibration, provenance and lab context intact.",
+      "featured": ["data-bridge", "measurement-registry", "betterboard-discovery", "labbridge"],
+      "destination": "data",
+      "filterCategory": "Data & Measurement"
+    },
+    {
+      "id": "model",
+      "label": "Build / Compare Models",
+      "description": "Define models, compare runs, connect models and organize bounded computational campaigns.",
+      "featured": ["modelspec-diy", "model-coupling", "run-comparison", "model-campaign", "model-engineering", "pipeline-dag"],
+      "destination": "modelbuilder",
+      "filterCategory": "Modeling & Simulation"
+    },
+    {
+      "id": "analyze",
+      "label": "Analyze / Validate Results",
+      "description": "Inspect results, visualize evidence and move into explicit V&V, reliability and reproducibility work.",
+      "featured": ["result-inspector", "visualization-studio", "visual-analytics", "engineering-vvuq", "evidence-center", "reproducibility-pack", "radiation-sensitivity"],
+      "destination": "results",
+      "filterCategory": "Visualization & Analysis"
+    }
+  ],
+  "featuredFamilies": [
+    {
+      "id": "rotating-utube",
+      "label": "Rotating U-Tube Research",
+      "description": "A complete experiment sequence from physical model and data through uncertainty, focused experiment planning, robust design and hysteresis.",
+      "surfaceIds": [
+        "utube-studio",
+        "utube-physical",
+        "utube-uncertainty",
+        "utube-experiment-planner",
+        "utube-advanced",
+        "utube-robust",
+        "utube-hysteresis"
+      ]
+    }
+  ]
+}

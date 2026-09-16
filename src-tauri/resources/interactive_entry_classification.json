@@ -1,0 +1,69 @@
+[
+  {"module":"physical_lab_advanced","functions":["_chaos_suite","_ising_suite","_numerical_suite","_oscillation_suite","_radia_magnet_suite","_radiation_suite","_random_walk_suite"],"classification":"child-capability","coveredBy":"engineering-vvuq"},
+  {"module":"physical_lab_application_modes","functions":["_render_ising","_render_quantum","_render_transport"],"classification":"child-capability","coveredBy":"application-scenarios"},
+
+  {"module":"physical_lab_applied_analysis_advanced_ui","functions":["_cv_tab","_doe_sweep_tab","_factorial_morris_tab","_robust_tab"],"classification":"child-capability","coveredBy":"advanced-applied-analysis"},
+  {"module":"physical_lab_applied_analysis_advanced_ui","functions":["_factor_text"],"classification":"helper","coveredBy":"advanced-applied-analysis"},
+  {"module":"physical_lab_applied_analysis_ui","functions":["_bootstrap_tab","_doe_tab","_parameter_tab","_regression_tab"],"classification":"child-capability","coveredBy":"applied-analysis"},
+  {"module":"physical_lab_applied_analysis_ui","functions":["_save"],"classification":"helper","coveredBy":"applied-analysis"},
+  {"module":"physical_lab_applied_math_deep_ui","functions":["_linear_algebra_tab","_sweep_feedback_tab"],"classification":"child-capability","coveredBy":"deep-applied-math"},
+
+  {"module":"physical_lab_deep_science_ui","functions":["_render_kerr_shadow","_render_lattice_vacf","_render_numeric_atlas","_render_solar_symplectic"],"classification":"child-capability","coveredBy":"deep-science"},
+  {"module":"physical_lab_engineering_scenarios","functions":["_render_ising_controls","_render_quantum_controls","_render_transport_controls"],"classification":"helper","coveredBy":"application-scenarios"},
+  {"module":"physical_lab_frequency_response_ui","functions":["_render_duffing","_render_linear"],"classification":"child-capability","coveredBy":"frequency-response"},
+
+  {"module":"physical_lab_kerr_platform_ui","functions":["_render_result"],"classification":"helper","coveredBy":"kerr-platform"},
+  {"module":"physical_lab_kerr_ui","functions":["_comparison_tab","_single_orbit_tab","_sweep_tab","_verification_tab"],"classification":"child-capability","coveredBy":"kerr-geodesics"},
+
+  {"module":"physical_lab_labbridge_ui","functions":["_render_ingest","_render_journey"],"classification":"child-capability","coveredBy":"labbridge"},
+  {"module":"physical_lab_labbridge_ui","functions":["_render_notebook"],"classification":"child-capability","coveredBy":"research-notebook"},
+  {"module":"physical_lab_labbridge_ui","functions":["_render_openguin"],"classification":"child-capability","coveredBy":"openguin-advisory"},
+
+  {"module":"physical_lab_lattice_ui","functions":["_platform","_render_phonons"],"classification":"child-capability","coveredBy":"lattice-dynamics"},
+  {"module":"physical_lab_lattice_ui","functions":["_config","_render_result"],"classification":"helper","coveredBy":"lattice-dynamics"},
+
+  {"module":"physical_lab_model_coupling_ui","functions":["_render_configure","_render_save_execute"],"classification":"child-capability","coveredBy":"model-coupling"},
+  {"module":"physical_lab_model_depth_iv_ui","functions":["_numerical","_solar"],"classification":"child-capability","coveredBy":"model-depth-iv"},
+  {"module":"physical_lab_model_depth_v_ui","functions":["_render_localization","_render_random"],"classification":"child-capability","coveredBy":"model-depth-v"},
+  {"module":"physical_lab_model_depth_vi_ui","functions":["_render_mc","_render_modal"],"classification":"child-capability","coveredBy":"model-depth-vi"},
+  {"module":"physical_lab_model_depth_vii_ui","functions":["_render_inverse"],"classification":"child-capability","coveredBy":"model-depth-vii"},
+  {"module":"physical_lab_model_depth_viii_ui","functions":["_render_chirp_frf","_render_leakage"],"classification":"child-capability","coveredBy":"model-depth-viii"},
+  {"module":"physical_lab_model_depth_ix_ui","functions":["_render_control","_render_pde"],"classification":"child-capability","coveredBy":"model-depth-ix"},
+  {"module":"physical_lab_model_depth_ui","functions":["_render_duffing","_render_ising","_render_lattice"],"classification":"child-capability","coveredBy":"model-depth"},
+
+  {"module":"physical_lab_new_model_refinement_ui","functions":["_render_evidence","_render_kerr","_render_lattice","_render_solar"],"classification":"child-capability","coveredBy":"new-model-refinement"},
+
+  {"module":"physical_lab_project_interop_ui","functions":["_render_analysis_group","_render_data_group","_render_model_group","_render_project_home","_render_project_tools"],"classification":"aggregate","coveredBy":"project-workspace"},
+  {"module":"physical_lab_project_interop_ui","functions":["_render_data_bridge"],"classification":"child-capability","coveredBy":"data-bridge"},
+  {"module":"physical_lab_project_interop_ui","functions":["_render_reproducibility_group"],"classification":"child-capability","coveredBy":"reproducibility-pack"},
+  {"module":"physical_lab_project_interop_ui","functions":["_render_utube_research_studio"],"classification":"child-capability","coveredBy":"utube-studio"},
+  {"module":"physical_lab_project_surface_patch","functions":["_render_all_workspaces"],"classification":"legacy","coveredBy":"project-workspace"},
+  {"module":"physical_lab_project_surface_patch","functions":["wrapped"],"classification":"aggregate","coveredBy":"project-workspace"},
+
+  {"module":"physical_lab_radiation_quality_ui","functions":["_render_sensitivity"],"classification":"child-capability","coveredBy":"radiation-sensitivity"},
+  {"module":"physical_lab_remaining_science_ui","functions":["_render_duffing","_render_ising","_render_modes","_render_random"],"classification":"child-capability","coveredBy":"remaining-science"},
+
+  {"module":"physical_lab_research_orchestrator_ui","functions":["_render_executor","_render_sweep","_render_table_and_convergence"],"classification":"child-capability","coveredBy":"research-orchestrator"},
+  {"module":"physical_lab_result_inspector_ui","functions":["_render_inspection","_render_materializer"],"classification":"child-capability","coveredBy":"result-inspector"},
+  {"module":"physical_lab_result_inspector_ui","functions":["_render_environment","_source_selector"],"classification":"helper","coveredBy":"result-inspector"},
+  {"module":"physical_lab_run_comparison_ui","functions":["_render_quality_provenance"],"classification":"helper","coveredBy":"run-comparison"},
+
+  {"module":"physical_lab_sitecustomize_base","functions":["_render_preset_tools"],"classification":"helper","coveredBy":"engineering-vvuq"},
+  {"module":"physical_lab_solar_system_ui","functions":["_render_platform"],"classification":"child-capability","coveredBy":"solar-system"},
+  {"module":"physical_lab_solar_system_ui","functions":["_config_from_ui","_render_result"],"classification":"helper","coveredBy":"solar-system"},
+  {"module":"physical_lab_sweep_design_bridge_ui","functions":["_factors"],"classification":"helper","coveredBy":"sweep-design-bridge"},
+
+  {"module":"physical_lab_tradeoff_analysis_ui","functions":["_render_semantics","_render_sensitivity_surface","_render_summary","_render_unit_compare"],"classification":"child-capability","coveredBy":"science-analysis"},
+  {"module":"physical_lab_tradeoff_analysis_ui","functions":["_save_recipe"],"classification":"helper","coveredBy":"science-analysis"},
+
+  {"module":"physical_lab_utube_advanced_ui","functions":["_diy_data_view"],"classification":"child-capability","coveredBy":"utube-advanced"},
+  {"module":"physical_lab_utube_experiment_ui","functions":["_free_energy_tab","_numerics_tab","_phase_map_tab","_sweep_tab"],"classification":"child-capability","coveredBy":"utube-physical"},
+  {"module":"physical_lab_utube_experiment_ui","functions":["_operating_point_controls","_source_contract"],"classification":"helper","coveredBy":"utube-physical"},
+  {"module":"physical_lab_utube_robust_ui","functions":["_adaptive_planner","_digital_twin","_robust_design","_verification"],"classification":"child-capability","coveredBy":"utube-robust"},
+  {"module":"physical_lab_utube_uncertainty_ui","functions":["_input_controls"],"classification":"helper","coveredBy":"utube-uncertainty"},
+
+  {"module":"physical_lab_visual_analytics_ui","functions":["_overlay_tab","_render_selection_inspector","_uncertainty_tab"],"classification":"child-capability","coveredBy":"visual-analytics"},
+  {"module":"physical_lab_visual_analytics_ui","functions":["_dashboard_controls"],"classification":"helper","coveredBy":"visual-analytics"},
+  {"module":"physical_lab_visualization_studio_ui","functions":["_render_plot_inspect_export","_render_result_matrices","_render_scan_builder","_render_tabular_plot"],"classification":"child-capability","coveredBy":"visualization-studio"},
+  {"module":"physical_lab_visualization_studio_ui","functions":["_derived_variable","_filter_frame","_select_source"],"classification":"helper","coveredBy":"visualization-studio"}
+]

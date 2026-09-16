@@ -11,9 +11,11 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
     "resources": {
       "resources/modules.json": "modules.json",
+      "resources/surfaces.json": "surfaces.json",
       "resources/safe_engine_server.py": "safe_engine_server.py",
       "resources/dependencies.json": "dependencies.json",
       "resources/ui/sitecustomize.py": "ui/sitecustomize.py",
+      "resources/ui/physical_lab_native_surface_entry.py": "ui/physical_lab_native_surface_entry.py",
       "resources/ui/physical_lab_builtin_lab_entry.py": "ui/physical_lab_builtin_lab_entry.py",
       "resources/ui/physical_lab_builtin_requirements.txt": "ui/physical_lab_builtin_requirements.txt",
       "resources/ui/physical_lab_sitecustomize_base.py": "ui/physical_lab_sitecustomize_base.py",
@@ -163,6 +165,7 @@
       "resources/ui/physical_lab_science_protocol.py": "ui/physical_lab_science_protocol.py",
       "resources/ui/physical_lab_science_protocol_ui.py": "ui/physical_lab_science_protocol_ui.py",
       "resources/ui/physical_lab_analysis_plan_store.py": "ui/physical_lab_analysis_plan_store.py",
+      "resources/ui/physical_lab_native_workbench_adapters.py": "ui/physical_lab_native_workbench_adapters.py",
       "resources/ui/physical_lab_model_builder.py": "ui/physical_lab_model_builder.py"
     },
     "macOS": {"minimumSystemVersion": "11.0", "dmg": {"appPosition": {"x": 180, "y": 220}, "applicationFolderPosition": {"x": 480, "y": 220}}}

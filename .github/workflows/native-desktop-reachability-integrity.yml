@@ -1,0 +1,64 @@
+name: Native Desktop Reachability Integrity
+
+on:
+  push:
+    branches:
+      - feature/native-desktop-reachability
+  pull_request:
+    paths:
+      - 'src-tauri/resources/modules.json'
+      - 'src-tauri/resources/surfaces.json'
+      - 'src-tauri/resources/home_layout.json'
+      - 'src-tauri/resources/render_entry_classification.json'
+      - 'src-tauri/resources/interactive_entry_classification.json'
+      - 'src-tauri/resources/ui/physical_lab_*.py'
+      - 'src-tauri/resources/ui/sitecustomize.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'web/index.html'
+      - 'web/app.js'
+      - 'web/styles.css'
+      - 'web/capability_launcher.js'
+      - 'web/surface_catalog.js'
+      - 'scripts/prepare.py'
+      - 'scripts/home_information_architecture_validation.py'
+      - 'scripts/interactive_entry_reachability_validation.py'
+      - 'scripts/native_desktop_reachability_validation.py'
+      - 'scripts/render_entry_reachability_validation.py'
+      - 'scripts/native_surface_bundle_validation.py'
+      - 'scripts/utube_first_class_lab_validation.py'
+      - '.github/workflows/native-desktop-reachability-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile native reachability Python
+        run: |
+          python -m py_compile scripts/home_information_architecture_validation.py
+          if [ -f scripts/interactive_entry_reachability_validation.py ]; then python -m py_compile scripts/interactive_entry_reachability_validation.py; fi
+          python -m py_compile scripts/native_desktop_reachability_validation.py
+          python -m py_compile scripts/render_entry_reachability_validation.py
+          python -m py_compile scripts/native_surface_bundle_validation.py
+          python -m py_compile scripts/utube_first_class_lab_validation.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_native_surface_entry.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_native_workbench_adapters.py
+          python -m py_compile src-tauri/resources/ui/sitecustomize.py
+      - name: Prepare native frontend bundle
+        run: python scripts/prepare.py
+      - name: Validate Home information architecture
+        run: python scripts/home_information_architecture_validation.py
+      - name: Validate native desktop reachability
+        run: python scripts/native_desktop_reachability_validation.py
+      - name: Audit packaged render entry points
+        run: python scripts/render_entry_reachability_validation.py
+      - name: Audit packaged interactive entry points
+        if: ${{ hashFiles('scripts/interactive_entry_reachability_validation.py') != '' }}
+        run: python scripts/interactive_entry_reachability_validation.py
+      - name: Verify native renderer bundle coverage
+        run: python scripts/native_surface_bundle_validation.py
+      - name: Validate first-class U-Tube Lab
+        run: python scripts/utube_first_class_lab_validation.py

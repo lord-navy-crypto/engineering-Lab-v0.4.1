@@ -1,16 +1,71 @@
 #!/usr/bin/env python3
 from pathlib import Path
 from shutil import copy2
+import importlib.util
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 DIST = ROOT / "dist"
 ICONS = ROOT / "src-tauri" / "icons"
+SURFACES = ROOT / "src-tauri" / "resources" / "surfaces.json"
+HOME_LAYOUT = ROOT / "src-tauri" / "resources" / "home_layout.json"
+ADAPTERS = ROOT / "src-tauri" / "resources" / "ui" / "physical_lab_native_workbench_adapters.py"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
 for name in ("index.html", "styles.css", "app.js"):
     copy2(WEB / name, DIST / name)
+
+
+def merged_surface_rows(rows):
+    if not ADAPTERS.is_file():
+        return rows
+    spec = importlib.util.spec_from_file_location("_physical_lab_native_workbench_adapters_prepare", ADAPTERS)
+    if spec is None or spec.loader is None:
+        raise SystemExit("Unable to load native Workbench surface extensions")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    merge = getattr(module, "merge_native_surface_rows", None)
+    return merge(rows) if callable(merge) else rows
+
+
+# Keep native navigation sources isolated for review, then concatenate them into
+# the existing classic app.js bundle. Canonical JSON manifests plus the reviewed
+# migration overlay are embedded as inert data so Home, Workbench and search share
+# the same effective capability catalog as the bundled Python deep-link entry.
+workbench = WEB / "surface_catalog.js"
+launcher = WEB / "capability_launcher.js"
+home_progressive = WEB / "home_progressive.js"
+if workbench.is_file() and SURFACES.is_file():
+    rows = json.loads(SURFACES.read_text(encoding="utf-8"))
+    if not isinstance(rows, list) or not rows:
+        raise SystemExit("src-tauri/resources/surfaces.json must be a non-empty JSON array")
+    rows = merged_surface_rows(rows)
+    home_layout = {}
+    if HOME_LAYOUT.is_file():
+        home_layout = json.loads(HOME_LAYOUT.read_text(encoding="utf-8"))
+        if not isinstance(home_layout, dict):
+            raise SystemExit("src-tauri/resources/home_layout.json must be a JSON object")
+    app_bundle = DIST / "app.js"
+    base = app_bundle.read_text(encoding="utf-8")
+    launcher_source = launcher.read_text(encoding="utf-8") if launcher.is_file() else ""
+    home_source = home_progressive.read_text(encoding="utf-8") if home_progressive.is_file() else ""
+    workbench_source = workbench.read_text(encoding="utf-8")
+    catalog_js = "window.__PHYSICAL_LAB_SURFACES__ = " + json.dumps(rows, ensure_ascii=False, separators=(",", ":")) + ";\n"
+    home_js = "window.__PHYSICAL_LAB_HOME_LAYOUT__ = " + json.dumps(home_layout, ensure_ascii=False, separators=(",", ":")) + ";\n"
+    app_bundle.write_text(
+        base.rstrip()
+        + "\n\n/* Native Engineering navigation metadata */\n"
+        + catalog_js
+        + home_js
+        + ("\n/* Shared native capability launcher */\n" + launcher_source if launcher_source else "")
+        + ("\n/* First-principles progressive Home + unified discovery */\n" + home_source if home_source else "")
+        + "\n/* Native Engineering Workbench */\n"
+        + workbench_source
+        + "\n",
+        encoding="utf-8",
+    )
 
 # Icons are committed with the source package. Regenerate only when missing.
 if not (ICONS / "icon.icns").exists():
@@ -39,4 +94,4 @@ if not (ICONS / "icon.icns").exists():
     except ImportError:
         raise SystemExit("Physical Lab icons are missing and Pillow is unavailable. Restore src-tauri/icons from the source package.")
 
-print("Prepared Physical Lab frontend and icons.")
+print("Prepared Physical Lab frontend, first-principles Home, unified search, Workbench, and icons.")

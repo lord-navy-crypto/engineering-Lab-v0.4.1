@@ -384,6 +384,44 @@
     "fullModeNote": "Same bundled reduced-unit lattice model today. It is not relabeled as an ab-initio or calibrated graphene solver."
   },
   {
+    "kind": "lab",
+    "repo": "lord-navy-crypto/engineering-Lab-v0.4.1",
+    "branch": "main",
+    "bundled": true,
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "id": "rotating-utube",
+    "name": "Rotating U-Tube Research Studio",
+    "category": "Fluid Dynamics & Experimental Physics",
+    "description": "Rotating U-tube threshold physics, physical/data views, uncertainty, inverse design, experiment planning, robust design/digital twin and dynamic threshold/hysteresis studies.",
+    "tags": [
+      "U-Tube",
+      "Fluid dynamics",
+      "Experiment",
+      "Uncertainty"
+    ],
+    "safeModeNote": "Uses the rotating U-tube model and research UI bundled with this Engineering Lab build; no second solver checkout is downloaded.",
+    "fullModeNote": "Same bundled U-tube implementation today. Full mode does not silently substitute a different fluid solver or relabel the reduced-order model as full CFD."
+  },
+  {
     "id": "radia-runtime",
     "name": "RADIA Universal2 Runtime",
     "category": "Runtime & Builders",

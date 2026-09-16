@@ -30,5 +30,5 @@
   {"module":"physical_lab_ui_semantics","callable":"render_object_card","classification":"helper"},
   {"module":"physical_lab_ui_semantics","callable":"render_status_card","classification":"helper"},
   {"module":"physical_lab_visualization","callable":"render_visualization_studio","classification":"legacy","coveredBy":"visualization-studio"},
-  {"module":"physical_lab_visualization_engineering","callable":"render_engineering_visual_controls","classification":"helper"}
+  {"module":"physical_lab_visualization_engineering","callable":"render_engineering_visual_controls","classification":"helper","coveredBy":"visualization-studio"}
 ]

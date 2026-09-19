@@ -21,6 +21,7 @@ on:
       - 'scripts/self_check.py'
       - 'scripts/evidence_center_ui_validation.py'
       - 'scripts/ui_refactor_completeness_validation.py'
+      - 'scripts/ui_capability_reachability_audit.py'
       - '.github/workflows/ui-workbench-validation.yml'
   workflow_dispatch:
 
@@ -89,6 +90,9 @@ jobs:
 
       - name: PR 91 UI refactor completeness validation
         run: python scripts/ui_refactor_completeness_validation.py
+
+      - name: Repository-wide UI capability reachability audit
+        run: python scripts/ui_capability_reachability_audit.py
 
       - name: Run repository source self-check
         run: python scripts/self_check.py

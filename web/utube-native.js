@@ -96,7 +96,7 @@ function utubeLineSvg(series,{xLabel='',yLabel='',height=250}={}){
   return '<div class="ut-chart"><div class="ut-chart-legend">'+legend+'</div><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+uEsc(yLabel+' versus '+xLabel)+'"><g class="ut-grid">'+grid+'</g>'+paths+'<text class="ut-axis" x="'+((L+W-R)/2)+'" y="'+(H-8)+'" text-anchor="middle">'+uEsc(xLabel)+'</text><text class="ut-axis" transform="translate(14 '+((T+H-B)/2)+') rotate(-90)" text-anchor="middle">'+uEsc(yLabel)+'</text></svg></div>';
 }
 function nativeUtubeCard(){
-  return '<article class="module-card native-lab-card" data-search="rotating u-tube engineering club fluid threshold hysteresis"><div class="card-top"><div class="module-icon">∪</div><span class="status-pill ready">Native</span></div><div class="category">Engineering Club · Fluid experiment</div><h4>Rotating U-Tube</h4><p class="desc">Native in-app experiment workspace: threshold model, capacity decomposition, effective potential and dynamic hysteresis. No localhost, no iframe.</p><div class="tags"><span class="tag">native visualization</span><span class="tag">threshold</span><span class="tag">hysteresis</span></div><div class="card-actions"><button class="primary" data-open-native-utube>Open experiment</button></div></article>';
+  return '<article class="module-card native-lab-card" data-search="rotating u-tube engineering club fluid threshold hysteresis"><div class="card-top"><div class="module-icon">∪</div><span class="status-pill ready">Ready</span></div><div class="category">Engineering Club · Fluid experiment</div><h4>Rotating U-Tube</h4><p class="desc">Threshold model, capacity decomposition, effective potential, and dynamic hysteresis.</p><div class="card-actions"><button class="primary" data-open-native-utube>Open experiment</button></div></article>';
 }
 function openNativeUtube(){showView('utube');document.querySelector('[data-utube-tab="setup"]')?.click()}
 function readUtubeInputs(){
@@ -119,7 +119,7 @@ function renderNativeUtube(){
     const total=Math.max(cap.total,1e-12),parts=[{label:'Curved section',value:cap.arc},{label:'Legs',value:cap.legs}];
     uEl('utCapacityBars').innerHTML=parts.map(p=>'<div class="ut-cap-row"><span>'+p.label+'</span><div><i style="width:'+Math.max(0,Math.min(100,p.value/total*100))+'%"></i></div><strong>'+p.value.toFixed(4)+' mL</strong></div>').join('');
     renderNativeUtubeHysteresis(ng);
-    uEl('utNativeStatus').textContent='Native model rendered in Engineering Lab · no local web server';
+    uEl('utNativeStatus').textContent='Completed.';
   }catch(e){
     uEl('utNativeStatus').textContent=String(e);
     if(typeof toast==='function')toast(String(e),true);

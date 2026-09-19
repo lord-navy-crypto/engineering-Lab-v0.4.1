@@ -55,6 +55,8 @@ engineering_capabilities = [
     "Multilayer honeycomb lattice",
     "Advanced model science",
     "Model depth",
+    "Model depth IV · numerical structure",
+    "Model depth VII–IX · inverse, signals & control",
     "Model depth V",
     "Model depth VI",
     "Undulator spectrum & beam broadening",
@@ -83,6 +85,8 @@ renderer_tokens = [
     "render_lattice_workspace",
     "render_remaining_science_workspace",
     "render_model_depth_workspace",
+    "render_model_depth_iv_workspace",
+    "render_model_depth_vii_workspace",
     "render_model_depth_v_workspace",
     "render_model_depth_vi_workspace",
     "render_undulator_spectrum_workspace",
@@ -228,5 +232,6 @@ print(f"- protected Engineering capabilities: {len(engineering_capabilities)}")
 print(f"- protected renderer routes: {len(renderer_tokens)}")
 print("- Science / Engineering / Validation / Assistant / Runs preserved")
 print("- Frequency Response / Undulator / Digital Twin / Kerr / Solar / Lattice behaviors preserved")
+print("- Model Depth IV and VII–IX remain directly reachable from Engineering → Analysis")
 print("- visualization controls preserved under progressive disclosure")
 print("- Project/Evidence duplicate removed without losing legacy sync or bundled-Lab access")

@@ -535,10 +535,24 @@ const ACTION_NATIVE_UTUBE_SURFACES = Object.freeze(new Set([
 
 let activeActionRow=null;
 
+const ACTION_NATIVE_UTUBE_TOOL_MAP = Object.freeze({
+  'Run uncertainty propagation':'uncertainty',
+  'Compute local uncertainty budget':'uncertainty-budget',
+  'Solve inverse geometry':'inverse-geometry',
+  'Evaluate design space':'design-space',
+  'Fit calibration':'digital-twin-calibration',
+  'Compare field series':'digital-twin-field',
+  'Fit affine discrepancy':'digital-twin-field',
+  'Analyze phase space':'beam-phase-space',
+  'Rank remeasurement points':'digital-twin-field'
+});
+
 function actionRouteInfo(row){
   if(!row)return {kind:'unknown',label:'Unknown',detail:'No action selected.'};
   const nativeExperiment=CAPABILITY_NATIVE_EXPERIMENT_MAP[row.surface_id];
   if(nativeExperiment)return {kind:'native-experiment',label:'Native experiment',detail:'Runs in the Tauri experiment workspace.',experimentId:nativeExperiment};
+  const utubeTool=ACTION_NATIVE_UTUBE_TOOL_MAP[row.label];
+  if(utubeTool)return {kind:'native-utube-tool',label:'Native U-Tube tool',detail:'Runs the migrated U-Tube tool directly in the Tauri workspace.',toolId:utubeTool};
   if(ACTION_NATIVE_UTUBE_SURFACES.has(row.surface_id))return {kind:'native-utube',label:'Native U-Tube',detail:'Runs in the Tauri U-Tube workspace.'};
   if(ACTION_NATIVE_VIEW_ROUTES[row.surface_id])return {kind:'native-view',label:'Native application view',detail:'Opens a first-class Tauri project/data/results/pipeline view.',view:ACTION_NATIVE_VIEW_ROUTES[row.surface_id]};
   return {kind:'compatibility',label:'Compatibility-backed',detail:'The exact original action is preserved in its original Engineering Lab renderer and opened with an action deep-link.'};
@@ -569,6 +583,14 @@ async function openSelectedActionExact(){
   if(route.kind==='native-experiment'){
     openNativeExperiment(route.experimentId);
     toast('Opened native experiment for: '+row.label);
+    return;
+  }
+  if(route.kind==='native-utube-tool'){
+    openNativeUtube();
+    document.querySelector('[data-utube-tab="tools"]')?.click();
+    const button=document.querySelector('[data-utube-tool="'+route.toolId+'"]');
+    if(button){button.click();toast('Running native tool: '+row.label)}
+    else toast('Native tool route exists but the tool button is unavailable: '+row.label,true);
     return;
   }
   if(route.kind==='native-utube'){

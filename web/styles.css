@@ -89,3 +89,12 @@ body.ui-compact .module-card .desc{margin:7px 0 10px}
 #utubeView .native-control-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 #utubeView .advanced-body.native-control-grid{max-width:none}
 @media(max-width:700px){.primary-run-row{align-items:stretch}.prominent-run{width:100%}}
+
+.experiment-tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:14px}
+.experiment-tool-card{border:1px solid #293443;background:#111821;border-radius:14px;padding:16px;display:flex;flex-direction:column;min-height:150px}
+.experiment-tool-card h3{margin:0 0 7px;font-size:14px}
+.experiment-tool-card p{margin:0 0 14px;color:#8492a5;font-size:11px;line-height:1.55;flex:1}
+.experiment-tool-card button{align-self:flex-start}
+.advanced-runtime-row{display:flex;gap:12px;align-items:end;margin-top:16px;padding-top:14px;border-top:1px solid #273140}
+.advanced-runtime-row label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:#7f8da0;text-transform:uppercase}
+.advanced-runtime-row select{border:1px solid #2d3949;border-radius:9px;background:#0f151e;color:#edf2f7;padding:9px 10px}

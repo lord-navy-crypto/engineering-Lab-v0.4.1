@@ -47,3 +47,33 @@ for experiment_id, params in CASES.items():
     print(f"PASS {experiment_id}: {payload['backend']}")
 
 print("Native experiment adapter smoke suite: PASS 14/14")
+
+TOOL_CASES = [
+    ("kerr-geodesics", "refinement", {"spin": 0.5, "inclinationDeg": 10, "particleType": "massive", "periapsis": 7, "apoapsis": 9, "lambdaMax": 2, "samples": 200}),
+    ("solar-system-dynamics", "ftle", {"durationYears": 0.2, "samples": 100, "inclinationDeg": 5, "maxStepYears": 0.01, "ftleSegmentYears": 0.05, "ftleMaxYears": 0.2}),
+    ("honeycomb-lattice", "normal-modes", {"nx": 2, "ny": 2, "layers": 1, "stacking": "AA"}),
+    ("honeycomb-lattice", "phonon-dos", {"nx": 2, "ny": 2, "layers": 1, "stacking": "AA", "phononQGrid": 4, "phononBins": 16}),
+    ("undulator-spectrum", "beam-broadening", {"periodMm": 50, "gamma": 1000, "K": 0.7, "harmonic": 1, "beamSamples": 2000, "beamBins": 40}),
+    ("frequency-response", "duffing", {"omega0": 1, "zeta": 0.05, "force": 0.3, "cubicStiffness": 1, "frequencyStart": 0.8, "frequencyStop": 1.2, "frequencyPoints": 7, "settleCycles": 4, "observeCycles": 3, "pointsPerCycle": 32}),
+    ("utube-studio", "operating-state", {"volumeMl": 1.0, "rpm": 260, "rinMm": 15.12, "radiusMm": 7.48, "nq": 12}),
+    ("utube-studio", "elasticity", {"volumeMl": 1.0, "rpm": 260, "rinMm": 15.12, "radiusMm": 7.48, "nq": 12}),
+    ("utube-studio", "scan-plan", {"volumeMl": 1.0, "rpm": 260, "rinMm": 15.12, "radiusMm": 7.48, "nq": 12}),
+    ("utube-studio", "uncertainty", {"volumeMl": 1.0, "rpm": 260, "rinMm": 15.12, "radiusMm": 7.48, "nq": 12, "uncertaintySamples": 50}),
+]
+
+for experiment_id, tool, params in TOOL_CASES:
+    payload = runner.run_experiment_tool(experiment_id, tool, params, "safe")
+    assert payload["schema"] == runner.SCHEMA
+    assert payload["experimentId"] == experiment_id
+    assert isinstance(payload.get("metrics"), dict)
+    assert isinstance(payload.get("series"), list)
+    assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip()
+    for series in payload["series"]:
+        xs, ys = series.get("x", []), series.get("y", [])
+        assert len(xs) == len(ys), f"{experiment_id}/{tool}/{series.get('id')}: mismatched series length"
+        assert all(isinstance(v, (int, float)) and math.isfinite(v) for v in xs)
+        assert all(isinstance(v, (int, float)) and math.isfinite(v) for v in ys)
+    print(f"PASS TOOL {experiment_id}/{tool}: {payload['backend']}")
+
+print(f"Native deep-tool smoke suite: PASS {len(TOOL_CASES)}/{len(TOOL_CASES)}")
+

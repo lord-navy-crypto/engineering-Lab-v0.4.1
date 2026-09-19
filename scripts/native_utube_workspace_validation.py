@@ -33,8 +33,6 @@ for marker in (
     "function nativeModuleCard(",
     "function openNativeExperiment(",
     "function renderNativeExperimentShell(",
-    "function nativePreviewSeries(",
-    "function renderNativeExperimentPreview(",
 ):
     assert marker in native, f"missing native experiment implementation marker: {marker}"
 
@@ -51,8 +49,42 @@ assert 'id="nativeExperimentView"' in html
 assert 'id="utubeView"' in html
 assert '<script src="utube-native.js"></script>' in html
 assert '<script src="native-experiments.js"></script>' in html
-assert 'id="nativeExperimentPreview"' in html
 assert "Native experiment workspace — U-Tube migration" in css
+
+
+for view_id in ("nativeExperimentView", "utubeView"):
+    start = html.index(f'id="{view_id}"')
+    end = html.find('<section id=', start + 10)
+    segment = html[start:] if end < 0 else html[start:end]
+    for label in ("Setup", "Results", "Verification"):
+        assert label in segment, f"{view_id} missing simplified {label} navigation"
+
+shared_start = html.index('id="nativeExperimentView"')
+shared_end = html.find('<section id=', shared_start + 10)
+shared = html[shared_start:shared_end]
+for forbidden_ui in (
+    "Application workspace · no iframe",
+    "serverless native execution",
+    "Native experiment data flow",
+    "Migration boundary",
+    "Native shell",
+):
+    assert forbidden_ui not in shared, f"developer-facing UI leaked into experiment workspace: {forbidden_ui}"
+
+ut_start = html.index('id="utubeView"')
+ut_end = html.find('<section id=', ut_start + 10)
+ut_segment = html[ut_start:ut_end]
+for forbidden_ui in ("No iframe", "No localhost", "NATIVE WORKSPACE"):
+    assert forbidden_ui not in ut_segment, f"developer-facing U-Tube UI leaked: {forbidden_ui}"
+
+assert 'id="nativeExperimentRun"' in shared
+assert 'id="utRun"' in ut_segment
+assert 'data-native-exp-panel="setup"' in shared
+assert 'data-native-exp-panel="results"' in shared
+assert 'data-native-exp-panel="verification"' in shared
+assert 'data-utube-panel="setup"' in ut_segment
+assert 'data-utube-panel="results"' in ut_segment
+assert 'data-utube-panel="verification"' in ut_segment
 
 for view_id in ("nativeExperimentView", "utubeView"):
     start = html.index(f'id="{view_id}"')

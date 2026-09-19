@@ -999,8 +999,77 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             xy_series("duffing-reverse","reverse amplitude",omega,[r["reverse_amplitude"] for r in rows],x_label="omega (rad/s)",y_label="amplitude")
         ],out["boundary"],[{"id":"duffing","label":"Duffing sweep","rows":rows}])
 
-    if experiment_id == "utube-studio" and tool in {"operating-state","elasticity","scan-plan","uncertainty"}:
+    if experiment_id == "utube-studio" and tool in {"operating-state","elasticity","scan-plan","uncertainty","dimensionless-groups","inverse-geometry","design-space","robust-design","adaptive-plan","verification-requirements","research-questions","uncertainty-budget","hysteresis-analysis","rate-sweep","digital-twin-calibration","digital-twin-field","beam-phase-space"}:
         volume=f(p,"volumeMl",3.0,.05,30.0); rpm=f(p,"rpm",260.0,1.0,1000.0); rin=f(p,"rinMm",15.12,1.0,100.0)/1000.0; radius=f(p,"radiusMm",7.48,.1,50.0)/1000.0; nq=i(p,"nq",48,12,128)
+        if tool=="dimensionless-groups":
+            from physical_lab_utube_advanced import dimensionless_groups
+            out=dimensionless_groups(rpm,rin_m=rin,a_m=radius,rho_kg_m3=f(p,"rhoKgM3",997.8,100.0,5000.0),gamma_mN_m=f(p,"gammaMnM",72.0,1.0,500.0))
+            return result(experiment_id,"physical_lab_utube_advanced.dimensionless_groups",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Dimensionless groups summarize the nominated operating point."),[{"id":"dimensionless","label":"Dimensionless groups","rows":[out]}])
+        if tool=="inverse-geometry":
+            from physical_lab_utube_advanced import inverse_geometry_design
+            out=inverse_geometry_design(f(p,"targetThresholdRpm",250.0,1.0,1000.0),volume,solve_for=str(p.get("solveFor","rin_m")))
+            return result(experiment_id,"physical_lab_utube_advanced.inverse_geometry_design",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Inverse geometry design is model-based."),[{"id":"inverse-geometry","label":"Inverse geometry design","rows":[out]}])
+        if tool=="design-space":
+            from physical_lab_utube_advanced import design_space
+            vols=np.linspace(max(.05,volume-.5),volume+.5,3); rins=np.linspace(max(.001,rin-.001),rin+.001,3); radii=np.linspace(max(.0005,radius-.0005),radius+.0005,3)
+            frame=design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=nq,max_points=100)
+            return result(experiment_id,"physical_lab_utube_advanced.design_space",p,{"designPoints":len(frame)},[],"Design-space screening is a bounded model study, not manufacturing qualification.",[{"id":"design-space","label":"Design space","rows":frame.to_dict(orient="records")}])
+        if tool=="robust-design":
+            from physical_lab_utube_advanced import robust_design_space, pareto_robust_design
+            vols=np.linspace(max(.05,volume-.3),volume+.3,3); rins=np.linspace(max(.001,rin-.0005),rin+.0005,3); radii=np.linspace(max(.0005,radius-.00025),radius+.00025,3)
+            frame=robust_design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=max(12,min(nq,32)),max_points=80)
+            pareto=pareto_robust_design(frame)
+            return result(experiment_id,"physical_lab_utube_advanced.robust_design_space",p,{"designPoints":len(frame),"paretoPoints":len(pareto)},[],"Robust/Pareto screening compares modeled tolerance sensitivity and does not certify a design.",[{"id":"robust-design","label":"Robust design space","rows":frame.to_dict(orient="records")},{"id":"pareto","label":"Pareto robust designs","rows":pareto.to_dict(orient="records")}])
+        if tool=="adaptive-plan":
+            from physical_lab_utube_advanced import adaptive_threshold_plan
+            target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
+            out=adaptive_threshold_plan([{"n_rpm":target-5,"state":"below"},{"n_rpm":target+5,"state":"above"}],target)
+            rows=out if isinstance(out,list) else [out]
+            return result(experiment_id,"physical_lab_utube_advanced.adaptive_threshold_plan",p,{"planItems":len(rows)},[],"Adaptive planning proposes bounded next measurements; it does not execute hardware.",[{"id":"adaptive-plan","label":"Adaptive threshold plan","rows":rows}])
+        if tool=="verification-requirements":
+            from physical_lab_utube_advanced import verification_requirements
+            rows=verification_requirements(target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0))
+            if isinstance(rows,dict): rows=[rows]
+            return result(experiment_id,"physical_lab_utube_advanced.verification_requirements",p,{"requirements":len(rows)},[],"Verification requirements are explicit planning criteria, not certification.",[{"id":"verification-requirements","label":"Verification requirements","rows":rows}])
+        if tool=="research-questions":
+            from physical_lab_utube_advanced import research_questions
+            rows=research_questions()
+            if rows and isinstance(rows[0],str): rows=[{"question":x} for x in rows]
+            return result(experiment_id,"physical_lab_utube_advanced.research_questions",p,{"questions":len(rows)},[],"Research questions organize investigation and are not conclusions.",[{"id":"research-questions","label":"Research questions","rows":rows}])
+        if tool=="uncertainty-budget":
+            from physical_lab_utube_uncertainty import local_uncertainty_budget
+            means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
+            std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0}
+            out=local_uncertainty_budget(means,std,nq=nq)
+            rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
+            return result(experiment_id,"physical_lab_utube_uncertainty.local_uncertainty_budget",p,{"budgetTerms":len(rows)},[],"Local uncertainty budgets linearize the model around the nominated operating point.",[{"id":"uncertainty-budget","label":"Local uncertainty budget","rows":rows}])
+        if tool=="hysteresis-analysis":
+            from physical_lab_utube_hysteresis import analyze_hysteresis_sweeps
+            target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
+            out=analyze_hysteresis_sweeps([volume]*3,[1.0,2.0,4.0],[target+1,target+2,target+4],[target-1,target-2,target-4],rin_m=rin,a_m=radius,nq=nq)
+            rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
+            return result(experiment_id,"physical_lab_utube_hysteresis.analyze_hysteresis_sweeps",p,{"rows":len(rows)},[],"Hysteresis analysis is reduced-order and does not replace CFD or additional measurements.",[{"id":"hysteresis-analysis","label":"Hysteresis sweep analysis","rows":rows}])
+        if tool=="rate-sweep":
+            from physical_lab_utube_hysteresis import rate_sweep_prediction
+            out=rate_sweep_prediction(volume,[0.5,1.0,2.0,4.0],response_tau_s=f(p,"responseTau",.2,0.0,1000.0),quasi_static_halfwidth_rpm=f(p,"quasiStaticHalfwidth",1.0,0.0,1000.0),rin_m=rin,a_m=radius,nq=nq)
+            rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
+            return result(experiment_id,"physical_lab_utube_hysteresis.rate_sweep_prediction",p,{"rows":len(rows)},[],"Rate-sweep predictions are reduced-order dynamic estimates.",[{"id":"rate-sweep","label":"Rate sweep prediction","rows":rows}])
+        if tool=="digital-twin-calibration":
+            from physical_lab_digital_twin import fit_linear_calibration, apply_linear_calibration
+            raw=[0.0,1.0,2.0,3.0]; ref=[0.1,1.05,2.05,3.1]; out=fit_linear_calibration(raw,ref); calibrated=apply_linear_calibration(raw,float(out["slope"]),float(out["offset"]))
+            return result(experiment_id,"physical_lab_digital_twin.fit_linear_calibration",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[xy_series("calibration","calibrated",raw,calibrated,x_label="raw",y_label="calibrated")],"Calibration diagnostics quantify only the supplied reference relationship.",[{"id":"calibration","label":"Calibration fit","rows":[out]}])
+        if tool=="digital-twin-field":
+            from physical_lab_digital_twin import compare_field_series, fit_model_affine, suggest_residual_measurement_points
+            x=[0,1,2,3,4]; measured=[0.0,1.1,1.9,3.05,3.9]; model=[0.0,1.0,2.0,3.0,4.0]
+            comp=compare_field_series(x,measured,model); fit=fit_model_affine(measured,model); suggestions=suggest_residual_measurement_points(x,measured,model)
+            metrics={**{k:v for k,v in comp.items() if isinstance(v,(int,float,str,bool))},**{f"fit_{k}":v for k,v in fit.items() if isinstance(v,(int,float,str,bool))}}
+            rows=suggestions if isinstance(suggestions,list) else [suggestions]
+            return result(experiment_id,"physical_lab_digital_twin.compare_field_series",p,metrics,[xy_series("measured-field","measured",x,measured,x_label="position",y_label="field"),xy_series("model-field","model",x,model,x_label="position",y_label="field")],"Digital-twin field comparison is diagnostic and does not prove model validity.",[{"id":"residual-points","label":"Suggested residual measurement points","rows":rows}])
+        if tool=="beam-phase-space":
+            from physical_lab_digital_twin import analyze_beam_phase_space
+            x=[-2e-3,-1e-3,0.0,1e-3,2e-3]; px=[-1e-4,-4e-5,0,5e-5,1.1e-4]; y=[-1e-3,-.5e-3,0,.5e-3,1e-3]; py=[-6e-5,-3e-5,0,3e-5,6e-5]
+            out=analyze_beam_phase_space(x,px,y,py,beta_gamma=f(p,"betaGamma",1.0,0.0,1e6))
+            return result(experiment_id,"physical_lab_digital_twin.analyze_beam_phase_space",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],"Phase-space statistics summarize supplied samples and do not establish beamline validity.",[{"id":"beam-phase-space","label":"Beam phase-space statistics","rows":[out]}])
         if tool=="operating-state":
             from physical_lab_utube_advanced import operating_state
             out=operating_state(volume,rpm,rin_m=rin,a_m=radius,nq=nq,near_threshold_band_rpm=f(p,"nearThresholdBandRpm",3.0,.1,50.0))

@@ -186,3 +186,26 @@ assert "Full Original Workspace" in native
 assert "openFullOriginalWorkspace(" in native
 assert 'id="utOpenFullOriginal"' in html
 print("Zero-loss full capability catalog validation: PASS 53/53 registry surfaces")
+
+import json
+import re
+
+parity_path = Path("src-tauri/resources/native_capability_parity.json")
+assert parity_path.is_file(), "missing native capability parity manifest"
+parity = json.loads(parity_path.read_text(encoding="utf-8"))
+assert parity.get("schema") == "engineering-lab-capability-parity-v1"
+assert parity.get("surface_count") == 53
+manifest_rows = parity.get("capabilities") or []
+manifest_ids = [str(row.get("surface_id") or "") for row in manifest_rows]
+assert len(manifest_ids) == len(set(manifest_ids)) == 53, "parity manifest must contain 53 unique surface ids"
+registry_text = Path("src-tauri/resources/ui/physical_lab_surface_registry.py").read_text(encoding="utf-8")
+registry_block = registry_text[registry_text.index("SURFACES:"):registry_text.index("EMBEDDED_UI_MODULES")]
+registry_ids = re.findall(r'_s\(\s*"([^"]+)"', registry_block)
+assert len(registry_ids) == len(set(registry_ids)) == 53, f"expected 53 unique registry surfaces, got {len(registry_ids)}"
+assert set(manifest_ids) == set(registry_ids), f"parity manifest mismatch: missing={sorted(set(registry_ids)-set(manifest_ids))}, extra={sorted(set(manifest_ids)-set(registry_ids))}"
+allowed_states = {"native-primary", "native-partial", "compatibility-preserved"}
+for row in manifest_rows:
+    assert row.get("migration_state") in allowed_states, row
+    assert row.get("zero_loss_required") is True, row
+    assert str(row.get("guaranteed_access") or "").strip(), row
+print("Capability parity manifest validation: PASS 53/53 exact registry match")

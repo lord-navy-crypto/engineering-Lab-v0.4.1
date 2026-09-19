@@ -51,7 +51,8 @@ function renderNativeExperimentShell(spec){
     ['Verification','Convergence, references, uncertainty and validation evidence stay separate from model truth claims.']
   ];
   uEl('nativeExperimentOverview').innerHTML=cards.map((x,i)=>'<article class="native-exp-cap"><span>0'+(i+1)+'</span><h3>'+uEsc(x[0])+'</h3><p>'+uEsc(x[1])+'</p></article>').join('');
-  renderNativeMigrationViz(spec);\n  renderNativeExperimentPreview(spec);
+  renderNativeMigrationViz(spec);
+  renderNativeExperimentPreview(spec);
   uEl('nativeExperimentStatus').textContent=spec.stage==='native'
     ? 'Native experiment implementation active.'
     : 'Native application shell active. Legacy Streamlit/localhost presentation is not used by this entry; solver adapters are migrated behind this surface.';

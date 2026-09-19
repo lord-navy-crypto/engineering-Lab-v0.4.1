@@ -209,3 +209,18 @@ for row in manifest_rows:
     assert row.get("zero_loss_required") is True, row
     assert str(row.get("guaranteed_access") or "").strip(), row
 print("Capability parity manifest validation: PASS 53/53 exact registry match")
+
+assert 'data-view="capabilities"' in html
+assert 'id="capabilitiesView"' in html
+assert 'id="capabilityGrid"' in html
+assert 'ENGINEERING_CAPABILITIES' in native
+assert 'openCapabilitySurface' in native
+assert 'pl_surface=' in native
+assert native.count('"id":') >= 53 or native.count("'id':") >= 53
+project_patch = Path("src-tauri/resources/ui/physical_lab_project_surface_patch.py").read_text(encoding="utf-8")
+engineering_ui = Path("src-tauri/resources/ui/physical_lab_engineering.py").read_text(encoding="utf-8")
+advanced_ui = Path("src-tauri/resources/ui/physical_lab_advanced.py").read_text(encoding="utf-8")
+assert 'st.query_params.get("pl_surface")' in project_patch
+assert '_apply_surface_deeplink' in engineering_ui
+assert 'workbench_routes' in advanced_ui
+print("Direct visible capability catalog validation: PASS main UI + deep-link routing")

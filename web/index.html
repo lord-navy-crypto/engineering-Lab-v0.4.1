@@ -16,6 +16,7 @@
       <nav class="nav">
         <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
         <button class="nav-item" data-view="labs"><span>◌</span>Physics Labs</button>
+        <button class="nav-item" data-view="capabilities"><span>▤</span>All Capabilities</button>
         <button class="nav-item" data-view="modelbuilder"><span>＋</span>Model Builder</button>
         <button class="nav-item" data-view="runtime"><span>⬡</span>Runtime Center</button>
         <button class="nav-item" data-view="dependencies"><span>◇</span>Dependency Center</button>
@@ -68,6 +69,22 @@
       <section id="labsView" class="view">
         <div class="section-head"><div><h3>Physics Labs</h3><p>Each module keeps its own validated repository and isolated Python environment.</p></div><div id="labFilters" class="filters"></div></div>
         <div id="labGrid" class="card-grid"></div>
+      </section>
+
+      <section id="capabilitiesView" class="view">
+        <div class="capability-hero">
+          <div>
+            <div class="eyebrow">ZERO-LOSS CAPABILITY CATALOG</div>
+            <h2>All Engineering Lab capabilities</h2>
+            <p>Every registered capability is visible here. Use search or category filters, then open the capability directly.</p>
+          </div>
+          <div class="capability-count"><strong id="capabilityCount">53</strong><span>registered capabilities</span></div>
+        </div>
+        <div class="capability-toolbar">
+          <div id="capabilityFilters" class="filters"></div>
+          <input id="capabilitySearch" class="capability-search" placeholder="Search capability, analysis, U-Tube, RADIA, reliability…" />
+        </div>
+        <div id="capabilityGrid" class="card-grid capability-grid"></div>
       </section>
 
 

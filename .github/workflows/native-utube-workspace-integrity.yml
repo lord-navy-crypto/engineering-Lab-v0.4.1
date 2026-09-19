@@ -32,6 +32,10 @@ jobs:
       - run: node --check web/utube-native.js
       - run: node --check web/native-experiments.js
       - run: node --check web/app.js
+      - run: python scripts/prepare.py
+      - run: test -f dist/native-experiments.js && test -f dist/utube-native.js
+      - run: node --check dist/native-experiments.js
+      - run: node --check dist/utube-native.js
       - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py
       - run: python scripts/native_utube_workspace_validation.py
       - run: python scripts/native_experiment_adapter_validation.py

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Final 14/14 native execution gate: every adapter must return finite structured results.
 from __future__ import annotations
 
 import importlib.util

@@ -11,6 +11,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_units.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/model_coupling_validation.py'
+      - 'scripts/model_coupling_workflow_ui_validation.py'
       - '.github/workflows/model-coupling-integrity.yml'
   workflow_dispatch:
 
@@ -31,9 +32,12 @@ jobs:
             src-tauri/resources/ui/physical_lab_model_coupling_ui.py \
             src-tauri/resources/ui/physical_lab_project_interop.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
-            scripts/model_coupling_validation.py
+            scripts/model_coupling_validation.py \
+            scripts/model_coupling_workflow_ui_validation.py
       - name: Validate deterministic coupling and provenance
         run: python scripts/model_coupling_validation.py
+      - name: Validate staged coupling workflow and queue/start boundary
+        run: python scripts/model_coupling_workflow_ui_validation.py
       - name: Verify bundled coupling resources
         run: |
           python - <<'PY'

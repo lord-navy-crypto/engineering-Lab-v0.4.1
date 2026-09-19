@@ -10,6 +10,7 @@ on:
       - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/result_inspector_validation.py'
+      - 'scripts/result_inspector_visual_validation.py'
       - '.github/workflows/result-inspector-integrity.yml'
   workflow_dispatch:
 
@@ -22,7 +23,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install scientific dependencies
-        run: python -m pip install --upgrade pip numpy scipy
+        run: python -m pip install --upgrade pip numpy scipy plotly
       - name: Compile result inspection modules
         run: |
           python -m py_compile \
@@ -30,9 +31,23 @@ jobs:
             src-tauri/resources/ui/physical_lab_result_inspector_ui.py \
             src-tauri/resources/ui/physical_lab_project_interop.py \
             src-tauri/resources/ui/physical_lab_project_interop_ui.py \
-            scripts/result_inspector_validation.py
+            scripts/result_inspector_validation.py \
+            scripts/result_inspector_visual_validation.py
       - name: Validate inspection sanity and materialization provenance
         run: python scripts/result_inspector_validation.py
+      - name: Validate schema and provenance visualization
+        run: python scripts/result_inspector_visual_validation.py
+      - name: Verify staged result workflow UI
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_result_inspector_ui.py
+          grep -q 'RESULT_WORKSPACES' "$FILE"
+          grep -q 'Inspect Result' "$FILE"
+          grep -q 'Materialize Dataset' "$FILE"
+          grep -q 'Environment' "$FILE"
+          grep -q 'Result workflow' "$FILE"
+          grep -q '_build_inspection' "$FILE"
+          grep -q 'st.container(border=True)' "$FILE"
+          grep -q 'Materialization provenance' "$FILE"
       - name: Verify bundled result inspector resources
         run: |
           python - <<'PY'

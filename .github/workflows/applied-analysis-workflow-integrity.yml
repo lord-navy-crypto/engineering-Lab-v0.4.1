@@ -1,0 +1,35 @@
+name: Applied Analysis Workflow Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_ui.py'
+      - '.github/workflows/applied-analysis-workflow-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  staged-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Applied Analysis UI
+        run: python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
+      - name: Verify staged Applied Analysis workflow
+        run: |
+          set -euo pipefail
+          UI=src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
+          grep -q 'Analysis task' "$UI"
+          grep -q 'pl_applied_task_' "$UI"
+          grep -q 'Regression + Diagnostics' "$UI"
+          grep -q 'Bootstrap + Monte Carlo' "$UI"
+          grep -q 'Design of Experiments' "$UI"
+          grep -q 'Parameter Estimation' "$UI"
+          grep -q 'Uncertainty method' "$UI"
+          grep -q 'pl_applied_uncertainty_method_' "$UI"
+          if grep -q 'st.tabs' "$UI"; then
+            echo 'Applied Analysis must render only the selected task/method; st.tabs is not allowed in this UI.'
+            exit 1
+          fi

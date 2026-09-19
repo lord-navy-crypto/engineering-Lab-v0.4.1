@@ -1,0 +1,86 @@
+name: Engineering Lab Visual Analytics Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visual_analytics.py'
+      - 'src-tauri/resources/ui/physical_lab_visual_analytics_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_units.py'
+      - 'scripts/visual_analytics_validation.py'
+      - 'scripts/visual_analytics_linked_view_validation.py'
+      - 'scripts/scientific_visualization_validation.py'
+      - 'scripts/science_analysis_recipe_validation.py'
+      - 'scripts/science_analysis_advanced_validation.py'
+      - '.github/workflows/visual-analytics-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visual_analytics.py'
+      - 'src-tauri/resources/ui/physical_lab_visual_analytics_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_result_contracts.py'
+      - 'src-tauri/resources/ui/physical_lab_units.py'
+      - 'scripts/visual_analytics_validation.py'
+      - 'scripts/visual_analytics_linked_view_validation.py'
+      - 'scripts/scientific_visualization_validation.py'
+      - 'scripts/science_analysis_recipe_validation.py'
+      - 'scripts/science_analysis_advanced_validation.py'
+      - '.github/workflows/visual-analytics-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install analytics dependencies
+        run: python -m pip install numpy pandas plotly
+      - name: Compile Visual Analytics modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_visual_analytics.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_visual_analytics_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile scripts/visual_analytics_validation.py
+          python -m py_compile scripts/visual_analytics_linked_view_validation.py
+          python -m py_compile scripts/scientific_visualization_validation.py
+          python -m py_compile scripts/science_analysis_recipe_validation.py
+          python -m py_compile scripts/science_analysis_advanced_validation.py
+      - name: Validate interactive analytics
+        run: python scripts/visual_analytics_validation.py
+      - name: Validate task workflow and linked selection views
+        run: python scripts/visual_analytics_linked_view_validation.py
+      - name: Validate units UQ sensitivity and response surfaces
+        run: python scripts/scientific_visualization_validation.py
+      - name: Validate reproducible science analysis helpers
+        run: python scripts/science_analysis_recipe_validation.py
+      - name: Validate robust sensitivity comparison and summaries
+        run: python scripts/science_analysis_advanced_validation.py
+      - name: Verify application integration
+        run: |
+          grep -q 'Visual Analytics' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'physical_lab_visual_analytics.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_visual_analytics_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_tradeoff_analysis.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_tradeoff_analysis_ui.py' src-tauri/tauri.conf.json
+          grep -q 'visual-analytics-dashboards' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'science-analysis-recipes' src-tauri/resources/ui/physical_lab_visual_analytics.py
+          grep -q 'science-analysis-summaries' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
+          grep -q 'robust_sensitivity_summary' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
+          grep -q 'unit_aware_comparison_contract' src-tauri/resources/ui/physical_lab_tradeoff_analysis.py
+          grep -q 'Save Science Analysis Recipe' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'What are you trying to understand?' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'Unit-aware Compare' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'Robust descriptive sensitivity summary' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py
+          grep -q 'Analysis Summary' src-tauri/resources/ui/physical_lab_tradeoff_analysis_ui.py

@@ -118,6 +118,31 @@ RESULT_CONTRACTS: dict[str, dict[str, Any]] = {
             "reference_H": field("reference transfer function", shape="complex-series", role="reference"),
         },
     },
+    "engineering-lab-utube-sweep-result/v1": {
+        "domain": "rotating-fluid-mechanics",
+        "fields": {
+            "inputs.volume_ml": field("liquid volume", unit="mL", role="parameter", description="Declared liquid volume supplied to the deterministic U-tube model."),
+            "inputs.n_rpm": field("rotation speed", unit="rpm", role="parameter", description="Declared model evaluation speed."),
+            "inputs.rin_m": field("inner bend radius", unit="m", role="parameter"),
+            "inputs.a_m": field("tube radius", unit="m", role="parameter"),
+            "inputs.rho_kg_m3": field("fluid density", unit="kg/m^3", role="parameter"),
+            "inputs.gamma_mN_m": field("surface tension", unit="mN/m", role="parameter"),
+            "inputs.theta_deg": field("contact angle", unit="deg", role="parameter"),
+            "inputs.nq": field("Gauss-Legendre quadrature order", unit="1", role="discretization"),
+            "prediction.critical_speed_rpm": field("angular bifurcation speed", unit="rpm", role="model-output", description="n_c: angular/effective-potential bifurcation speed."),
+            "prediction.threshold_rpm": field("finite-volume capacity threshold", unit="rpm", role="model-output", description="n_g(V): finite-volume 3D capacity threshold."),
+            "prediction.threshold_margin_rpm": field("threshold speed margin", unit="rpm", role="engineering-margin", description="n - n_g for the evaluated operating point."),
+            "prediction.capacity_total_ml": field("available low-potential volume", unit="mL", role="model-output"),
+            "prediction.capacity_curved_ml": field("curved-section low-potential volume", unit="mL", role="model-output"),
+            "prediction.capacity_legs_ml": field("leg low-potential volume", unit="mL", role="model-output"),
+            "prediction.capacity_margin_ml": field("capacity margin", unit="mL", role="engineering-margin", description="available model capacity minus declared liquid volume."),
+            "prediction.geometry.R_in_m": field("inner bend radius", unit="m", role="geometry"),
+            "prediction.geometry.a_m": field("tube radius", unit="m", role="geometry"),
+            "prediction.geometry.R_m": field("bend centerline radius", unit="m", role="geometry"),
+            "prediction.geometry.ell_m": field("model vertical reference length", unit="m", role="geometry"),
+            "prediction.quadrature_order": field("Gauss-Legendre quadrature order", unit="1", role="discretization"),
+        },
+    },
 }
 
 

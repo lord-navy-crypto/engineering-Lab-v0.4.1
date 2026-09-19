@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import plotly.graph_objects as go
+
 import physical_lab_project_kernel as projects
 from physical_lab_model_coupling import list_pipelines
 from physical_lab_pipeline_graph import (
@@ -19,6 +21,147 @@ from physical_lab_pipeline_graph import (
 def _pipeline_label(p: dict[str, Any]) -> str:
     packet = p.get("packet") or {}
     return f"{p.get('name')} · {packet.get('target_adapter')} · {str(p.get('pipeline_id'))[-8:]}"
+
+
+def _graph_positions(workflow: dict[str, Any]) -> dict[str, tuple[float, float]]:
+    """Deterministic layered positions derived only from saved workflow topology."""
+    order = [str(x) for x in (workflow.get("topological_order") or [])]
+    if not order:
+        order = [str(row.get("node_id")) for row in (workflow.get("nodes") or []) if row.get("node_id")]
+    depth = {node: 0 for node in order}
+    children: dict[str, list[str]] = {node: [] for node in order}
+    for raw in workflow.get("edges") or []:
+        if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+            continue
+        source, target = str(raw[0]), str(raw[1])
+        if source in children and target in depth:
+            children[source].append(target)
+    for source in order:
+        for target in sorted(children.get(source) or []):
+            depth[target] = max(depth.get(target, 0), depth.get(source, 0) + 1)
+    layers: dict[int, list[str]] = {}
+    for node in order:
+        layers.setdefault(depth.get(node, 0), []).append(node)
+    positions: dict[str, tuple[float, float]] = {}
+    for layer, nodes in sorted(layers.items()):
+        count = len(nodes)
+        for index, node in enumerate(nodes):
+            y = (count - 1) / 2.0 - index
+            positions[node] = (float(layer), float(y))
+    return positions
+
+
+def _render_workflow_graph(
+    st: Any,
+    workflow: dict[str, Any],
+    by_id: dict[str, dict[str, Any]],
+    *,
+    run: dict[str, Any] | None = None,
+    key: str,
+) -> None:
+    """Render workflow topology and optional run state without mutating workflow execution."""
+    positions = _graph_positions(workflow)
+    if not positions:
+        return
+
+    fig = go.Figure()
+    edge_x: list[float | None] = []
+    edge_y: list[float | None] = []
+    for raw in workflow.get("edges") or []:
+        if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+            continue
+        source, target = str(raw[0]), str(raw[1])
+        if source not in positions or target not in positions:
+            continue
+        sx, sy = positions[source]
+        tx, ty = positions[target]
+        edge_x.extend([sx, tx, None])
+        edge_y.extend([sy, ty, None])
+    if edge_x:
+        fig.add_trace(go.Scatter(
+            x=edge_x,
+            y=edge_y,
+            mode="lines",
+            name="Dependency edge",
+            hoverinfo="skip",
+            line={"width": 2},
+        ))
+
+    order = [str(x) for x in (workflow.get("topological_order") or positions.keys())]
+    states = dict((run or {}).get("nodes") or {})
+    symbols = {
+        "configured": "circle-open",
+        "pending": "circle-open",
+        "queued": "diamond-open",
+        "running": "diamond",
+        "interrupted": "triangle-up-open",
+        "succeeded": "circle",
+        "failed": "x",
+        "cancelled": "x-open",
+        "blocked": "square-open",
+    }
+    node_x: list[float] = []
+    node_y: list[float] = []
+    node_text: list[str] = []
+    hover_text: list[str] = []
+    node_symbols: list[str] = []
+    for node_id in order:
+        if node_id not in positions:
+            continue
+        pipeline = by_id.get(node_id) or {}
+        packet = pipeline.get("packet") or {}
+        state = states.get(node_id) or {}
+        status = str(state.get("status") or ("configured" if run is None else "unknown")).lower()
+        label = str(pipeline.get("name") or node_id)
+        adapter = str(packet.get("target_adapter") or "—")
+        target_profile = str(packet.get("target_profile") or "—")
+        job_id = str(state.get("job_id") or "—")
+        error = str(state.get("error") or "")
+        x, y = positions[node_id]
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(f"{label}<br>[{status.upper()}]")
+        details = (
+            f"<b>{label}</b><br>Node status: {status.upper()}"
+            f"<br>Adapter: {adapter}<br>Profile: {target_profile}<br>Job: {job_id}"
+        )
+        if error:
+            details += f"<br>Error: {error}"
+        hover_text.append(details)
+        node_symbols.append(symbols.get(status, "circle-open"))
+
+    fig.add_trace(go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode="markers+text",
+        name="Node status",
+        text=node_text,
+        textposition="top center",
+        hovertext=hover_text,
+        hoverinfo="text",
+        marker={"size": 28, "symbol": node_symbols, "line": {"width": 2}},
+    ))
+    max_layer = max((position[0] for position in positions.values()), default=0.0)
+    fig.update_layout(
+        title="Workflow dependency graph",
+        height=max(420, 130 * max(2, len(positions))),
+        hovermode="closest",
+        showlegend=True,
+        margin={"l": 25, "r": 25, "t": 60, "b": 35},
+        xaxis={
+            "title": "Dependency stage",
+            "range": [-0.35, max_layer + 0.35],
+            "dtick": 1,
+            "fixedrange": True,
+            "zeroline": False,
+        },
+        yaxis={"visible": False, "fixedrange": True},
+    )
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False}, key=key)
+    if run is None:
+        st.caption("Topology preview only. CONFIGURED nodes have not been executed; dependency edges describe readiness/provenance order, not physical data transfer.")
+    else:
+        st.caption("Node status reflects the selected workflow run. This graph is read-only and does not start, advance, validate, or reinterpret any model result.")
 
 
 def render_pipeline_graph(st: Any, profile: str) -> None:
@@ -58,6 +201,12 @@ def render_pipeline_graph(st: Any, profile: str) -> None:
     try:
         order=topological_order(selected,edges)
         st.success("Acyclic graph · topological order valid")
+        preview = {
+            "nodes": [{"node_id": node} for node in order],
+            "edges": edges,
+            "topological_order": order,
+        }
+        _render_workflow_graph(st, preview, by_id, key=f"pl_dag_preview_graph_{profile}")
         st.dataframe([
             {"order":i+1,"pipeline_id":node,"pipeline":by_id[node].get("name"),"target_adapter":(by_id[node].get("packet") or {}).get("target_adapter")}
             for i,node in enumerate(order)
@@ -82,6 +231,7 @@ def render_pipeline_graph(st: Any, profile: str) -> None:
     chosen=st.selectbox("Workflow",wf_ids,format_func=lambda x:next(w.get("name") for w in workflows if w["workflow_id"]==x),key=f"pl_dag_workflow_{profile}")
     wf=next(w for w in workflows if w["workflow_id"]==chosen)
     st.caption(f"{len(wf.get('nodes') or [])} nodes · {len(wf.get('edges') or [])} edges · sha256 {str(wf.get('workflow_sha256'))[:16]}…")
+    _render_workflow_graph(st, wf, by_id, key=f"pl_dag_saved_graph_{profile}_{chosen}")
 
     a,b=st.columns(2)
     if a.button("Create & start workflow run",type="primary",key=f"pl_dag_run_{profile}"):
@@ -101,6 +251,7 @@ def render_pipeline_graph(st: Any, profile: str) -> None:
     run_id=st.selectbox("Workflow run",run_ids,index=idx,key=f"pl_dag_run_pick_{profile}")
     run=advance_workflow_run(path,wf,run_id,auto_start=True)
     st.metric("Workflow status",str(run.get("status") or "—"))
+    _render_workflow_graph(st, wf, by_id, run=run, key=f"pl_dag_run_graph_{profile}_{run_id}")
     rows=[]
     for position,node_id in enumerate(wf.get("topological_order") or []):
         state=(run.get("nodes") or {}).get(node_id) or {}

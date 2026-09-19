@@ -290,7 +290,6 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
             st.info("Run the orbital model in Setup & run to populate this view.")
 
     with verify_tab:
-        config = _config_from_ui(st)
         if st.button("Run finite-time divergence audit", type="primary", width="stretch", key="pl_solar_ftle"):
             with st.spinner("Running renormalized finite-time sensitivity audit..."):
                 ftle = finite_time_lyapunov_indicator(config, max_years=min(config.duration_years, 30.0))
@@ -306,5 +305,4 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
             render_boundary(st, str(ftle.get("boundary") or "Finite-time divergence is a bounded numerical diagnostic."))
 
     with platform_tab:
-        config = _config_from_ui(st)
         _render_platform(st, config)

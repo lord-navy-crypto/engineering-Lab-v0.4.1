@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
+
 
 def _plotly():
     import plotly.graph_objects as go
@@ -92,12 +94,19 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
             st.warning(f"Physical Lab visualization controls could not load: {visualization_error}")
             renderer()
 
-    st.markdown("---")
-    st.markdown("## Physical Lab · Research Workbench")
-    st.caption(
-        "The core experiment stays above. Choose one downstream task here instead of "
-        "loading every advanced analysis, validation, AI and run-management surface at once."
+    render_workbench_header(
+        st,
+        "Research Workbench",
+        "Keep the core experiment separate from downstream analysis. Choose one task at a time so controls, plots, validation tools and provenance do not compete on the same page.",
+        kicker="Post-run workspace",
     )
+    render_stage_rail(st, [
+        ("Science", "model-specific analysis"),
+        ("Engineering", "V&V and interpretation"),
+        ("Validation", "measurement-facing checks"),
+        ("Assistant", "local read-only help"),
+        ("Runs", "reproducibility"),
+    ])
 
     workspace = st.radio(
         "Research workbench",

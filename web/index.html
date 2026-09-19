@@ -164,7 +164,57 @@
         <div class="card-actions"><button id="saveSettings" class="primary">Save Settings</button><button id="resetSettings" class="secondary">Reset Defaults</button></div>
       </section>
 
-      <section id="labView" class="view lab-frame-view">
+
+      <section id="utubeView" class="view native-experiment-view">
+        <div class="native-experiment-head">
+          <button id="backFromUtube" class="secondary small">← Experiments</button>
+          <div><div class="eyebrow">ENGINEERING CLUB · NATIVE WORKSPACE</div><h2>Rotating U-Tube</h2><p>Threshold physics, capacity decomposition, effective-potential structure and reduced-order hysteresis rendered directly by Engineering Lab.</p></div>
+          <span class="native-badge">No iframe · No localhost</span>
+        </div>
+        <div class="utube-tabs">
+          <button class="filter active" data-utube-tab="model">Model & threshold</button>
+          <button class="filter" data-utube-tab="hysteresis">Dynamic hysteresis</button>
+          <button class="filter" data-utube-tab="boundary">Scientific boundary</button>
+        </div>
+        <div class="utube-panel" data-utube-panel="model">
+          <div class="native-control-grid">
+            <label>Liquid volume (mL)<input id="utVolume" type="number" min="0.05" step="0.05" value="3"></label>
+            <label>Operating speed (rpm)<input id="utRpm" type="number" min="1" step="1" value="260"></label>
+            <label>Inner radius R_in (mm)<input id="utRin" type="number" min="1" step="0.01" value="15.12"></label>
+            <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" step="0.01" value="7.48"></label>
+            <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
+          </div>
+          <div class="ut-metrics">
+            <div><span>Angular bifurcation n_c</span><strong id="utMetricCritical">—</strong></div>
+            <div><span>Volume threshold n_g</span><strong id="utMetricThreshold">—</strong></div>
+            <div><span>Operating margin n−n_g</span><strong id="utMetricMargin">—</strong></div>
+            <div><span>Low-potential capacity</span><strong id="utMetricCapacity">—</strong></div>
+          </div>
+          <div class="native-viz-grid">
+            <article class="native-viz-panel"><div class="native-viz-title"><span>Threshold map</span><small>n_g(V)</small></div><div id="utThresholdChart"></div></article>
+            <article class="native-viz-panel"><div class="native-viz-title"><span>Effective potential</span><small>current RPM</small></div><div id="utPotentialChart"></div></article>
+          </div>
+          <article class="native-viz-panel"><div class="native-viz-title"><span>Capacity decomposition</span><small>curved bend + two legs</small></div><div id="utCapacityBars" class="ut-capacity"></div></article>
+        </div>
+        <div class="utube-panel" data-utube-panel="hysteresis" hidden>
+          <div class="native-control-grid three">
+            <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
+            <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
+            <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
+          </div>
+          <div class="ut-metrics compact"><div><span>Loop width at selected ramp rate</span><strong id="utLoopWidth">—</strong></div></div>
+          <article class="native-viz-panel"><div class="native-viz-title"><span>Dynamic threshold envelope</span><small>n_up/down = n_g ± H ± |dn/dt|τ</small></div><div id="utHysteresisChart"></div></article>
+        </div>
+        <div class="utube-panel" data-utube-panel="boundary" hidden>
+          <div class="boundary-card">
+            <h3>Scientific boundary</h3>
+            <p>The native workspace preserves the existing U-Tube model distinction between angular bifurcation <b>n_c</b> and volume-dependent threshold <b>n_g(V)</b>. Numerical convergence does not establish physical validity, and agreement with measurements is validation evidence rather than proof of model truth.</p>
+            <p>The hysteresis view is a reduced-order apparatus-level description. Its fitted or entered H and τ must not be relabeled as contact-angle hysteresis, viscosity, pinning energy, or a hardware safety limit without an independently validated physical model.</p>
+          </div>
+        </div>
+        <div id="utNativeStatus" class="native-status">Ready.</div>
+      </section>
+\n      <section id="labView" class="view lab-frame-view">
         <div class="lab-toolbar">
           <button id="backFromLab" class="secondary small">← Back to Labs</button>
           <div class="lab-title-wrap"><strong id="openLabTitle">Lab</strong><span id="openLabUrl"></span></div>

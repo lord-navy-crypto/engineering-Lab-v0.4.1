@@ -16,8 +16,11 @@ on:
       - 'src-tauri/resources/ui/physical_lab_solar_system_ui.py'
       - 'src-tauri/resources/ui/physical_lab_lattice_ui.py'
       - 'src-tauri/resources/ui/physical_lab_builtin_lab_entry.py'
+      - 'src-tauri/resources/ui/physical_lab_project_surface_patch.py'
       - 'src-tauri/tauri.conf.json'
       - 'scripts/self_check.py'
+      - 'scripts/evidence_center_ui_validation.py'
+      - 'scripts/ui_refactor_completeness_validation.py'
       - '.github/workflows/ui-workbench-validation.yml'
   workflow_dispatch:
 
@@ -48,7 +51,8 @@ jobs:
             src-tauri/resources/ui/physical_lab_kerr_ui.py \
             src-tauri/resources/ui/physical_lab_solar_system_ui.py \
             src-tauri/resources/ui/physical_lab_lattice_ui.py \
-            src-tauri/resources/ui/physical_lab_builtin_lab_entry.py
+            src-tauri/resources/ui/physical_lab_builtin_lab_entry.py \
+            src-tauri/resources/ui/physical_lab_project_surface_patch.py
 
       - name: Reference snapshot validation
         run: python scripts/reference_validation.py --check
@@ -79,6 +83,12 @@ jobs:
 
       - name: Release-readiness source validation
         run: python scripts/v010_release_readiness_validation.py
+
+      - name: Evidence Center and Project routing validation
+        run: python scripts/evidence_center_ui_validation.py
+
+      - name: PR 91 UI refactor completeness validation
+        run: python scripts/ui_refactor_completeness_validation.py
 
       - name: Run repository source self-check
         run: python scripts/self_check.py

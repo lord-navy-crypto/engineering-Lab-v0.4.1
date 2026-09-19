@@ -1,4 +1,4 @@
-name: Native U-Tube Workspace Integrity
+name: Native Experiment Workspace Integrity
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
       - ".github/workflows/native-utube-workspace-integrity.yml"
 
 jobs:
-  native-utube:
+  native-experiments:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

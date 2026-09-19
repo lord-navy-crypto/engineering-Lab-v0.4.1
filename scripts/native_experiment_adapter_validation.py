@@ -16,7 +16,7 @@ CASES = {
     "numerical-methods": {"xMax": 1.5, "order": 7, "points": 101},
     "ising-monte-carlo": {"size": 8, "temperature": 2.269, "sweeps": 20, "seed": 7},
     "random-walk-monte-carlo": {"steps": 30, "walkers": 120, "dimension": 2, "seed": 7},
-    "nonlinear-chaos": {"duration": 5, "dt": 0.05, "damping": 0.2, "drive": 1.2, "driveOmega": 0.6666667},
+    "nonlinear-chaos": {"duration": 20, "dt": 0.05, "damping": 0.2, "drive": 1.2, "driveOmega": 0.6666667},
     "oscillation-integration": {"duration": 3, "dt": 0.02, "omega0": 2, "zeta": 0.08, "force": 0.6, "driveOmega": 1.6},
     "radia-magnet-studio": {"periodMm": 50, "b0T": 0.15, "periods": 5, "samples": 81},
     "radiation-platform": {"periodMm": 50, "K": 0.7, "energyGeV": 3, "harmonic": 1, "periods": 10},

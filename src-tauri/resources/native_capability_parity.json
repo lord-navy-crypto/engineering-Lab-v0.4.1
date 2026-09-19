@@ -13,31 +13,31 @@
     {
       "surface_id": "utube-physical",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
       "surface_id": "utube-uncertainty",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
       "surface_id": "utube-advanced",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
       "surface_id": "data-bridge",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
       "surface_id": "measurement-registry",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
@@ -60,8 +60,8 @@
     },
     {
       "surface_id": "research-notebook",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
@@ -132,26 +132,26 @@
     },
     {
       "surface_id": "run-comparison",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
       "surface_id": "model-coupling",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
       "surface_id": "pipeline-dag",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
       "surface_id": "digital-twin",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
@@ -162,8 +162,8 @@
     },
     {
       "surface_id": "operations-planning",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
@@ -186,14 +186,14 @@
     },
     {
       "surface_id": "evidence-center",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "direct native application workflow plus Full Original Workspace fallback for remaining specialized subtools",
       "zero_loss_required": true
     },
     {
       "surface_id": "reproducibility-pack",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-primary",
+      "guaranteed_access": "direct Tauri application view plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
@@ -332,5 +332,38 @@
       "physical_lab_visual_analytics.standardized_sensitivity"
     ],
     "note": "Project-persistent dashboards, saved recipes, multi-source overlays and project-bound workflow mutations remain compatibility-preserved until migrated with real project context."
+  },
+  "final_full_restoration": {
+    "native_view_routes": [
+      "data-bridge",
+      "run-comparison",
+      "reproducibility-pack",
+      "model-coupling",
+      "pipeline-dag",
+      "operations-planning",
+      "measurement-registry",
+      "research-notebook",
+      "evidence-center",
+      "utube-physical",
+      "utube-uncertainty",
+      "utube-advanced",
+      "digital-twin"
+    ],
+    "restored_utube_tools": [
+      "dimensionless-groups",
+      "inverse-geometry",
+      "design-space",
+      "robust-design",
+      "adaptive-plan",
+      "verification-requirements",
+      "research-questions",
+      "uncertainty-budget",
+      "hysteresis-analysis",
+      "rate-sweep",
+      "digital-twin-calibration",
+      "digital-twin-field",
+      "beam-phase-space"
+    ],
+    "policy": "Capabilities with existing Tauri-native project/data/results/pipeline workflows route directly to those views. Specialized legacy-only subtools remain visible through the original workspace until separately proven equivalent."
   }
 }

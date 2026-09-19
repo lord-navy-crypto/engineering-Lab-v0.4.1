@@ -112,6 +112,8 @@ function modeChoice(m,s){
   </div>`;
 }
 function labCard(m){
+  const nativeCard=typeof nativeModuleCard==='function'?nativeModuleCard(m):null;
+  if(nativeCard)return nativeCard;
   const s=statusFor(m); const fragile=(m.fragileDependencies||[]);
   const deps=(m.pythonRequires?`<span class="tag">Python ${esc(m.pythonRequires)}</span>`:'') + ((m.supportedArches||[]).length?`<span class="tag">${esc(m.supportedArches.join(' + '))}</span>`:'') + (fragile.length?fragile.map(d=>`<span class="dependency">Fragile: ${esc(d.toUpperCase())}</span>`).join(''):`<span class="tag">No fragile engine</span>`);
   const tags=(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
@@ -349,6 +351,7 @@ async function uninstallModule(id){
 }
 
 async function openModule(id,mode){
+  if(typeof nativeExperimentSpec==='function'&&nativeExperimentSpec(id)){openNativeExperiment(id);return}
   if(!invoke){toast('Preview mode: module server launch is available in the desktop build.');return}
   const m=modules.find(x=>x.id===id); if(!m)return;
   try{

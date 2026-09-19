@@ -206,6 +206,39 @@ def _render_application_mode(st, profile: str, namespace: dict | None) -> None:
     application_modes.render_application_mode(st, profile, namespace)
 
 
+def _apply_surface_deeplink(st, profile: str) -> None:
+    target = str(st.query_params.get("pl_surface") or "").strip()
+    routes = {
+        "kerr-geodesics": ("Analysis", "analysis", "Kerr geodesic dynamics"),
+        "kerr-platform": ("Analysis", "analysis", "Kerr experiment / compute workflow"),
+        "kerr-shadow": ("Analysis", "analysis", "Kerr shadow morphology"),
+        "solar-system": ("Analysis", "analysis", "Sun–Jupiter–Saturn dynamics"),
+        "lattice-dynamics": ("Analysis", "analysis", "Multilayer honeycomb lattice"),
+        "remaining-science": ("Analysis", "analysis", "Advanced model science"),
+        "model-depth": ("Analysis", "analysis", "Model depth"),
+        "deep-science": ("Analysis", "analysis", "Deep science studio"),
+        "frequency-response": ("Analysis", "analysis", "Frequency response"),
+        "new-model-refinement": ("Analysis", "analysis", "Model refinement"),
+        "undulator-spectrum": ("Analysis", "analysis", "Undulator spectrum & beam broadening"),
+        "radiation-stokes": ("Analysis", "analysis", "Trajectory radiation & Stokes map"),
+        "radiation-quality": ("Analysis", "analysis", "Radiation quality degradation"),
+        "radiation-seed-compare": ("Analysis", "analysis", "Nominal vs seed radiation map"),
+        "engineering-vvuq": ("V&V", "vvuq", "Engineering uncertainty & requirements"),
+        "measurement-registry": ("V&V", "vvuq", "Measurement & calibration evidence"),
+        "research-orchestrator": ("Research", "research", "Research orchestrator"),
+    }
+    route = routes.get(target)
+    if not route:
+        return
+    section, group, label = route
+    marker = f"pl_engineering_deeplink_seen_{profile}"
+    if st.session_state.get(marker) == target:
+        return
+    st.session_state[f"pl_engineering_section_{profile}"] = section
+    st.session_state[f"pl_engineering_tool_{group}_{profile}"] = label
+    st.session_state[marker] = target
+
+
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
     """Focused engineering workbench.
 
@@ -213,6 +246,7 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
     This replaces the previous append-everything layout where unrelated controls,
     plots, V&V tables and project tools competed on one continuous page.
     """
+    _apply_surface_deeplink(st, profile)
     ui_system = _load("physical_lab_ui_system", "physical_lab_ui_system.py")
     ui_system.render_workbench_header(
         st,

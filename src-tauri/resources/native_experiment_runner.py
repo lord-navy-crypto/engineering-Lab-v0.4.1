@@ -723,8 +723,79 @@ def _first_numeric_series(context: dict[str, Any]) -> tuple[np.ndarray, np.ndarr
     raise ValueError("The current result has no numeric x/y series with at least three finite points.")
 
 
+
+def _result_frame_and_numeric_columns(context: dict[str, Any]):
+    from physical_lab_visualization_studio import result_frame, numeric_columns
+    frame = result_frame(context)
+    columns = numeric_columns(frame)
+    return frame, columns
+
+
 def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -> dict[str, Any]:
     context = _context_result(p)
+
+    if tool in {"visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity"}:
+        import pandas as pd
+        from physical_lab_visualization_studio import summary as visualization_summary, transform as visualization_transform
+        from physical_lab_visual_analytics import local_sensitivity, elasticity_sensitivity, standardized_sensitivity
+        frame, columns = _result_frame_and_numeric_columns(context)
+        usable = [c for c in columns if c != "index"]
+        if not usable:
+            usable = list(columns)
+        if tool == "visualization-summary":
+            rows = visualization_summary(frame, columns)
+            return result(experiment_id, "physical_lab_visualization_studio.summary", p,
+                          {"rowCount": len(frame), "numericColumnCount": len(columns), "summaryFieldCount": len(rows)},
+                          [], "Descriptive statistics summarize finite numeric fields in the current structured result; they do not add scientific validation.",
+                          [{"id":"visual-summary","label":"Visualization summary","rows":rows}])
+        if tool == "visualization-transform":
+            chosen = usable[:min(4, len(usable))]
+            mode = str(p.get("transformMode", "z-score"))
+            if mode not in {"z-score","min-max","absolute","none"}:
+                mode = "z-score"
+            out = visualization_transform(frame, chosen, mode)
+            series = []
+            x = np.arange(len(out), dtype=float)
+            for col in chosen:
+                y = pd.to_numeric(out[col], errors="coerce").to_numpy(dtype=float)
+                mask = np.isfinite(y)
+                if int(np.count_nonzero(mask)) >= 2:
+                    series.append(xy_series(f"transform-{col}", f"{col} · {mode}", x[mask], y[mask], x_label="row", y_label=col))
+            return result(experiment_id, "physical_lab_visualization_studio.transform", p,
+                          {"rowCount": len(out), "transformedColumns": len(chosen), "mode": mode},
+                          series, "Transforms are visualization/analysis conveniences applied to a copy of the current result table; source results are not modified.",
+                          [{"id":"transformed-preview","label":"Transformed result preview","rows":out.head(200).to_dict(orient="records")}])
+        if len(usable) < 2:
+            raise ValueError("Sensitivity analysis needs at least two varying numeric result fields.")
+        parameter, output = usable[0], usable[1]
+        if tool == "local-sensitivity":
+            out = local_sensitivity(frame, parameter, output)
+            rows = out.to_dict(orient="records")
+            return result(experiment_id, "physical_lab_visual_analytics.local_sensitivity", p,
+                          {"segments": len(rows), "parameter": parameter, "output": output},
+                          [xy_series("local-sensitivity","local sensitivity",out["parameter_center"],out["sensitivity"],x_label=parameter,y_label=f"d({output})/d({parameter})")],
+                          "Finite-difference local sensitivity is descriptive for the selected result fields and depends on the sampled parameter spacing.",
+                          [{"id":"local-sensitivity","label":"Local sensitivity","rows":rows}])
+        if tool == "elasticity-sensitivity":
+            out = elasticity_sensitivity(frame, parameter, output)
+            rows = out.to_dict(orient="records")
+            finite = pd.to_numeric(out["elasticity"], errors="coerce").replace([np.inf,-np.inf],np.nan).dropna()
+            return result(experiment_id, "physical_lab_visual_analytics.elasticity_sensitivity", p,
+                          {"segments": len(rows), "parameter": parameter, "output": output, "maxAbsElasticity": float(finite.abs().max()) if len(finite) else None},
+                          [xy_series("elasticity","elasticity sensitivity",out["parameter_center"],out["elasticity"],x_label=parameter,y_label="elasticity")],
+                          "Elasticity is a local normalized sensitivity and is undefined where the output center is zero.",
+                          [{"id":"elasticity","label":"Elasticity sensitivity","rows":rows}])
+        parameter_candidates = usable[:-1]
+        output = usable[-1]
+        out = standardized_sensitivity(frame, parameter_candidates, output)
+        rows = out.to_dict(orient="records")
+        if not rows:
+            raise ValueError("Standardized sensitivity found no fields with enough finite variation.")
+        return result(experiment_id, "physical_lab_visual_analytics.standardized_sensitivity", p,
+                      {"parameterCount": len(rows), "output": output, "largestAbsSlope": float(out["abs_standardized_slope"].max())},
+                      [xy_series("standardized-sensitivity","standardized sensitivity",range(len(rows)),out["standardized_slope"],x_label="parameter rank",y_label="standardized slope")],
+                      "Standardized slopes and Spearman coefficients summarize association in the current finite result table; they do not imply causation.",
+                      [{"id":"standardized-sensitivity","label":"Standardized sensitivity","rows":rows}])
 
     if tool == "result-inspector":
         from physical_lab_result_inspector import inspect_result, numerical_sanity_report
@@ -846,7 +917,7 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
 
 
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
-    if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics"}:
+    if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity"}:
         return run_global_analysis_tool(experiment_id, tool, p)
     if experiment_id == "kerr-geodesics" and tool == "refinement":
         from physical_lab_kerr_geodesics import run_refinement_pair

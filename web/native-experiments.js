@@ -80,7 +80,7 @@ function bindNativeExperimentShell(){
     document.querySelectorAll('.native-exp-tab-panel').forEach(p=>p.hidden=p.dataset.nativeExpPanel!==b.dataset.nativeExpTab);
   });
 }
-\n
+
 function nativePreviewSeries(id){
   const linspace=(a,b,n)=>Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));
   if(id==='numerical-methods'){

@@ -312,7 +312,6 @@ def render_lattice_workspace(st: Any, profile: str) -> None:
             st.info("Run the lattice model in Setup & run to populate this view.")
 
     with modes_tab:
-        cfg = _config(st)
         a, b = st.columns(2)
         if a.button("Run normal-mode audit", width="stretch", key="pl_lat_modes"):
             modes = normal_modes(build_lattice(cfg))
@@ -343,5 +342,4 @@ def render_lattice_workspace(st: Any, profile: str) -> None:
         )
 
     with platform_tab:
-        cfg = _config(st)
         _platform(st, cfg)

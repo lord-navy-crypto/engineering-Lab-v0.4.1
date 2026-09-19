@@ -56,7 +56,7 @@ for view_id in ("nativeExperimentView", "utubeView"):
     start = html.index(f'id="{view_id}"')
     end = html.find('<section id=', start + 10)
     segment = html[start:] if end < 0 else html[start:end]
-    for label in ("Setup", "Results", "Verification"):
+    for label in ("Setup", "Advanced", "Tools & Analysis", "Results", "Verification"):
         assert label in segment, f"{view_id} missing simplified {label} navigation"
 
 shared_start = html.index('id="nativeExperimentView"')
@@ -109,3 +109,14 @@ guard = "if(typeof nativeExperimentSpec==='function'&&nativeExperimentSpec(id)){
 assert guard in app, "openModule does not guard native experiments before legacy server launch"
 
 print("Native experiment workspace validation: PASS (14/14 registered)")
+
+assert 'id="nativeExperimentAdvancedControls"' in html
+assert 'id="nativeExperimentTools"' in html
+assert 'data-native-exp-panel="advanced"' in html
+assert 'data-native-exp-panel="tools"' in html
+assert 'data-utube-panel="advanced"' in html
+assert 'data-utube-panel="tools"' in html
+for tool_marker in ("refinement","ftle","phonon-dispersion","phonon-dos","beam-broadening","duffing"):
+    assert tool_marker in native, f"missing restored native tool marker: {tool_marker}"
+for tool_marker in ("operating-state","elasticity","scan-plan","uncertainty"):
+    assert tool_marker in html, f"missing restored U-Tube tool marker: {tool_marker}"

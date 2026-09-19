@@ -48,3 +48,5 @@ body.ui-compact .module-card .desc{margin:7px 0 10px}
 \n
 .native-exp-cap-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.native-exp-cap{border:1px solid #293443;background:#121923;border-radius:15px;padding:16px;min-height:150px}.native-exp-cap>span{display:block;color:#6f7f92;font-size:10px;letter-spacing:.1em}.native-exp-cap h3{margin:18px 0 8px;font-size:15px}.native-exp-cap p{margin:0;color:#8f9daf;font-size:11px;line-height:1.6}.native-flow svg{display:block;width:100%;height:auto}.native-flow-edges path{stroke:#3a4656;stroke-width:2;fill:none}.native-flow-nodes rect{fill:#151d27;stroke:#3a4656}.native-flow-nodes text{fill:#dfe7f0;font-size:12px;font-weight:650}.native-flow-nodes text.sub{fill:#7f8da0;font-size:9px;font-weight:400}.native-exp-tab-panel[hidden]{display:none!important}
 @media(max-width:1000px){.native-exp-cap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:640px){.native-exp-cap-grid{grid-template-columns:1fr}}
+
+.native-scatter circle{fill:#cfd9e6;opacity:.9}

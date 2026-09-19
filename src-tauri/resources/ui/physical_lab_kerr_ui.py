@@ -393,19 +393,33 @@ def _verification_tab(st: Any) -> None:
 def render_kerr_geodesic_workspace(st: Any, profile: str) -> None:
     if profile != PROFILE:
         return
-    st.markdown("---")
-    st.markdown("## Physical Lab · Kerr Geodesic Dynamics")
-    st.caption(
-        "Relativistic dynamics in geometric units G=c=M=1. Standard Kerr geodesics are integrable; "
-        "phase-space and stability views here are numerical/V&V tools, not a claim of generic chaos."
+
+    from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
+
+    render_workbench_header(
+        st,
+        "Kerr Geodesic Dynamics",
+        "Relativistic geodesic analysis in geometric units G=c=M=1. Run one orbit, compare geodesic classes, sweep spin, or audit numerical refinement without mixing those tasks together.",
+        kicker="Relativity & astrophysics",
     )
-    with st.expander("Scientific boundary & assumptions", expanded=False):
+    render_stage_rail(st, [
+        ("Orbit", "single physical case"),
+        ("Compare", "massive ↔ photon"),
+        ("Sweep", "spin dependence"),
+        ("Verify", "solver refinement"),
+    ])
+    render_boundary(
+        st,
+        "Standard Kerr geodesics are integrable. Phase-space and stability views here are numerical/V&V diagnostics, not a claim of generic chaos.",
+    )
+    with st.expander("Scientific assumptions", expanded=False):
         st.markdown(
             "- Boyer–Lindquist coordinates and Carter–Mino time.\n"
             "- Test particles/photons only: no self-force, radiation reaction, accretion flow, plasma refraction, or spacetime perturbations.\n"
             "- The 3D view is an oblate-coordinate visualization, not a Euclidean embedding of Kerr spatial geometry.\n"
-            "- Photon instability is obtained from local radial-potential curvature; it is not reported as a generic maximal Lyapunov exponent."
+            "- Photon instability comes from local radial-potential curvature; it is not reported as a generic maximal Lyapunov exponent."
         )
+
     tab_run, tab_compare, tab_sweep, tab_verify = st.tabs(
         ["Single orbit", "Massive ↔ photon", "Spin sweep", "Numerical verification"]
     )

@@ -263,88 +263,135 @@ def _apply_preset(st: Any, profile: str, preset_name: str) -> None:
 
 
 def render_visualization_studio(st: Any, profile: str) -> dict[str, Any]:
-    """Render a grouped visualization workspace and return its current settings."""
+    """Render progressive display controls without turning the page into a control wall."""
     label = PROFILE_LABELS.get(profile, profile)
-    with st.expander(f"Visualization workspace · {label}", expanded=False):
+    with st.expander(f"Visualization · {label}", expanded=False):
         st.caption(
-            "Display-only controls: solver inputs, measurements, fitted values and Run Vault scientific results remain unchanged. "
+            "Display-only controls. Solver inputs, measured values, fitted values and stored scientific results remain unchanged. "
             + PROFILE_HINTS.get(profile, "")
         )
+
         p1, p2 = st.columns([3, 1])
-        preset_name = p1.selectbox("View preset", list(VIEW_PRESETS), key=f"pl_viz_preset_{profile}")
+        preset_name = p1.selectbox(
+            "View preset", list(VIEW_PRESETS), key=f"pl_viz_preset_{profile}"
+        )
         if p2.button("Apply", key=f"pl_viz_apply_preset_{profile}", width="stretch"):
             _apply_preset(st, profile, preset_name)
             st.rerun()
 
-        tab_view, tab_axes, tab_render = st.tabs(["View", "Axes & scale", "Rendering"])
+        essential_tab, advanced_tab = st.tabs(["Essentials", "Advanced"])
 
-        with tab_view:
+        with essential_tab:
             c1, c2 = st.columns(2)
-            line_transform = c1.selectbox(
-                "1D trace view",
-                ["As authored", "Normalize max |y|", "Z-score", "Percent change from first"],
-                key=f"pl_viz_line_transform_{profile}",
+            template = c1.selectbox(
+                "Plot theme", ["Physical Lab", "Light", "Dark"],
+                key=f"pl_viz_template_{profile}",
             )
-            heatmap_transform = c2.selectbox(
-                "Heatmap view",
-                ["As authored", "log10 |z|", "Normalize 0–1", "Z-score"],
-                key=f"pl_viz_heatmap_transform_{profile}",
+            hover = c2.selectbox(
+                "Hover behavior", ["closest", "x unified", "x", "y"],
+                key=f"pl_viz_hover_{profile}",
             )
-            c3, c4 = st.columns(2)
-            template = c3.selectbox("Plot theme", ["Physical Lab", "Light", "Dark"], key=f"pl_viz_template_{profile}")
-            hover = c4.selectbox("Hover behavior", ["closest", "x unified", "x", "y"], key=f"pl_viz_hover_{profile}")
-            c5, c6, c7 = st.columns(3)
-            show_legend = c5.toggle("Legend", value=True, key=f"pl_viz_show_legend_{profile}")
-            show_reference = c6.toggle("Theory / reference", value=True, key=f"pl_viz_show_reference_{profile}")
-            show_grid = c7.toggle("Grid", value=True, key=f"pl_viz_show_grid_{profile}")
+            c3, c4, c5 = st.columns(3)
+            show_legend = c3.toggle("Legend", value=True, key=f"pl_viz_show_legend_{profile}")
+            show_reference = c4.toggle("Theory / reference", value=True, key=f"pl_viz_show_reference_{profile}")
+            show_grid = c5.toggle("Grid", value=True, key=f"pl_viz_show_grid_{profile}")
+            st.caption("Use a preset for normal work. Open Advanced only when you need a deliberate display transform or rendering override.")
 
-        with tab_axes:
-            c8, c9 = st.columns(2)
-            x_scale = c8.selectbox("X axis", ["Respect model", "Linear", "Log"], key=f"pl_viz_x_scale_{profile}")
-            y_scale = c9.selectbox("Y axis", ["Respect model", "Linear", "Log"], key=f"pl_viz_y_scale_{profile}")
-            phase_equal = st.toggle(
-                "Equal scale on phase portraits",
-                value=(profile == "nonlinear-chaos"),
-                key=f"pl_viz_phase_equal_{profile}",
-                disabled=(profile != "nonlinear-chaos"),
-            )
-            st.caption("Log scale is applied only when visible authored values are positive; otherwise it is safely skipped and labeled on the figure.")
+        with advanced_tab:
+            with st.expander("Transforms & axes", expanded=False):
+                c6, c7 = st.columns(2)
+                line_transform = c6.selectbox(
+                    "1D trace view",
+                    ["As authored", "Normalize max |y|", "Z-score", "Percent change from first"],
+                    key=f"pl_viz_line_transform_{profile}",
+                )
+                heatmap_transform = c7.selectbox(
+                    "Heatmap view",
+                    ["As authored", "log10 |z|", "Normalize 0–1", "Z-score"],
+                    key=f"pl_viz_heatmap_transform_{profile}",
+                )
+                c8, c9 = st.columns(2)
+                x_scale = c8.selectbox(
+                    "X axis", ["Respect model", "Linear", "Log"],
+                    key=f"pl_viz_x_scale_{profile}",
+                )
+                y_scale = c9.selectbox(
+                    "Y axis", ["Respect model", "Linear", "Log"],
+                    key=f"pl_viz_y_scale_{profile}",
+                )
+                phase_equal = st.toggle(
+                    "Equal scale on phase portraits",
+                    value=(profile == "nonlinear-chaos"),
+                    key=f"pl_viz_phase_equal_{profile}",
+                    disabled=(profile != "nonlinear-chaos"),
+                )
+                st.caption("Transforms affect display only. Log axes are skipped safely when visible authored data contain nonpositive values.")
 
-        with tab_render:
-            c10, c11 = st.columns(2)
-            height = c10.select_slider(
-                "Chart height", options=[420, 500, 580, 660, 760], value=500,
-                key=f"pl_viz_height_{profile}",
-            )
-            max_points = c11.select_slider(
-                "Max rendered points / simple trace", options=[1000, 2500, 5000, 10000, 20000], value=5000,
-                key=f"pl_viz_max_points_{profile}",
-            )
-            c12, c13, c14 = st.columns(3)
-            line_width = c12.slider("Line width", 1.0, 6.0, 2.0, 0.5, key=f"pl_viz_line_width_{profile}")
-            marker_size = c13.slider("Marker size", 2, 14, 6, 1, key=f"pl_viz_marker_size_{profile}")
-            font_size = c14.slider("Figure font", 10, 20, 13, 1, key=f"pl_viz_font_size_{profile}")
-            c15, c16 = st.columns(2)
-            modebar = c15.toggle("Plotly tool bar", value=True, key=f"pl_viz_modebar_{profile}")
-            scroll_zoom = c16.toggle("Scroll to zoom", value=False, key=f"pl_viz_scroll_zoom_{profile}")
+            with st.expander("Rendering & performance", expanded=False):
+                c10, c11 = st.columns(2)
+                height = c10.select_slider(
+                    "Chart height", options=[420, 500, 580, 660, 760], value=500,
+                    key=f"pl_viz_height_{profile}",
+                )
+                max_points = c11.select_slider(
+                    "Max rendered points / simple trace",
+                    options=[1000, 2500, 5000, 10000, 20000], value=5000,
+                    key=f"pl_viz_max_points_{profile}",
+                )
+                c12, c13, c14 = st.columns(3)
+                line_width = c12.slider(
+                    "Line width", 1.0, 6.0, 2.0, 0.5,
+                    key=f"pl_viz_line_width_{profile}",
+                )
+                marker_size = c13.slider(
+                    "Marker size", 2, 14, 6, 1,
+                    key=f"pl_viz_marker_size_{profile}",
+                )
+                font_size = c14.slider(
+                    "Figure font", 10, 20, 13, 1,
+                    key=f"pl_viz_font_size_{profile}",
+                )
+                c15, c16 = st.columns(2)
+                modebar = c15.toggle(
+                    "Plotly tool bar", value=True,
+                    key=f"pl_viz_modebar_{profile}",
+                )
+                scroll_zoom = c16.toggle(
+                    "Scroll to zoom", value=False,
+                    key=f"pl_viz_scroll_zoom_{profile}",
+                )
 
         active = []
-        if line_transform != "As authored": active.append(f"1D: {line_transform}")
-        if heatmap_transform != "As authored": active.append(f"heatmap: {heatmap_transform}")
-        if x_scale != "Respect model" or y_scale != "Respect model": active.append(f"axes: {x_scale} / {y_scale}")
-        if not show_reference: active.append("reference hidden")
+        if line_transform != "As authored":
+            active.append(f"1D: {line_transform}")
+        if heatmap_transform != "As authored":
+            active.append(f"heatmap: {heatmap_transform}")
+        if x_scale != "Respect model" or y_scale != "Respect model":
+            active.append(f"axes: {x_scale} / {y_scale}")
+        if not show_reference:
+            active.append("reference hidden")
         if active:
             st.warning("Display override active · " + " · ".join(active))
         else:
             st.caption("View status: authored model scales and traces are preserved.")
-        st.caption("Visualization settings use `pl_viz_*` keys so Run Vault can preserve the view configuration with the experiment state.")
 
     return {
-        "line_transform": line_transform, "heatmap_transform": heatmap_transform, "template": template,
-        "x_scale": x_scale, "y_scale": y_scale, "height": int(height), "max_points": int(max_points),
-        "line_width": float(line_width), "marker_size": int(marker_size), "font_size": int(font_size),
-        "hover": hover, "show_legend": bool(show_legend), "show_grid": bool(show_grid),
-        "show_reference": bool(show_reference), "modebar": bool(modebar), "scroll_zoom": bool(scroll_zoom),
+        "line_transform": line_transform,
+        "heatmap_transform": heatmap_transform,
+        "template": template,
+        "x_scale": x_scale,
+        "y_scale": y_scale,
+        "height": int(height),
+        "max_points": int(max_points),
+        "line_width": float(line_width),
+        "marker_size": int(marker_size),
+        "font_size": int(font_size),
+        "hover": hover,
+        "show_legend": bool(show_legend),
+        "show_grid": bool(show_grid),
+        "show_reference": bool(show_reference),
+        "modebar": bool(modebar),
+        "scroll_zoom": bool(scroll_zoom),
         "phase_equal": bool(phase_equal),
     }
 

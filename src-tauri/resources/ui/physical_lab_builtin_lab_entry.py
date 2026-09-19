@@ -24,12 +24,8 @@ if PROFILE not in LABS:
 
 TITLE, CATEGORY = LABS[PROFILE]
 st.set_page_config(page_title=f"Physical Lab · {TITLE}", layout="wide")
-st.title(TITLE)
-st.caption(
-    f"First-class bundled Physical Lab · {CATEGORY}. The launcher uses the model "
-    "implementation shipped with this Physical Lab build rather than downloading "
-    "or maintaining a second solver copy."
-)
+# The model workspace renders the visible title/hierarchy through the shared UI
+# system. Keep the launcher entry deliberately quiet to avoid duplicate headers.
 
 if PROFILE == "kerr-geodesics":
     from physical_lab_kerr_ui import render_kerr_geodesic_workspace

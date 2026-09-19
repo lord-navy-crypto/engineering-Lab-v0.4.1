@@ -141,12 +141,17 @@ def main() -> int:
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     advanced = (UI / "physical_lab_advanced.py").read_text(encoding="utf-8")
     viz_text = (UI / "physical_lab_visualization.py").read_text(encoding="utf-8")
+    ui_system = (UI / "physical_lab_ui_system.py").read_text(encoding="utf-8")
     assert 'data-view="settings"' in index and 'id="settingsView"' in index
     assert "physicalLab.uiSettings" in app and "applyUiSettings" in app
     assert "visualization_context" in advanced
-    assert "Visualization workspace" in viz_text and "Axes & scale" in viz_text and "Rendering" in viz_text
+    assert "Visualization ·" in viz_text
+    for marker in ("Essentials", "Advanced", "Transforms & axes", "Rendering & performance"):
+        assert marker in viz_text, marker
+    assert "def apply_plotly_design" in ui_system
+    assert "pl-workbench-header" in ui_system and "pl-result-card" in ui_system
 
-    print("PASS visualization workspace: transforms, overlay safety, aligned-metadata decimation, reference hiding, log safety, phase scaling, shell settings")
+    print("PASS visualization workspace: shared design system, progressive controls, transforms, overlay safety, aligned-metadata decimation, reference hiding, log safety, phase scaling, shell settings")
     return 0
 
 

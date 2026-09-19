@@ -31,17 +31,21 @@ class FakeStreamlit:
 def main() -> int:
     wrapper_text = (UI / "sitecustomize.py").read_text(encoding="utf-8")
     base_text = (UI / "physical_lab_sitecustomize_base.py").read_text(encoding="utf-8")
+    ui_system_text = (UI / "physical_lab_ui_system.py").read_text(encoding="utf-8")
     assert "physical_lab_sitecustomize_base" in wrapper_text
     assert "physical_lab_evidence_center_patch" in wrapper_text
     assert "physical_lab_project_surface_patch" in wrapper_text
-    assert "Physical Lab simulation UI v2" in base_text
-    assert len(base_text) > 10_000, "shared legacy enhancement layer should remain intact"
+    assert "from physical_lab_ui_system import DESIGN_CSS" in base_text
+    assert "Physical Lab visual system v3" in ui_system_text
+    assert "def apply_plotly_design" in ui_system_text
+    assert len(base_text) > 10_000, "shared enhancement layer should remain intact"
 
     conf = json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
     resources = (conf.get("bundle") or {}).get("resources") or {}
     for source in (
         "resources/ui/sitecustomize.py",
         "resources/ui/physical_lab_sitecustomize_base.py",
+        "resources/ui/physical_lab_ui_system.py",
         "resources/ui/physical_lab_evidence_center_patch.py",
         "resources/ui/physical_lab_evidence_center_ui.py",
         "resources/ui/physical_lab_project_surface_patch.py",
@@ -159,7 +163,7 @@ def main() -> int:
             sys.modules["streamlit"] = old_streamlit
 
     print("Physical Lab Evidence Center UI wiring: PASS")
-    print("- shared sitecustomize base preserved: PASS")
+    print("- shared sitecustomize + visual system preserved: PASS")
     print("- desktop bundle resources: PASS")
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")

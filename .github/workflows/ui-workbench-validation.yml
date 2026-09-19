@@ -1,0 +1,84 @@
+name: Engineering Lab UI Workbench Validation
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_ui_system.py'
+      - 'src-tauri/resources/ui/physical_lab_sitecustomize_base.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_engineering.py'
+      - 'src-tauri/resources/ui/physical_lab_advanced.py'
+      - 'src-tauri/resources/ui/physical_lab_engineering.py'
+      - 'src-tauri/resources/ui/physical_lab_frequency_response_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_undulator_spectrum_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_digital_twin_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_kerr_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_solar_system_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_lattice_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_builtin_lab_entry.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/self_check.py'
+      - '.github/workflows/ui-workbench-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-ui-workbench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check numpy scipy plotly
+
+      - name: Compile rebuilt UI modules
+        run: |
+          python -m py_compile \
+            src-tauri/resources/ui/physical_lab_ui_system.py \
+            src-tauri/resources/ui/physical_lab_sitecustomize_base.py \
+            src-tauri/resources/ui/physical_lab_visualization.py \
+            src-tauri/resources/ui/physical_lab_visualization_engineering.py \
+            src-tauri/resources/ui/physical_lab_advanced.py \
+            src-tauri/resources/ui/physical_lab_engineering.py \
+            src-tauri/resources/ui/physical_lab_frequency_response_ui.py \
+            src-tauri/resources/ui/physical_lab_undulator_spectrum_ui.py \
+            src-tauri/resources/ui/physical_lab_digital_twin_ui.py \
+            src-tauri/resources/ui/physical_lab_kerr_ui.py \
+            src-tauri/resources/ui/physical_lab_solar_system_ui.py \
+            src-tauri/resources/ui/physical_lab_lattice_ui.py \
+            src-tauri/resources/ui/physical_lab_builtin_lab_entry.py
+
+      - name: Reference snapshot validation
+        run: python scripts/reference_validation.py --check
+
+      - name: Visualization behavior validation
+        run: python scripts/visualization_reference_validation.py
+
+      - name: Engineering visualization validation
+        run: python scripts/engineering_visualization_validation.py
+
+      - name: Digital twin validation
+        run: python scripts/digital_twin_reference_validation.py --check
+
+      - name: Engineering V&V validation
+        run: python scripts/engineering_reference_validation.py
+
+      - name: Bundled lab contract validation
+        run: python scripts/bundled_model_labs_validation.py
+
+      - name: Kerr UI/model validation
+        run: python scripts/kerr_geodesic_validation.py
+
+      - name: Solar UI/model validation
+        run: python scripts/solar_system_dynamics_validation.py
+
+      - name: Lattice UI/model validation
+        run: python scripts/honeycomb_lattice_validation.py
+
+      - name: Release-readiness source validation
+        run: python scripts/v010_release_readiness_validation.py
+
+      - name: Run repository source self-check
+        run: python scripts/self_check.py

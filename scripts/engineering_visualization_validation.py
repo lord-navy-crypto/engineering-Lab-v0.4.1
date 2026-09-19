@@ -76,10 +76,12 @@ assert cap["traces"][0]["x"][-1] == 9999
 seq = viz._bounded_seq(iter(range(10000)), limit=4000)
 assert seq is not None and len(seq) <= 4001 and seq[-1] == 9999
 
-# The UI must expose grouped review / 3D / baseline sections rather than a second control wall.
+# The rebuilt UI must keep ordinary review separate from optional baseline comparison,
+# with 3D presentation progressively disclosed inside Review rather than as a second control wall.
 text = MOD.read_text(encoding="utf-8")
-assert "Engineering overlays & comparison" in text
-assert 'st.tabs(["Review", "3D", "Baseline"])' in text
+assert "Engineering overlays" in text
+assert 'st.tabs(["Review", "Comparison"])' in text
+assert "3D presentation" in text
 assert "comparison-compatible" in text
 # Capture/Clear must refresh the local value in the same Streamlit render, not only session state.
 assert "baseline = copy.deepcopy(last)" in text
@@ -87,4 +89,4 @@ assert "baseline = []" in text
 assert text.index("baseline = copy.deepcopy(last)") < text.index('st.session_state[f"__pl_viz2_baseline_{profile}"] = baseline')
 assert text.index("baseline = []") < text.index('st.session_state.pop(f"__pl_viz2_baseline_{profile}", None)')
 
-print("PASS engineering visualization overlays, role metadata, bounded capture, authored uncertainty, baseline matching, immediate baseline UI state, grouped UI, and 3D controls")
+print("PASS engineering visualization overlays, role metadata, bounded capture, authored uncertainty, baseline matching, immediate baseline UI state, progressive UI, and 3D controls")

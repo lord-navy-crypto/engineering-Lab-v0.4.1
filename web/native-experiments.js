@@ -352,7 +352,12 @@ const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
   {id:'bootstrap',name:'Bootstrap uncertainty',description:'Resample the first numeric result series and estimate uncertainty for the selected statistic.'},
   {id:'regression',name:'Linear regression diagnostics',description:'Fit and inspect an ordinary least-squares trend on the current numeric result series.'},
   {id:'robust-regression',name:'Robust Huber regression',description:'Fit a Huber robust trend that reduces the leverage of large residuals.'},
-  {id:'convergence-diagnostics',name:'Convergence diagnostics',description:'Estimate a bounded convergence trend from the current numeric series; use explicit refinement tools when available.'}
+  {id:'convergence-diagnostics',name:'Convergence diagnostics',description:'Estimate a bounded convergence trend from the current numeric series; use explicit refinement tools when available.'},
+  {id:'visualization-summary',name:'Visualization summary',description:'Build the original Visualization Studio numeric field summary from the current structured result.'},
+  {id:'visualization-transform',name:'Normalize / transform results',description:'Apply z-score normalization to a copy of current numeric result fields for analysis and visualization.'},
+  {id:'local-sensitivity',name:'Local sensitivity',description:'Compute finite-difference local sensitivity between varying result fields.'},
+  {id:'elasticity-sensitivity',name:'Elasticity sensitivity',description:'Compute normalized local elasticity from the current finite result table.'},
+  {id:'standardized-sensitivity',name:'Standardized sensitivity',description:'Rank standardized associations across varying numeric fields using the original Visual Analytics core.'}
 ]);
 
 const NATIVE_TOOL_SPECS = Object.freeze({

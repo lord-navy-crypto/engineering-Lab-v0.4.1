@@ -78,14 +78,14 @@
     },
     {
       "surface_id": "visualization-studio",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native Tools & Analysis for current-result workflows plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
       "surface_id": "visual-analytics",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native Tools & Analysis for current-result workflows plus Full Original Workspace fallback",
       "zero_loss_required": true
     },
     {
@@ -322,5 +322,15 @@
       "guaranteed_access": "Full Original Workspace → All Workspaces",
       "zero_loss_required": true
     }
-  ]
+  ],
+  "native_workflow_batch_2": {
+    "migrated_tools": [
+      "physical_lab_visualization_studio.summary",
+      "physical_lab_visualization_studio.transform",
+      "physical_lab_visual_analytics.local_sensitivity",
+      "physical_lab_visual_analytics.elasticity_sensitivity",
+      "physical_lab_visual_analytics.standardized_sensitivity"
+    ],
+    "note": "Project-persistent dashboards, saved recipes, multi-source overlays and project-bound workflow mutations remain compatibility-preserved until migrated with real project context."
+  }
 }

@@ -1,0 +1,29 @@
+name: Native U-Tube Workspace Integrity
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - "scripts/native_utube_workspace_validation.py"
+      - ".github/workflows/native-utube-workspace-integrity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "scripts/native_utube_workspace_validation.py"
+      - ".github/workflows/native-utube-workspace-integrity.yml"
+
+jobs:
+  native-utube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: node --check web/utube-native.js
+      - run: node --check web/app.js
+      - run: python scripts/native_utube_workspace_validation.py

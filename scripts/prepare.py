@@ -9,7 +9,7 @@ ICONS = ROOT / "src-tauri" / "icons"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
-for name in ("index.html", "styles.css", "app.js"):
+for name in ("index.html", "styles.css", "app.js", "utube-native.js", "native-experiments.js"):
     copy2(WEB / name, DIST / name)
 
 # Icons are committed with the source package. Regenerate only when missing.

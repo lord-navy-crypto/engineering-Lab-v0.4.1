@@ -11,8 +11,6 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from physical_lab_ui_system import render_stage_rail, render_workbench_header
-
 try:
     import physical_lab_engineering_legacy as _legacy
 except ModuleNotFoundError:
@@ -203,13 +201,14 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
     This replaces the previous append-everything layout where unrelated controls,
     plots, V&V tables and project tools competed on one continuous page.
     """
-    render_workbench_header(
+    ui_system = _load("physical_lab_ui_system", "physical_lab_ui_system.py")
+    ui_system.render_workbench_header(
         st,
         "Engineering Workspace",
         "Choose the engineering question you are answering now. Only one tool is rendered at a time; scientific model state and stored evidence stay unchanged when you switch views.",
         kicker="Focused analysis",
     )
-    render_stage_rail(st, [
+    ui_system.render_stage_rail(st, [
         ("Analysis", "physics/model interpretation"),
         ("V&V", "uncertainty and requirements"),
         ("Research", "project and evidence workflow"),

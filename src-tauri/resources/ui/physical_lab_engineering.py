@@ -180,138 +180,169 @@ def _load_engineering_scenario_module():
     return _load("physical_lab_engineering_scenarios", "physical_lab_engineering_scenarios.py")
 
 
+def _render_guarded(st, profile: str, source: str, label: str, renderer) -> None:
+    try:
+        renderer()
+    except Exception as exc:
+        _record_module_exception(source, exc, profile)
+        st.warning(f"Physical Lab {label} could not load: {exc}")
+
+
+def _render_application_mode(st, profile: str, namespace: dict | None) -> None:
+    application_modes, padded_range = _load_application_modules()
+    application_modes.padded_range = padded_range
+    application_modes.render_application_mode(st, profile, namespace)
+
+
 def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> None:
+    """Focused engineering workbench.
+
+    Keep the established scientific modules, but render one task at a time.
+    This replaces the previous append-everything layout where unrelated controls,
+    plots, V&V tables and project tools competed on one continuous page.
+    """
+    st.markdown("### Engineering workspace")
+    st.caption(
+        "Choose the engineering task you are doing now. Only the selected tool is rendered; "
+        "switching tools does not change the underlying scientific model or stored evidence."
+    )
+
+    section = st.radio(
+        "Engineering task",
+        ["Analysis", "V&V", "Research", "Diagnostics"],
+        horizontal=True,
+        key=f"pl_engineering_section_{profile}",
+    )
+    section_help = {
+        "Analysis": "Model-specific studies and physics-facing interpretation.",
+        "V&V": "Uncertainty, requirements, measurement comparison and scenario review.",
+        "Research": "Project/evidence organization and multi-step research orchestration.",
+        "Diagnostics": "Runtime, backend and platform diagnostics.",
+    }
+    st.caption(section_help[section])
+
+    analysis_tools = []
+
     if profile == "nonlinear-chaos":
-        for source, loader, method, label in (
-            ("kerr-geodesic-model", _load_kerr_ui_module, "render_kerr_geodesic_workspace", "Kerr Geodesic Dynamics"),
-            ("kerr-platform-workflow", _load_kerr_platform_ui_module, "render_kerr_platform_workspace", "Kerr Experiment/Compute workflow"),
-            ("solar-system-dynamics", _load_solar_system_ui_module, "render_solar_system_workspace", "Sun–Jupiter–Saturn Dynamics"),
-        ):
-            try:
-                getattr(loader(), method)(st, profile)
-            except Exception as exc:
-                _record_module_exception(source, exc, profile)
-                st.warning(f"Physical Lab {label} could not load: {exc}")
+        analysis_tools.extend([
+            ("Kerr geodesic dynamics", "Relativistic geodesic analysis without mixing it into the core chaos controls.", "kerr-geodesic-model",
+             lambda: _load_kerr_ui_module().render_kerr_geodesic_workspace(st, profile)),
+            ("Kerr experiment / compute workflow", "Experiment-kernel workflow for Kerr studies.", "kerr-platform-workflow",
+             lambda: _load_kerr_platform_ui_module().render_kerr_platform_workspace(st, profile)),
+            ("Sun–Jupiter–Saturn dynamics", "Dedicated computational-astrophysics workspace.", "solar-system-dynamics",
+             lambda: _load_solar_system_ui_module().render_solar_system_workspace(st, profile)),
+            ("Kerr shadow morphology", "Shadow morphology parameter sweep and derived structure.", "kerr-shadow-morphology",
+             lambda: _load_kerr_shadow_sweep_ui_module().render_kerr_shadow_morphology_workspace(st, profile)),
+        ])
 
     if profile == "oscillation-integration":
-        try:
-            _load_lattice_ui_module().render_lattice_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("multilayer-honeycomb-lattice", exc, profile)
-            st.warning(f"Physical Lab Multilayer Honeycomb Lattice Dynamics could not load: {exc}")
+        analysis_tools.append(
+            ("Multilayer honeycomb lattice", "Lattice/phonon dynamics kept separate from the oscillator controls.", "multilayer-honeycomb-lattice",
+             lambda: _load_lattice_ui_module().render_lattice_workspace(st, profile))
+        )
 
     if profile in {"ising-monte-carlo", "random-walk-monte-carlo", "nonlinear-chaos", "oscillation-integration"}:
-        try:
-            _load_remaining_science_ui_module().render_remaining_science_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("advanced-model-science", exc, profile)
-            st.warning(f"Physical Lab Advanced Model Science could not load: {exc}")
+        analysis_tools.append(
+            ("Advanced model science", "Additional model-specific physics analysis.", "advanced-model-science",
+             lambda: _load_remaining_science_ui_module().render_remaining_science_workspace(st, profile))
+        )
 
     if profile in {"ising-monte-carlo", "nonlinear-chaos", "oscillation-integration", "numerical-methods"}:
-        try:
-            _load_model_depth_ui_module().render_model_depth_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("model-depth", exc, profile)
-            st.warning(f"Physical Lab Model Depth workspace could not load: {exc}")
+        analysis_tools.append(
+            ("Model depth", "Deeper model diagnostics and derived quantities.", "model-depth",
+             lambda: _load_model_depth_ui_module().render_model_depth_workspace(st, profile))
+        )
 
     if profile in {"random-walk-monte-carlo", "oscillation-integration"}:
-        try:
-            _load_model_depth_v_ui_module().render_model_depth_v_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("model-depth-v", exc, profile)
-            st.warning(f"Physical Lab Model Depth V could not load: {exc}")
-        try:
-            _load_model_depth_vi_ui_module().render_model_depth_vi_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("model-depth-vi", exc, profile)
-            st.warning(f"Physical Lab Model Depth VI could not load: {exc}")
+        analysis_tools.extend([
+            ("Model depth V", "Focused advanced model extension V.", "model-depth-v",
+             lambda: _load_model_depth_v_ui_module().render_model_depth_v_workspace(st, profile)),
+            ("Model depth VI", "Focused advanced model extension VI.", "model-depth-vi",
+             lambda: _load_model_depth_vi_ui_module().render_model_depth_vi_workspace(st, profile)),
+        ])
 
     if profile in {"radia-magnet-studio", "radiation-platform"}:
-        try:
-            _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st, namespace)
-        except Exception as exc:
-            _record_module_exception("undulator-spectrum-studio", exc, profile)
-            st.warning(f"Physical Lab Undulator Spectrum & Beam Broadening Studio could not load: {exc}")
+        analysis_tools.append(
+            ("Undulator spectrum & beam broadening", "Finite-N harmonics, off-axis resonance and beam-spread broadening.", "undulator-spectrum-studio",
+             lambda: _load_undulator_spectrum_ui_module().render_undulator_spectrum_workspace(st, namespace))
+        )
 
     if profile == "radia-magnet-studio":
-        try:
-            _load_radiation_stokes_ui_module().render_radiation_stokes_workspace(st, profile, namespace)
-        except Exception as exc:
-            _record_module_exception("trajectory-radiation-stokes-map", exc, profile)
-            st.warning(f"Physical Lab Trajectory Radiation & Stokes Map could not load: {exc}")
-        try:
-            _load_radiation_quality_ui_module().render_radiation_quality_workspace(st, profile, namespace)
-        except Exception as exc:
-            _record_module_exception("manufacturing-radiation-quality", exc, profile)
-            st.warning(f"Physical Lab Radiation Quality Degradation could not load: {exc}")
-        try:
-            _load_radiation_seed_compare_ui_module().render_seed_radiation_comparison(st, profile, namespace)
-        except Exception as exc:
-            _record_module_exception("manufacturing-seed-radiation-map", exc, profile)
-            st.warning(f"Physical Lab Nominal-vs-Seed Radiation Map could not load: {exc}")
+        analysis_tools.extend([
+            ("Trajectory radiation & Stokes map", "Field/trajectory-linked radiation and polarization diagnostics.", "trajectory-radiation-stokes-map",
+             lambda: _load_radiation_stokes_ui_module().render_radiation_stokes_workspace(st, profile, namespace)),
+            ("Radiation quality degradation", "Manufacturing-to-radiation quality sensitivity.", "manufacturing-radiation-quality",
+             lambda: _load_radiation_quality_ui_module().render_radiation_quality_workspace(st, profile, namespace)),
+            ("Nominal vs seed radiation map", "Compare nominal and manufacturing-seed radiation behavior.", "manufacturing-seed-radiation-map",
+             lambda: _load_radiation_seed_compare_ui_module().render_seed_radiation_comparison(st, profile, namespace)),
+        ])
 
     if profile in {"nonlinear-chaos", "oscillation-integration", "numerical-methods"}:
-        try:
-            _load_deep_science_ui_module().render_deep_science_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("deep-science-studio", exc, profile)
-            st.warning(f"Physical Lab Deep Science Studio could not load: {exc}")
-
-    if profile == "nonlinear-chaos":
-        try:
-            _load_kerr_shadow_sweep_ui_module().render_kerr_shadow_morphology_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("kerr-shadow-morphology", exc, profile)
-            st.warning(f"Physical Lab Kerr Shadow Morphology Lab could not load: {exc}")
+        analysis_tools.append(
+            ("Deep science studio", "Profile-specific deeper numerical/physics studies.", "deep-science-studio",
+             lambda: _load_deep_science_ui_module().render_deep_science_workspace(st, profile))
+        )
 
     if profile in {"nonlinear-chaos", "oscillation-integration"}:
-        try:
-            _load_frequency_response_ui_module().render_frequency_response_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("frequency-response-studio", exc, profile)
-            st.warning(f"Physical Lab Frequency Response Studio could not load: {exc}")
-        try:
-            _load_new_model_refinement_ui_module().render_new_model_refinement_workspace(st, profile)
-        except Exception as exc:
-            _record_module_exception("new-model-refinement-studio", exc, profile)
-            st.warning(f"Physical Lab New Model Refinement Studio could not load: {exc}")
+        analysis_tools.extend([
+            ("Frequency response", "Frequency-domain response with numerical/analytic cross-checks.", "frequency-response-studio",
+             lambda: _load_frequency_response_ui_module().render_frequency_response_workspace(st, profile)),
+            ("Model refinement", "Alternative-model/refinement studies separated from the primary experiment.", "new-model-refinement-studio",
+             lambda: _load_new_model_refinement_ui_module().render_new_model_refinement_workspace(st, profile)),
+        ])
 
-    try:
-        _load_project_kernel_module().render_project_workspace(st, profile, namespace)
-    except Exception as exc:
-        _record_module_exception("project-kernel", exc, profile)
-        st.warning(f"Physical Lab Project Kernel could not load: {exc}")
+    if profile in {"numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo"}:
+        analysis_tools.append(
+            ("Physics application", "Connect the mathematical tool to one bounded physical scenario.", "application-mode",
+             lambda: _render_application_mode(st, profile, namespace))
+        )
 
-    try:
-        _load_measurement_registry_module().render_measurement_workspace(st, profile)
-    except Exception as exc:
-        _record_module_exception("measurement-calibration", exc, profile)
-        st.warning(f"Physical Lab Measurement/Calibration Evidence could not load: {exc}")
+    def render_selected(group_key: str, tools) -> None:
+        if not tools:
+            st.info("No additional tools are registered for this section and profile.")
+            return
+        labels = [item[0] for item in tools]
+        selected = st.selectbox(
+            "Tool",
+            labels,
+            key=f"pl_engineering_tool_{group_key}_{profile}",
+        )
+        tool = next(item for item in tools if item[0] == selected)
+        st.caption(tool[1])
+        st.markdown("---")
+        _render_guarded(st, profile, tool[2], tool[0], tool[3])
 
-    try:
-        _load_research_orchestrator_ui_module().render_research_orchestrator(st, profile)
-    except Exception as exc:
-        _record_module_exception("research-orchestrator", exc, profile)
-        st.warning(f"Physical Lab Research Orchestrator could not load: {exc}")
+    if section == "Analysis":
+        render_selected("analysis", analysis_tools)
+        return
 
-    try:
-        application_modes, padded_range = _load_application_modules()
-        application_modes.padded_range = padded_range
-        application_modes.render_application_mode(st, profile, namespace)
-    except Exception as exc:
-        _record_module_exception("application-mode", exc, profile)
-        st.warning(f"Physical Lab Application Mode could not load: {exc}")
+    if section == "V&V":
+        vv_tools = [
+            ("Engineering uncertainty & requirements", "Error budgets, tolerance stacks, requirement margins and simulation↔measurement comparison.", "engineering-vvuq",
+             lambda: _render_engineering_vvuq_legacy(st, profile, namespace)),
+            ("Measurement & calibration evidence", "Register measurement/calibration evidence without mixing it into model controls.", "measurement-calibration",
+             lambda: _load_measurement_registry_module().render_measurement_workspace(st, profile)),
+            ("Engineering scenario review", "Review the bounded engineering interpretation for this profile.", "engineering-scenario",
+             lambda: _load_engineering_scenario_module().render_engineering_scenario_review(st, profile)),
+        ]
+        render_selected("vvuq", vv_tools)
+        return
 
-    try:
-        _load_engineering_scenario_module().render_engineering_scenario_review(st, profile)
-    except Exception as exc:
-        _record_module_exception("engineering-scenario", exc, profile)
-        st.warning(f"Physical Lab Engineering Scenario Review could not load: {exc}")
+    if section == "Research":
+        research_tools = [
+            ("Project & evidence workspace", "Organize the current profile as a reproducible project/evidence workflow.", "project-kernel",
+             lambda: _load_project_kernel_module().render_project_workspace(st, profile, namespace)),
+            ("Research orchestrator", "Coordinate multi-step research tasks after the individual analysis is understood.", "research-orchestrator",
+             lambda: _load_research_orchestrator_ui_module().render_research_orchestrator(st, profile)),
+        ]
+        render_selected("research", research_tools)
+        return
 
-    try:
-        _load_diagnostics_module().render_diagnostics_workspace(st, profile, _load_compute_engine_module())
-    except Exception as exc:
-        _record_module_exception("diagnostics-workspace", exc, profile)
-        st.warning(f"Physical Lab Run & Diagnostics Log could not load: {exc}")
+    _render_guarded(
+        st,
+        profile,
+        "diagnostics-workspace",
+        "Run & Diagnostics Log",
+        lambda: _load_diagnostics_module().render_diagnostics_workspace(st, profile, _load_compute_engine_module()),
+    )
 
-    _render_engineering_vvuq_legacy(st, profile, namespace)

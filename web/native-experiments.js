@@ -53,6 +53,7 @@ function renderNativeExperimentShell(spec){
   uEl('nativeExperimentOverview').innerHTML=cards.map((x,i)=>'<article class="native-exp-cap"><span>0'+(i+1)+'</span><h3>'+uEsc(x[0])+'</h3><p>'+uEsc(x[1])+'</p></article>').join('');
   renderNativeMigrationViz(spec);
   renderNativeExperimentPreview(spec);
+  renderNativeExperimentControls(spec);
   uEl('nativeExperimentStatus').textContent=spec.stage==='native'
     ? 'Native experiment implementation active.'
     : 'Native application shell active. Legacy Streamlit/localhost presentation is not used by this entry; solver adapters are migrated behind this surface.';
@@ -75,6 +76,7 @@ function renderNativeMigrationViz(spec){
 function bindNativeExperimentShell(){
   document.querySelectorAll('[data-open-native-experiment]').forEach(b=>b.onclick=()=>openNativeExperiment(b.dataset.openNativeExperiment));
   if(uEl('backFromNativeExperiment'))uEl('backFromNativeExperiment').onclick=()=>showView('labs');
+  if(uEl('nativeExperimentRun'))uEl('nativeExperimentRun').onclick=runNativeExperiment;
   document.querySelectorAll('[data-native-exp-tab]').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('[data-native-exp-tab]').forEach(x=>x.classList.toggle('active',x===b));
     document.querySelectorAll('.native-exp-tab-panel').forEach(p=>p.hidden=p.dataset.nativeExpPanel!==b.dataset.nativeExpTab);
@@ -156,4 +158,181 @@ function renderNativeExperimentPreview(spec){
   uEl('nativeExperimentPreview').innerHTML=preview.scatter
     ? nativeScatterSvg(preview.series,{xLabel:preview.xLabel,yLabel:preview.yLabel})
     : utubeLineSvg(preview.series,{xLabel:preview.xLabel,yLabel:preview.yLabel,height:280});
+}
+
+
+const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
+  'numerical-methods':[
+    {name:'xMax',label:'Domain ±x',type:'number',value:2.5,min:.2,max:8,step:.1},
+    {name:'order',label:'Taylor order',type:'number',value:9,min:1,max:19,step:2},
+    {name:'points',label:'Samples',type:'number',value:401,min:81,max:2001,step:40}
+  ],
+  'ising-monte-carlo':[
+    {name:'size',label:'Lattice L×L',type:'number',value:24,min:6,max:64,step:2},
+    {name:'temperature',label:'Temperature T/J',type:'number',value:2.269,min:.05,max:8,step:.05},
+    {name:'sweeps',label:'MC sweeps',type:'number',value:160,min:20,max:1200,step:20},
+    {name:'seed',label:'Seed',type:'number',value:12345,min:0,max:2147483647,step:1}
+  ],
+  'random-walk-monte-carlo':[
+    {name:'steps',label:'Steps',type:'number',value:400,min:20,max:5000,step:20},
+    {name:'walkers',label:'Walkers',type:'number',value:1500,min:50,max:12000,step:50},
+    {name:'dimension',label:'Dimension',type:'select',value:'2',options:['1','2','3']},
+    {name:'seed',label:'Seed',type:'number',value:20260919,min:0,max:2147483647,step:1}
+  ],
+  'nonlinear-chaos':[
+    {name:'duration',label:'Duration',type:'number',value:80,min:5,max:400,step:5},
+    {name:'dt',label:'Time step',type:'number',value:.02,min:.001,max:.1,step:.001},
+    {name:'damping',label:'Damping',type:'number',value:.2,min:0,max:4,step:.02},
+    {name:'drive',label:'Drive amplitude',type:'number',value:1.2,min:0,max:5,step:.05},
+    {name:'driveOmega',label:'Drive ω',type:'number',value:.6666667,min:.05,max:5,step:.01},
+    {name:'theta0',label:'Initial θ',type:'number',value:.2,min:-3.14159,max:3.14159,step:.05}
+  ],
+  'oscillation-integration':[
+    {name:'duration',label:'Duration',type:'number',value:30,min:1,max:300,step:1},
+    {name:'dt',label:'Time step',type:'number',value:.01,min:.0005,max:.1,step:.001},
+    {name:'omega0',label:'Natural ω₀',type:'number',value:2,min:.05,max:20,step:.05},
+    {name:'zeta',label:'Damping ζ',type:'number',value:.08,min:0,max:2,step:.01},
+    {name:'force',label:'Force amplitude',type:'number',value:.6,min:0,max:20,step:.05},
+    {name:'driveOmega',label:'Drive ω',type:'number',value:1.6,min:0,max:20,step:.05}
+  ],
+  'radia-magnet-studio':[
+    {name:'periodMm',label:'Period λu (mm)',type:'number',value:50,min:1,max:1000,step:.5},
+    {name:'b0T',label:'Peak B₀ (T)',type:'number',value:.15,min:0,max:20,step:.01},
+    {name:'periods',label:'Periods',type:'number',value:20,min:1,max:500,step:1},
+    {name:'samples',label:'Field samples',type:'number',value:401,min:81,max:3001,step:40}
+  ],
+  'radiation-platform':[
+    {name:'periodMm',label:'Period λu (mm)',type:'number',value:50,min:1,max:1000,step:.5},
+    {name:'K',label:'Undulator K',type:'number',value:.7003,min:0,max:50,step:.01},
+    {name:'energyGeV',label:'Electron energy (GeV)',type:'number',value:3,min:.001,max:1000,step:.1},
+    {name:'harmonic',label:'Harmonic',type:'number',value:1,min:1,max:99,step:2},
+    {name:'periods',label:'Periods',type:'number',value:20,min:2,max:500,step:1}
+  ],
+  'kerr-geodesics':[
+    {name:'spin',label:'Spin a/M',type:'number',value:.7,min:0,max:.995,step:.01},
+    {name:'inclinationDeg',label:'Inclination (deg)',type:'number',value:25,min:0,max:89,step:1},
+    {name:'particleType',label:'Particle',type:'select',value:'massive',options:['massive','photon']},
+    {name:'periapsis',label:'Periapsis r/M',type:'number',value:6.5,min:2.1,max:80,step:.1},
+    {name:'apoapsis',label:'Apoapsis r/M',type:'number',value:10,min:2.2,max:150,step:.1},
+    {name:'lambdaMax',label:'Mino span',type:'number',value:16,min:1,max:80,step:1},
+    {name:'samples',label:'Samples',type:'number',value:1000,min:200,max:4000,step:100}
+  ],
+  'solar-system-dynamics':[
+    {name:'durationYears',label:'Duration (yr)',type:'number',value:30,min:.05,max:200,step:1},
+    {name:'samples',label:'Samples',type:'number',value:900,min:100,max:5000,step:100},
+    {name:'inclinationDeg',label:'Jupiter inclination',type:'number',value:10,min:0,max:60,step:1},
+    {name:'saturnBackreaction',label:'Saturn backreaction',type:'checkbox',value:true},
+    {name:'solar1pn',label:'Solar 1PN approximation',type:'checkbox',value:false},
+    {name:'maxStepYears',label:'Max step (yr)',type:'number',value:.04,min:.001,max:.5,step:.005}
+  ],
+  'honeycomb-lattice':[
+    {name:'nx',label:'Cells nx',type:'number',value:3,min:2,max:7,step:1},
+    {name:'ny',label:'Cells ny',type:'number',value:3,min:2,max:7,step:1},
+    {name:'layers',label:'Layers',type:'number',value:2,min:1,max:4,step:1},
+    {name:'stacking',label:'Stacking',type:'select',value:'ABA',options:['AA','ABA','ABC']},
+    {name:'strainX',label:'x strain',type:'number',value:0,min:-.2,max:.2,step:.01},
+    {name:'driveAmplitude',label:'Drive amplitude',type:'number',value:.08,min:0,max:1,step:.01},
+    {name:'driveFrequency',label:'Drive frequency',type:'number',value:1,min:.01,max:10,step:.05},
+    {name:'duration',label:'Duration',type:'number',value:8,min:1,max:40,step:1}
+  ],
+  'kerr-shadow':[
+    {name:'spin',label:'Spin a/M',type:'number',value:.9,min:0,max:.98,step:.01},
+    {name:'inclinationDeg',label:'Inclination (deg)',type:'number',value:60,min:.5,max:90,step:1},
+    {name:'curveSamples',label:'Curve samples',type:'number',value:320,min:120,max:1200,step:40}
+  ],
+  'undulator-spectrum':[
+    {name:'periodMm',label:'Period λu (mm)',type:'number',value:50,min:1,max:1000,step:.5},
+    {name:'gamma',label:'Lorentz γ',type:'number',value:6000,min:2,max:10000000,step:100},
+    {name:'K',label:'Undulator K',type:'number',value:.7,min:0,max:20,step:.01},
+    {name:'periods',label:'Periods',type:'number',value:20,min:2,max:500,step:1},
+    {name:'harmonic',label:'Angular-map harmonic',type:'number',value:1,min:1,max:15,step:2},
+    {name:'thetaMaxMrad',label:'θ max (mrad)',type:'number',value:1,min:.05,max:10,step:.05}
+  ],
+  'frequency-response':[
+    {name:'omegaN',label:'Natural ωₙ',type:'number',value:2,min:.1,max:20,step:.05},
+    {name:'zeta',label:'Damping ζ',type:'number',value:.05,min:0,max:1,step:.01},
+    {name:'force',label:'Force amplitude',type:'number',value:1,min:0,max:20,step:.1},
+    {name:'frequencyStart',label:'ω start',type:'number',value:.6,min:.05,max:20,step:.05},
+    {name:'frequencyStop',label:'ω stop',type:'number',value:3.2,min:.1,max:30,step:.05},
+    {name:'frequencyPoints',label:'Frequency points',type:'number',value:17,min:7,max:41,step:2}
+  ]
+});
+let nativeExperimentResult = null;
+
+function nativeParameterHtml(field){
+  const name=uEsc(field.name),label=uEsc(field.label);
+  if(field.type==='checkbox')return '<label class="native-check"><input data-native-param="'+name+'" type="checkbox" '+(field.value?'checked':'')+'><span>'+label+'</span></label>';
+  if(field.type==='select')return '<label>'+label+'<select data-native-param="'+name+'">'+field.options.map(v=>'<option '+(String(v)===String(field.value)?'selected':'')+'>'+uEsc(v)+'</option>').join('')+'</select></label>';
+  return '<label>'+label+'<input data-native-param="'+name+'" type="number" value="'+uEsc(field.value)+'" min="'+uEsc(field.min??'')+'" max="'+uEsc(field.max??'')+'" step="'+uEsc(field.step??'any')+'"></label>';
+}
+function renderNativeExperimentControls(spec){
+  const schema=NATIVE_PARAMETER_SCHEMAS[spec.id]||[];
+  uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
+  uEl('nativeExperimentRunMode').value='safe';
+  nativeExperimentResult=null;
+  uEl('nativeExperimentMetrics').innerHTML='<div class="empty-state compact-empty">Run the experiment to generate metrics.</div>';
+  uEl('nativeExperimentResultCharts').innerHTML='';
+  uEl('nativeExperimentResultTables').innerHTML='';
+  uEl('nativeExperimentResultBoundary').textContent='';
+}
+function collectNativeExperimentParameters(){
+  const values={};
+  document.querySelectorAll('#nativeExperimentControls [data-native-param]').forEach(node=>{
+    const key=node.dataset.nativeParam;
+    if(node.type==='checkbox')values[key]=node.checked;
+    else if(node.type==='number'){const v=Number(node.value);if(!Number.isFinite(v))throw new Error(key+' must be finite');values[key]=v}
+    else values[key]=node.value;
+  });
+  return values;
+}
+function nativeMetricText(value){
+  if(value===null||value===undefined)return '—';
+  if(typeof value==='number'){
+    if(!Number.isFinite(value))return '—';
+    const a=Math.abs(value);
+    return (a!==0&&(a>=1e5||a<1e-4))?value.toExponential(5):Number(value.toPrecision(7)).toString();
+  }
+  if(Array.isArray(value))return value.slice(0,5).map(nativeMetricText).join(', ')+(value.length>5?' …':'');
+  if(typeof value==='object')return JSON.stringify(value);
+  return String(value);
+}
+function renderNativeExperimentResult(payload){
+  nativeExperimentResult=payload;
+  const metrics=payload.metrics||{};
+  const entries=Object.entries(metrics).filter(([,v])=>typeof v!=='object'||v===null||Array.isArray(v));
+  uEl('nativeExperimentMetrics').innerHTML=entries.length?entries.slice(0,16).map(([k,v])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(nativeMetricText(v))+'</strong></div>').join(''):'<div class="empty-state compact-empty">No scalar metrics returned.</div>';
+  const series=Array.isArray(payload.series)?payload.series:[];
+  uEl('nativeExperimentResultCharts').innerHTML=series.map((s,idx)=>{
+    const points=(s.x||[]).map((x,i)=>({x:Number(x),y:Number((s.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+    const graph=s.chart==='scatter'?nativeScatterSvg([{label:s.label||s.id,points}],{xLabel:s.xLabel||'x',yLabel:s.yLabel||'y'}):utubeLineSvg([{label:s.label||s.id,points}],{xLabel:s.xLabel||'x',yLabel:s.yLabel||'y',height:280});
+    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(s.label||s.id||('Series '+(idx+1)))+'</span><small>'+uEsc(s.chart||'line')+'</small></div>'+graph+'</article>';
+  }).join('');
+  const tables=Array.isArray(payload.tables)?payload.tables:[];
+  uEl('nativeExperimentResultTables').innerHTML=tables.map(t=>{
+    const rows=Array.isArray(t.rows)?t.rows:[];if(!rows.length)return '';
+    const keys=Object.keys(rows[0]).slice(0,12);
+    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
+  }).join('');
+  uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'';
+  uEl('nativeExperimentBackend').textContent=payload.backend||'native adapter';
+}
+async function runNativeExperiment(){
+  if(!activeNativeExperimentId||activeNativeExperimentId==='utube-studio')return;
+  if(!invoke){toast('Native experiment execution is available in the desktop build.',true);return}
+  const button=uEl('nativeExperimentRun');
+  try{
+    button.disabled=true;button.textContent='Running…';
+    uEl('nativeExperimentRunStatus').textContent='Executing scientific adapter without a local web server…';
+    const parameters=collectNativeExperimentParameters();
+    const mode=uEl('nativeExperimentRunMode').value||'safe';
+    const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
+    renderNativeExperimentResult(payload);
+    uEl('nativeExperimentRunStatus').textContent='Completed · structured result returned directly to Engineering Lab.';
+    document.querySelector('[data-native-exp-tab="visualization"]')?.click();
+  }catch(e){
+    uEl('nativeExperimentRunStatus').textContent=String(e);
+    toast(String(e),true);
+  }finally{
+    button.disabled=false;button.textContent='Run experiment';
+  }
 }

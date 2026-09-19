@@ -1056,20 +1056,24 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             return result(experiment_id,"physical_lab_utube_hysteresis.rate_sweep_prediction",p,{"rows":len(rows)},[],"Rate-sweep predictions are reduced-order dynamic estimates.",[{"id":"rate-sweep","label":"Rate sweep prediction","rows":rows}])
         if tool=="digital-twin-calibration":
             from physical_lab_digital_twin import fit_linear_calibration, apply_linear_calibration
-            raw=[0.0,1.0,2.0,3.0]; ref=[0.1,1.05,2.05,3.1]; out=fit_linear_calibration(raw,ref); calibrated=apply_linear_calibration(raw,float(out["slope"]),float(out["offset"]))
+            raw=[0.0,1.0,2.0,3.0]; ref=[0.1,1.05,2.05,3.1]; fit=fit_linear_calibration(raw,ref); out=fit.to_dict(); calibrated=apply_linear_calibration(raw,float(fit.slope),float(fit.offset))
             return result(experiment_id,"physical_lab_digital_twin.fit_linear_calibration",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[xy_series("calibration","calibrated",raw,calibrated,x_label="raw",y_label="calibrated")],"Calibration diagnostics quantify only the supplied reference relationship.",[{"id":"calibration","label":"Calibration fit","rows":[out]}])
         if tool=="digital-twin-field":
             from physical_lab_digital_twin import compare_field_series, fit_model_affine, suggest_residual_measurement_points
             x=[0,1,2,3,4]; measured=[0.0,1.1,1.9,3.05,3.9]; model=[0.0,1.0,2.0,3.0,4.0]
-            comp=compare_field_series(x,measured,model); fit=fit_model_affine(measured,model); suggestions=suggest_residual_measurement_points(x,measured,model)
+            comp_obj=compare_field_series(x,measured,model); fit_obj=fit_model_affine(measured,model); suggestions=suggest_residual_measurement_points(x,measured,model)
+            comp=comp_obj.to_dict(); fit=fit_obj.to_dict()
             metrics={**{k:v for k,v in comp.items() if isinstance(v,(int,float,str,bool))},**{f"fit_{k}":v for k,v in fit.items() if isinstance(v,(int,float,str,bool))}}
             rows=suggestions if isinstance(suggestions,list) else [suggestions]
             return result(experiment_id,"physical_lab_digital_twin.compare_field_series",p,metrics,[xy_series("measured-field","measured",x,measured,x_label="position",y_label="field"),xy_series("model-field","model",x,model,x_label="position",y_label="field")],"Digital-twin field comparison is diagnostic and does not prove model validity.",[{"id":"residual-points","label":"Suggested residual measurement points","rows":rows}])
         if tool=="beam-phase-space":
             from physical_lab_digital_twin import analyze_beam_phase_space
             x=[-2e-3,-1e-3,0.0,1e-3,2e-3]; px=[-1e-4,-4e-5,0,5e-5,1.1e-4]; y=[-1e-3,-.5e-3,0,.5e-3,1e-3]; py=[-6e-5,-3e-5,0,3e-5,6e-5]
-            out=analyze_beam_phase_space(x,px,y,py,beta_gamma=f(p,"betaGamma",1.0,0.0,1e6))
-            return result(experiment_id,"physical_lab_digital_twin.analyze_beam_phase_space",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],"Phase-space statistics summarize supplied samples and do not establish beamline validity.",[{"id":"beam-phase-space","label":"Beam phase-space statistics","rows":[out]}])
+            out_obj=analyze_beam_phase_space(x,px,y,py,beta_gamma=f(p,"betaGamma",1.0,1e-12,1e6)); out=out_obj.to_dict()
+            metrics={k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))}
+            metrics.update({f"x_{k}":v for k,v in out.get("x_plane",{}).items() if isinstance(v,(int,float,str,bool))})
+            metrics.update({f"y_{k}":v for k,v in out.get("y_plane",{}).items() if isinstance(v,(int,float,str,bool))})
+            return result(experiment_id,"physical_lab_digital_twin.analyze_beam_phase_space",p,metrics,[],"Phase-space statistics summarize supplied samples and do not establish beamline validity.",[{"id":"beam-phase-space","label":"Beam phase-space statistics","rows":[out]}])
         if tool=="operating-state":
             from physical_lab_utube_advanced import operating_state
             out=operating_state(volume,rpm,rin_m=rin,a_m=radius,nq=nq,near_threshold_band_rpm=f(p,"nearThresholdBandRpm",3.0,.1,50.0))

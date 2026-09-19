@@ -205,7 +205,9 @@ for token in [
     "LEGACY_SYNC_SESSION_KEY",
 ]:
     assert token in project_patch, f"Project compatibility behavior lost: {token}"
-assert "if profile in WORKBENCH_PROJECT_PROFILES:" in project_patch
+assert "if profile in STANDALONE_PROJECT_PROFILES:" in project_patch
+assert "All Workspaces" in project_patch
+assert "utube-studio" in project_patch
 assert "render_project_workspace(st, profile, namespace)" in project_patch
 assert "Project & evidence workspace" in engineering
 

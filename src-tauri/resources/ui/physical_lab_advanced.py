@@ -67,6 +67,39 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
     except Exception:
         return
 
+    target_surface = str(st.query_params.get("pl_surface") or "").strip()
+    workbench_routes = {
+        "digital-twin": ("Validation", "Measurement Digital Twin"),
+        "radia-forward": ("Validation", "RADIA measurement adapter"),
+        "radia-tolerance": ("Validation", "Nonlinear RADIA tolerance"),
+        "radia-radiation-propagation": ("Validation", "RADIA → radiation propagation"),
+        "local-ai": ("Assistant", None),
+        "run-vault": ("Runs", None),
+        "engineering-vvuq": ("Engineering", None),
+        "kerr-geodesics": ("Engineering", None),
+        "kerr-platform": ("Engineering", None),
+        "kerr-shadow": ("Engineering", None),
+        "solar-system": ("Engineering", None),
+        "lattice-dynamics": ("Engineering", None),
+        "remaining-science": ("Engineering", None),
+        "model-depth": ("Engineering", None),
+        "deep-science": ("Engineering", None),
+        "frequency-response": ("Engineering", None),
+        "new-model-refinement": ("Engineering", None),
+        "undulator-spectrum": ("Engineering", None),
+        "radiation-stokes": ("Engineering", None),
+        "radiation-quality": ("Engineering", None),
+        "radiation-seed-compare": ("Engineering", None),
+        "measurement-registry": ("Engineering", None),
+        "research-orchestrator": ("Engineering", None),
+    }
+    route = workbench_routes.get(target_surface)
+    if route and st.session_state.get(f"pl_workbench_deeplink_seen_{profile}") != target_surface:
+        st.session_state[f"pl_research_workbench_{profile}"] = route[0]
+        if route[1]:
+            st.session_state[f"pl_validation_tool_{profile}"] = route[1]
+        st.session_state[f"pl_workbench_deeplink_seen_{profile}"] = target_surface
+
     def _render_profile_suite() -> None:
         if profile == "numerical-methods":
             _numerical_suite(st, namespace)

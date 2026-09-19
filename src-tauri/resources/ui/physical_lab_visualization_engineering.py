@@ -244,64 +244,95 @@ def _apply_preset(st: Any, profile: str, preset_name: str) -> None:
 
 
 def render_engineering_visual_controls(st: Any, profile: str) -> dict[str, Any]:
-    """Render grouped engineering overlays without a second visualization control wall."""
-    with st.expander("Engineering overlays & comparison", expanded=False):
+    """Render engineering display controls as optional review tools."""
+    with st.expander("Engineering overlays", expanded=False):
         st.caption(
-            "Authored uncertainty, session baselines and 3D presentation controls are display-only. "
-            "Baseline overlays are comparison aids, not experimental validation."
+            "Optional display-only review aids. Authored uncertainty and captured baselines remain separate from solver results and experimental validation."
         )
         p1, p2 = st.columns([3, 1])
-        preset = p1.selectbox("Engineering view preset", list(PRESETS), key=f"pl_viz2_preset_{profile}")
+        preset = p1.selectbox(
+            "Engineering view preset", list(PRESETS),
+            key=f"pl_viz2_preset_{profile}",
+        )
         if p2.button("Apply", key=f"pl_viz2_apply_{profile}", width="stretch"):
             _apply_preset(st, profile, preset)
             st.rerun()
 
-        tab_review, tab_3d, tab_baseline = st.tabs(["Review", "3D", "Baseline"])
+        review_tab, comparison_tab = st.tabs(["Review", "Comparison"])
 
-        with tab_review:
+        with review_tab:
             uncertainty_style = st.selectbox(
                 "Authored uncertainty",
                 ["As authored", "Band from authored error_y", "Hide authored uncertainty"],
                 key=f"pl_viz2_uncertainty_style_{profile}",
             )
-            st.caption("Bands are created only from authored `error_y` arrays. Physical Lab does not invent uncertainty when the source figure has none.")
+            st.caption("Uncertainty bands are created only from authored error arrays; Physical Lab does not invent uncertainty.")
+            with st.expander("3D presentation", expanded=False):
+                c1, c2 = st.columns(2)
+                camera = c1.selectbox(
+                    "Camera", ["Respect model", "Isometric", "Front", "Side", "Top"],
+                    key=f"pl_viz2_camera_{profile}",
+                )
+                aspect = c2.selectbox(
+                    "Aspect", ["Respect model", "Data", "Cube", "Auto"],
+                    key=f"pl_viz2_aspect_{profile}",
+                )
+                c3, c4 = st.columns(2)
+                surface_opacity = c3.slider(
+                    "Surface opacity", 0.15, 1.0, 1.0, 0.05,
+                    key=f"pl_viz2_surface_opacity_{profile}",
+                )
+                show_colorbar = c4.toggle(
+                    "3D color scale", value=True,
+                    key=f"pl_viz2_show_colorbar_{profile}",
+                )
+                c5, c6 = st.columns(2)
+                trajectory_line_width = c5.slider(
+                    "Trajectory line width", 1, 9, 3, 1,
+                    key=f"pl_viz2_trajectory_line_width_{profile}",
+                )
+                trajectory_marker_size = c6.slider(
+                    "Trajectory marker size", 1, 12, 4, 1,
+                    key=f"pl_viz2_trajectory_marker_size_{profile}",
+                )
 
-        with tab_3d:
-            c1, c2 = st.columns(2)
-            camera = c1.selectbox("3D camera", ["Respect model", "Isometric", "Front", "Side", "Top"], key=f"pl_viz2_camera_{profile}")
-            aspect = c2.selectbox("3D aspect", ["Respect model", "Data", "Cube", "Auto"], key=f"pl_viz2_aspect_{profile}")
-            c3, c4 = st.columns(2)
-            surface_opacity = c3.slider("Surface opacity", 0.15, 1.0, 1.0, 0.05, key=f"pl_viz2_surface_opacity_{profile}")
-            show_colorbar = c4.toggle("3D color scale", value=True, key=f"pl_viz2_show_colorbar_{profile}")
-            c5, c6 = st.columns(2)
-            trajectory_line_width = c5.slider("Trajectory line width", 1, 9, 3, 1, key=f"pl_viz2_trajectory_line_width_{profile}")
-            trajectory_marker_size = c6.slider("Trajectory marker size", 1, 12, 4, 1, key=f"pl_viz2_trajectory_marker_size_{profile}")
-
-        with tab_baseline:
+        with comparison_tab:
             last = st.session_state.get(f"__pl_viz2_last_{profile}") or []
             baseline = st.session_state.get(f"__pl_viz2_baseline_{profile}") or []
-            overlay = st.toggle("Show captured baseline overlay", value=False, key=f"pl_viz2_overlay_{profile}")
+            overlay = st.toggle(
+                "Show captured baseline overlay", value=False,
+                key=f"pl_viz2_overlay_{profile}",
+            )
             b1, b2 = st.columns(2)
             if b1.button(
-                f"Capture previous render ({len(last)} comparable charts)",
-                disabled=not bool(last), key=f"pl_viz2_capture_{profile}", width="stretch",
+                f"Capture previous render ({len(last)} charts)",
+                disabled=not bool(last),
+                key=f"pl_viz2_capture_{profile}",
+                width="stretch",
             ):
                 baseline = copy.deepcopy(last)
                 st.session_state[f"__pl_viz2_baseline_{profile}"] = baseline
                 st.success("Previous rendered state captured as the session baseline.")
-            if b2.button("Clear baseline", disabled=not bool(baseline), key=f"pl_viz2_clear_{profile}", width="stretch"):
+            if b2.button(
+                "Clear baseline",
+                disabled=not bool(baseline),
+                key=f"pl_viz2_clear_{profile}",
+                width="stretch",
+            ):
                 baseline = []
                 st.session_state.pop(f"__pl_viz2_baseline_{profile}", None)
                 st.success("Cross-run baseline cleared.")
             if overlay and not baseline:
                 st.info("Run the model once, change a parameter, then capture the previous render before enabling comparison.")
             elif baseline:
-                st.caption(f"Baseline status: {len(baseline)} comparison-compatible chart snapshots captured in this session.")
-            st.caption("Run Vault remains the authoritative persistent provenance record; this overlay is intentionally session-scoped.")
+                st.caption(f"Baseline: {len(baseline)} comparison-compatible chart snapshots in this session.")
+            st.caption("Run Vault remains the persistent provenance record; this overlay is intentionally session-scoped.")
 
         active = [f"uncertainty: {uncertainty_style}"]
-        if overlay: active.append("baseline overlay")
-        if camera != "Respect model" or aspect != "Respect model": active.append(f"3D: {camera} / {aspect}")
+        if overlay:
+            active.append("baseline overlay")
+        if camera != "Respect model" or aspect != "Respect model":
+            active.append(f"3D: {camera} / {aspect}")
         st.caption("Engineering view · " + " · ".join(active))
 
     return {

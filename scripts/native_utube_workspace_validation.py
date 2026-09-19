@@ -257,3 +257,23 @@ print(
     f"catalog={action_catalog['catalog_action_count']} "
     "missing=0"
 )
+
+assert 'id="actionWorkspaceView"' in html
+assert "openActionWorkspace" in native
+assert "openSelectedActionExact" in native
+assert "ACTION_NATIVE_VIEW_ROUTES" in native
+assert "ACTION_NATIVE_UTUBE_SURFACES" in native
+print("Unified native action workspace validation: PASS")
+
+assert "ACTION_NATIVE_UTUBE_TOOL_MAP" in native
+for action_label in (
+    "Run uncertainty propagation",
+    "Compute local uncertainty budget",
+    "Solve inverse geometry",
+    "Evaluate design space",
+    "Fit calibration",
+    "Compare field series",
+    "Analyze phase space",
+):
+    assert action_label in native, action_label
+print("Exact native legacy-action routing validation: PASS")

@@ -514,6 +514,100 @@ const CAPABILITY_NATIVE_EXPERIMENT_MAP = Object.freeze({
   'undulator-spectrum':'undulator-spectrum'
 });
 
+const ACTION_NATIVE_VIEW_ROUTES = Object.freeze({
+  'data-bridge':'data',
+  'measurement-registry':'data',
+  'betterboard-discovery':'data',
+  'betterboard-inbox':'data',
+  'labbridge':'data',
+  'research-notebook':'workspaces',
+  'run-comparison':'results',
+  'reproducibility-pack':'results',
+  'model-coupling':'pipelines',
+  'pipeline-dag':'pipelines',
+  'operations-planning':'campaigns',
+  'evidence-center':'workspaces'
+});
+
+const ACTION_NATIVE_UTUBE_SURFACES = Object.freeze(new Set([
+  'utube-studio','utube-physical','utube-uncertainty','utube-advanced','digital-twin'
+]));
+
+let activeActionRow=null;
+
+const ACTION_NATIVE_UTUBE_TOOL_MAP = Object.freeze({
+  'Run uncertainty propagation':'uncertainty',
+  'Compute local uncertainty budget':'uncertainty-budget',
+  'Solve inverse geometry':'inverse-geometry',
+  'Evaluate design space':'design-space',
+  'Fit calibration':'digital-twin-calibration',
+  'Compare field series':'digital-twin-field',
+  'Fit affine discrepancy':'digital-twin-field',
+  'Analyze phase space':'beam-phase-space',
+  'Rank remeasurement points':'digital-twin-field'
+});
+
+function actionRouteInfo(row){
+  if(!row)return {kind:'unknown',label:'Unknown',detail:'No action selected.'};
+  const nativeExperiment=CAPABILITY_NATIVE_EXPERIMENT_MAP[row.surface_id];
+  if(nativeExperiment)return {kind:'native-experiment',label:'Native experiment',detail:'Runs in the Tauri experiment workspace.',experimentId:nativeExperiment};
+  const utubeTool=ACTION_NATIVE_UTUBE_TOOL_MAP[row.label];
+  if(utubeTool)return {kind:'native-utube-tool',label:'Native U-Tube tool',detail:'Runs the migrated U-Tube tool directly in the Tauri workspace.',toolId:utubeTool};
+  if(ACTION_NATIVE_UTUBE_SURFACES.has(row.surface_id))return {kind:'native-utube',label:'Native U-Tube',detail:'Runs in the Tauri U-Tube workspace.'};
+  if(ACTION_NATIVE_VIEW_ROUTES[row.surface_id])return {kind:'native-view',label:'Native application view',detail:'Opens a first-class Tauri project/data/results/pipeline view.',view:ACTION_NATIVE_VIEW_ROUTES[row.surface_id]};
+  return {kind:'compatibility',label:'Compatibility-backed',detail:'The exact original action is preserved in its original Engineering Lab renderer and opened with an action deep-link.'};
+}
+
+function openActionWorkspace(row){
+  activeActionRow=row;
+  const route=actionRouteInfo(row);
+  uEl('actionWorkspaceTitle').textContent=row.label;
+  uEl('actionWorkspaceSubtitle').textContent=row.surface_label+' · '+row.control_type;
+  uEl('actionWorkspaceMeta').innerHTML=[
+    ['Capability',row.surface_label],
+    ['Control type',row.control_type],
+    ['Source module',row.module],
+    ['Baseline',row.baseline_action?'pre-redesign':'current-only'],
+    ['Current source',row.current_action?'present':'baseline only']
+  ].map(([k,v])=>'<div class="native-result-metric"><span>'+uEsc(k)+'</span><strong>'+uEsc(v)+'</strong></div>').join('');
+  uEl('actionWorkspaceRoute').innerHTML='<h3>'+uEsc(route.label)+'</h3><p>'+uEsc(route.detail)+'</p><p><b>Zero-loss rule:</b> this action remains directly discoverable even when its implementation has not yet been rewritten as a pure native control.</p>';
+  uEl('actionWorkspaceStatus').textContent='Ready to open '+row.label+'.';
+  showView('actionworkspace');
+}
+
+async function openSelectedActionExact(){
+  const row=activeActionRow;if(!row)return;
+  const route=actionRouteInfo(row);
+  const status=uEl('actionWorkspaceStatus');
+  status.textContent='Opening '+row.label+'…';
+  if(route.kind==='native-experiment'){
+    openNativeExperiment(route.experimentId);
+    toast('Opened native experiment for: '+row.label);
+    return;
+  }
+  if(route.kind==='native-utube-tool'){
+    openNativeUtube();
+    document.querySelector('[data-utube-tab="tools"]')?.click();
+    const button=document.querySelector('[data-utube-tool="'+route.toolId+'"]');
+    if(button){button.click();toast('Running native tool: '+row.label)}
+    else toast('Native tool route exists but the tool button is unavailable: '+row.label,true);
+    return;
+  }
+  if(route.kind==='native-utube'){
+    openNativeUtube();
+    document.querySelector('[data-utube-tab="tools"]')?.click();
+    toast('Opened native U-Tube tools for: '+row.label);
+    return;
+  }
+  if(route.kind==='native-view'){
+    showView(route.view);
+    toast('Opened native application view for: '+row.label);
+    return;
+  }
+  await openCapabilitySurface(row.surface_id,row.label);
+}
+
+
 async function openCapabilitySurface(surfaceId, actionLabel=''){
   const cap=ENGINEERING_CAPABILITIES.find(x=>x.id===surfaceId);
   if(!cap)return;
@@ -618,11 +712,17 @@ function renderActionCatalog(){
   document.querySelectorAll('[data-action-type]').forEach(b=>b.onclick=()=>{actionTypeFilter=b.dataset.actionType;renderActionCatalog()});
   document.querySelectorAll('[data-open-action]').forEach(b=>b.onclick=()=>{
     const row=rows.find(x=>x.action_id===b.dataset.openAction);
-    if(row)openCapabilitySurface(row.surface_id,row.label);
+    if(row)openActionWorkspace(row);
   });
   if(uEl('actionSearch')&&!uEl('actionSearch').dataset.bound){
     uEl('actionSearch').dataset.bound='1';
     uEl('actionSearch').addEventListener('input',renderActionCatalog);
+  }
+  if(uEl('backFromActionWorkspace')&&!uEl('backFromActionWorkspace').dataset.bound){
+    uEl('backFromActionWorkspace').dataset.bound='1';
+    uEl('backFromActionWorkspace').onclick=()=>showView('actions');
+    uEl('actionWorkspaceOpen').onclick=()=>openSelectedActionExact();
+    uEl('actionWorkspaceOpenCapability').onclick=()=>activeActionRow&&openCapabilitySurface(activeActionRow.surface_id,activeActionRow.label);
   }
 }
 

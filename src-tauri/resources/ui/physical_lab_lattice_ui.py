@@ -275,42 +275,73 @@ def _platform(st: Any, cfg: LatticeConfig) -> None:
 def render_lattice_workspace(st: Any, profile: str) -> None:
     if profile != "oscillation-integration":
         return
-    st.markdown("---")
-    st.markdown(f"## Physical Lab · {MODEL_TITLE}")
-    st.caption("Reduced-unit periodic multilayer honeycomb lattice dynamics. Correct equilibrium bond lengths, pairwise force symmetry, finite-cell normal modes, q-resolved harmonic Bloch dispersion/DOS, deterministic DOP853 and optional seeded Langevin dynamics. Not an ab-initio graphene potential.")
-    cfg = _config(st)
 
-    a, b, c = st.columns([2, 1, 1])
-    if a.button("Run interactive lattice model", type="primary", width="stretch", key="pl_lat_run"):
-        with st.spinner("Integrating lattice dynamics..."):
-            result = integrate_case(cfg)
-        st.session_state["pl_lattice_result"] = result
-        st.session_state["pl_lattice_result_summary"] = result_summary(result)
-        st.success("Lattice integration completed.")
-    if b.button("Normal-mode audit", width="stretch", key="pl_lat_modes"):
-        modes = normal_modes(build_lattice(cfg))
-        st.session_state["pl_lattice_modes"] = {
-            "zero_mode_count": modes["zero_mode_count"],
-            "negative_mode_count": modes["negative_eigenvalue_count"],
-            "first_positive_frequencies": modes["first_positive_frequencies"][:16],
-            "boundary": modes["boundary"],
-        }
-    if c.button("Bloch dispersion + DOS", width="stretch", key="pl_lat_phonons"):
-        with st.spinner("Solving harmonic Bloch eigenproblems..."):
-            pcfg = bulk_reference_config(cfg)
-            dispersion = phonon_dispersion(pcfg, points_per_segment=40)
-            dos = phonon_dos(pcfg, q_grid=18, bins=80)
-        st.session_state["pl_lattice_phonons"] = {"config": pcfg, "dispersion": dispersion, "dos": dos}
-        st.success("Bloch dispersion and DOS completed.")
+    from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
+
+    render_workbench_header(
+        st,
+        MODEL_TITLE,
+        "Reduced-unit periodic multilayer honeycomb lattice dynamics. Configuration, time-domain response, normal modes/phonons and advanced platform tools are separated into focused views.",
+        kicker="Materials & condensed matter",
+    )
+    render_stage_rail(st, [
+        ("Configure", "lattice + dynamics"),
+        ("Integrate", "time-domain motion"),
+        ("Analyze", "modes + phonons"),
+        ("Review", "model boundary"),
+    ])
+
+    setup_tab, result_tab, modes_tab, platform_tab = st.tabs([
+        "Setup & run", "Dynamics results", "Modes & phonons", "Advanced tools"
+    ])
+
+    with setup_tab:
+        cfg = _config(st)
+        if st.button("Run interactive lattice model", type="primary", width="stretch", key="pl_lat_run"):
+            with st.spinner("Integrating lattice dynamics..."):
+                result = integrate_case(cfg)
+            st.session_state["pl_lattice_result"] = result
+            st.session_state["pl_lattice_result_summary"] = result_summary(result)
+            st.success("Lattice integration completed. Open Dynamics results.")
 
     result = st.session_state.get("pl_lattice_result")
-    if isinstance(result, Mapping):
-        _render_result(st, result)
-    modes = st.session_state.get("pl_lattice_modes")
-    if isinstance(modes, Mapping):
-        st.json(modes)
-    phonons = st.session_state.get("pl_lattice_phonons")
-    if isinstance(phonons, Mapping):
-        _render_phonons(st, phonons)
+    with result_tab:
+        if isinstance(result, Mapping):
+            _render_result(st, result)
+        else:
+            st.info("Run the lattice model in Setup & run to populate this view.")
 
-    _platform(st, cfg)
+    with modes_tab:
+        cfg = _config(st)
+        a, b = st.columns(2)
+        if a.button("Run normal-mode audit", width="stretch", key="pl_lat_modes"):
+            modes = normal_modes(build_lattice(cfg))
+            st.session_state["pl_lattice_modes"] = {
+                "zero_mode_count": modes["zero_mode_count"],
+                "negative_mode_count": modes["negative_eigenvalue_count"],
+                "first_positive_frequencies": modes["first_positive_frequencies"][:16],
+                "boundary": modes["boundary"],
+            }
+        if b.button("Run Bloch dispersion + DOS", width="stretch", key="pl_lat_phonons"):
+            with st.spinner("Solving harmonic Bloch eigenproblems..."):
+                pcfg = bulk_reference_config(cfg)
+                dispersion = phonon_dispersion(pcfg, points_per_segment=40)
+                dos = phonon_dos(pcfg, q_grid=18, bins=80)
+            st.session_state["pl_lattice_phonons"] = {"config": pcfg, "dispersion": dispersion, "dos": dos}
+            st.success("Bloch dispersion and DOS completed.")
+
+        modes = st.session_state.get("pl_lattice_modes")
+        if isinstance(modes, Mapping):
+            st.json(modes)
+        phonons = st.session_state.get("pl_lattice_phonons")
+        if isinstance(phonons, Mapping):
+            _render_phonons(st, phonons)
+
+        render_boundary(
+            st,
+            "This is a reduced-unit model with harmonic/empirical interactions. It is not an ab-initio graphene potential.",
+        )
+
+    with platform_tab:
+        cfg = _config(st)
+        _platform(st, cfg)

@@ -1,11 +1,13 @@
-"""Mount the shared .physlab Project surface after every managed Lab UI.
+"""Preserve the shared .physlab Project/Evidence capability for every managed Lab.
 
-The individual upstream Labs remain unchanged. This wrapper extends Physical
-Lab's shared advanced renderer so all ten managed Lab profiles expose the same
-canonical Project Kernel; the Evidence Center patch then extends that Project
-Kernel. During the compatibility period it also performs one non-destructive
-legacy desktop-workspace sync per Streamlit session when session state is
-available.
+Seven profiles expose Project & Evidence explicitly through
+Research Workbench → Engineering → Research.  For those profiles this patch
+keeps only the non-destructive legacy-workspace synchronization behavior and
+does not append a duplicate Project UI below the workbench.
+
+The three bundled first-class Labs (Kerr, Solar System, Honeycomb Lattice) do
+not use the shared Research Workbench, so this patch continues to mount their
+Project/Evidence surface after the Lab UI.
 """
 from __future__ import annotations
 
@@ -23,6 +25,23 @@ SUPPORTED_PROFILES = {
     "radiation-platform",
     "radia-magnet-studio",
 }
+
+# These profiles already expose the canonical Project Kernel through
+# Engineering → Research.  Keep compatibility sync, but never render a second
+# Project/Evidence surface at the bottom of the page.
+WORKBENCH_PROJECT_PROFILES = {
+    "numerical-methods",
+    "ising-monte-carlo",
+    "random-walk-monte-carlo",
+    "nonlinear-chaos",
+    "oscillation-integration",
+    "radiation-platform",
+    "radia-magnet-studio",
+}
+
+# These bundled Labs do not use the shared Research Workbench and therefore
+# still need the compatibility mount to expose Project/Evidence.
+STANDALONE_PROJECT_PROFILES = SUPPORTED_PROFILES - WORKBENCH_PROJECT_PROFILES
 
 LEGACY_SYNC_SESSION_KEY = "_pl_legacy_workspace_bridge_v1"
 
@@ -60,6 +79,8 @@ def install() -> None:
                 except Exception as bridge_exc:
                     session_state[LEGACY_SYNC_SESSION_KEY] = {"errors": [{"error": str(bridge_exc)}]}
                     st.warning(f"Legacy .physlab compatibility sync could not complete: {bridge_exc}")
+            if profile in WORKBENCH_PROJECT_PROFILES:
+                return
             from physical_lab_project_kernel import render_project_workspace
             render_project_workspace(st, profile, namespace)
         except Exception as exc:

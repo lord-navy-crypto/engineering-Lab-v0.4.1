@@ -131,10 +131,22 @@ def main() -> int:
         surface_patch.install()
         wrapped_advanced = advanced.render_advanced_experiments
         assert wrapped_advanced is not base_advanced
-        wrapped_advanced({"fixture": "surface"})
+
+        # Workbench profiles already expose Project & Evidence through
+        # Engineering → Research.  The compatibility patch must not append a
+        # duplicate project UI.
+        wrapped_advanced({"fixture": "workbench"})
         assert surface_calls == [
-            ("advanced", {"fixture": "surface"}),
-            ("project", "numerical-methods", {"fixture": "surface"}),
+            ("advanced", {"fixture": "workbench"}),
+        ]
+
+        # Bundled first-class Labs do not use the shared Research Workbench, so
+        # the compatibility patch must still expose Project & Evidence there.
+        os.environ["PHYSICAL_LAB_UI_PROFILE"] = "kerr-geodesics"
+        wrapped_advanced({"fixture": "standalone"})
+        assert surface_calls[-2:] == [
+            ("advanced", {"fixture": "standalone"}),
+            ("project", "kerr-geodesics", {"fixture": "standalone"}),
         ]
 
         before_surface = advanced.render_advanced_experiments
@@ -168,7 +180,8 @@ def main() -> int:
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
     print("- create-new-project stale-path guard: PASS")
-    print("- Lab advanced renderer -> Project surface: PASS")
+    print("- Workbench Project UI is not duplicated: PASS")
+    print("- Bundled first-class Labs retain Project/Evidence surface: PASS")
     print("- unsupported-profile guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")

@@ -98,7 +98,7 @@ function utubeLineSvg(series,{xLabel='',yLabel='',height=250}={}){
 function nativeUtubeCard(){
   return '<article class="module-card native-lab-card" data-search="rotating u-tube engineering club fluid threshold hysteresis"><div class="card-top"><div class="module-icon">∪</div><span class="status-pill ready">Native</span></div><div class="category">Engineering Club · Fluid experiment</div><h4>Rotating U-Tube</h4><p class="desc">Native in-app experiment workspace: threshold model, capacity decomposition, effective potential and dynamic hysteresis. No localhost, no iframe.</p><div class="tags"><span class="tag">native visualization</span><span class="tag">threshold</span><span class="tag">hysteresis</span></div><div class="card-actions"><button class="primary" data-open-native-utube>Open experiment</button></div></article>';
 }
-function openNativeUtube(){showView('utube');renderNativeUtube()}
+function openNativeUtube(){showView('utube');document.querySelector('[data-utube-tab="setup"]')?.click()}
 function readUtubeInputs(){
   const volume=Number(uEl('utVolume').value),rpm=Number(uEl('utRpm').value),rin=Number(uEl('utRin').value)/1000,a=Number(uEl('utRadius').value)/1000,nq=Number(uEl('utNq').value);
   if(!(volume>0&&rpm>0&&rin>0&&a>0&&nq>=12))throw new Error('Use positive geometry/operating values and quadrature ≥ 12.');
@@ -134,12 +134,13 @@ function renderNativeUtubeHysteresis(staticThreshold){
 }
 function bindNativeUtube(){
   document.querySelectorAll('[data-open-native-utube]').forEach(b=>b.onclick=openNativeUtube);
-  ['utVolume','utRpm','utRin','utRadius','utNq','utRampRate','utTau','utHalfwidth'].forEach(id=>{
-    const n=uEl(id);if(n)n.oninput=()=>renderNativeUtube();
-  });
   document.querySelectorAll('[data-utube-tab]').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('[data-utube-tab]').forEach(x=>x.classList.toggle('active',x===b));
     document.querySelectorAll('.utube-panel').forEach(p=>p.hidden=p.dataset.utubePanel!==b.dataset.utubeTab);
   });
+  if(uEl('utRun'))uEl('utRun').onclick=()=>{
+    renderNativeUtube();
+    document.querySelector('[data-utube-tab="results"]')?.click();
+  };
   if(uEl('backFromUtube'))uEl('backFromUtube').onclick=()=>showView('labs');
 }

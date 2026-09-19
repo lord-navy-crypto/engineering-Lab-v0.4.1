@@ -246,6 +246,92 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'frequencyPoints',label:'Frequency points',type:'number',value:17,min:7,max:41,step:2}
   ]
 });
+
+const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
+  'kerr-geodesics':[
+    {name:'rtol',label:'Relative tolerance',type:'number',value:1e-9,min:1e-13,max:1e-5,step:1e-10},
+    {name:'atol',label:'Absolute tolerance',type:'number',value:1e-11,min:1e-15,max:1e-7,step:1e-12},
+    {name:'horizonPad',label:'Horizon guard pad',type:'number',value:1e-4,min:1e-8,max:.1,step:1e-4}
+  ],
+  'solar-system-dynamics':[
+    {name:'saturnInclinationFactor',label:'Saturn inclination factor',type:'number',value:.25,min:0,max:1,step:.05},
+    {name:'velocityCross',label:'Velocity-cross perturbation',type:'checkbox',value:false},
+    {name:'radialDrag',label:'Radial drag perturbation',type:'checkbox',value:false},
+    {name:'velocityCrossStrength',label:'Velocity-cross strength',type:'number',value:1e-4,min:0,max:1e-2,step:1e-5},
+    {name:'radialDragStrength',label:'Radial drag strength',type:'number',value:1e-8,min:0,max:1e-5,step:1e-8},
+    {name:'omegaZPerYear',label:'ωz / year',type:'number',value:.1,min:0,max:10,step:.05},
+    {name:'rtol',label:'Relative tolerance',type:'number',value:1e-10,min:1e-13,max:1e-5,step:1e-11},
+    {name:'atol',label:'Absolute tolerance',type:'number',value:1e-12,min:1e-15,max:1e-7,step:1e-13},
+    {name:'ftleD0',label:'FTLE initial separation',type:'number',value:1e-8,min:1e-12,max:1e-3,step:1e-8},
+    {name:'ftleSegmentYears',label:'FTLE segment (yr)',type:'number',value:2,min:.05,max:20,step:.25},
+    {name:'ftleMaxYears',label:'FTLE max years',type:'number',value:30,min:.1,max:200,step:1}
+  ],
+  'honeycomb-lattice':[
+    {name:'bondLength',label:'Bond length',type:'number',value:1,min:.05,max:20,step:.05},
+    {name:'layerSpacing',label:'Layer spacing',type:'number',value:.35,min:.01,max:10,step:.01},
+    {name:'mass',label:'Mass',type:'number',value:1,min:1e-6,max:1e6,step:.1},
+    {name:'kIn',label:'In-plane stiffness',type:'number',value:10,min:1e-6,max:1e6,step:.1},
+    {name:'alpha',label:'In-plane nonlinearity α',type:'number',value:2,min:0,max:10000,step:.1},
+    {name:'kInter',label:'Interlayer stiffness',type:'number',value:3,min:1e-6,max:1e6,step:.1},
+    {name:'betaInter',label:'Interlayer nonlinearity β',type:'number',value:1,min:0,max:10000,step:.1},
+    {name:'interlayerDamping',label:'Interlayer damping',type:'number',value:.01,min:0,max:10,step:.01},
+    {name:'defectMode',label:'Defect mode',type:'select',value:'none',options:['none','mass','weak-bond','line-weak-bond']},
+    {name:'defectMassMultiplier',label:'Defect mass multiplier',type:'number',value:2,min:0,max:100,step:.1},
+    {name:'defectBondScale',label:'Defect bond scale',type:'number',value:.4,min:0,max:10,step:.05},
+    {name:'driveMode',label:'Drive mode',type:'select',value:'sin',options:['none','sin','pulse','beat','chirp']},
+    {name:'uniformForceX',label:'Uniform force x',type:'number',value:0,min:-100,max:100,step:.01},
+    {name:'stochasticMode',label:'Langevin stochastic mode',type:'checkbox',value:false},
+    {name:'temperatureReduced',label:'Reduced temperature',type:'number',value:0,min:0,max:100,step:.01},
+    {name:'seed',label:'Seed',type:'number',value:12345,min:0,max:2147483647,step:1},
+    {name:'initialDisplacement',label:'Initial displacement',type:'number',value:.01,min:0,max:10,step:.01},
+    {name:'samples',label:'Samples',type:'number',value:420,min:64,max:20000,step:20},
+    {name:'rtol',label:'Relative tolerance',type:'number',value:1e-9,min:1e-13,max:1e-5,step:1e-10},
+    {name:'atol',label:'Absolute tolerance',type:'number',value:1e-11,min:1e-15,max:1e-7,step:1e-12},
+    {name:'maxStep',label:'Max step',type:'number',value:.03,min:.0001,max:1,step:.005},
+    {name:'langevinDt',label:'Langevin dt',type:'number',value:.005,min:.00001,max:.2,step:.001},
+    {name:'phononPointsPerSegment',label:'Phonon points/segment',type:'number',value:24,min:8,max:100,step:4},
+    {name:'phononQGrid',label:'Phonon DOS q-grid',type:'number',value:12,min:4,max:80,step:2},
+    {name:'phononBins',label:'Phonon DOS bins',type:'number',value:80,min:16,max:240,step:8}
+  ],
+  'undulator-spectrum':[
+    {name:'angularPoints',label:'Angular map points',type:'number',value:61,min:21,max:181,step:10},
+    {name:'relativeEnergySpreadRms',label:'Relative energy spread RMS',type:'number',value:.001,min:0,max:.2,step:.0001},
+    {name:'angularDivergenceRmsMrad',label:'Angular divergence RMS (mrad)',type:'number',value:.05,min:0,max:10,step:.01},
+    {name:'beamSamples',label:'Beam Monte Carlo samples',type:'number',value:12000,min:2000,max:200000,step:1000},
+    {name:'beamSeed',label:'Beam seed',type:'number',value:20260911,min:0,max:2147483647,step:1},
+    {name:'beamBins',label:'Beam histogram bins',type:'number',value:120,min:40,max:500,step:10}
+  ],
+  'frequency-response':[
+    {name:'settleCycles',label:'Settle cycles',type:'number',value:16,min:4,max:120,step:1},
+    {name:'observeCycles',label:'Observe cycles',type:'number',value:5,min:3,max:40,step:1},
+    {name:'pointsPerCycle',label:'Points per cycle',type:'number',value:48,min:32,max:240,step:8},
+    {name:'omega0',label:'Duffing ω0',type:'number',value:1,min:.1,max:20,step:.05},
+    {name:'cubicStiffness',label:'Duffing cubic stiffness β',type:'number',value:1,min:0,max:50,step:.1}
+  ]
+});
+
+const NATIVE_TOOL_SPECS = Object.freeze({
+  'kerr-geodesics':[
+    {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'}
+  ],
+  'solar-system-dynamics':[
+    {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight orbital integrations.'},
+    {id:'ftle',name:'Finite-time Lyapunov indicator',description:'Run the bounded Benettin-style phase-space divergence diagnostic.'}
+  ],
+  'honeycomb-lattice':[
+    {id:'normal-modes',name:'Finite-cell normal modes',description:'Diagonalize the harmonic finite-cell dynamical matrix.'},
+    {id:'phonon-dispersion',name:'Phonon dispersion',description:'Compute Bloch branches along the high-symmetry path.'},
+    {id:'phonon-dos',name:'Phonon density of states',description:'Sample the reciprocal cell and build a normalized DOS.'}
+  ],
+  'undulator-spectrum':[
+    {id:'angular-map',name:'Angular harmonic map',description:'Evaluate resonance-energy red shift across observation angle.'},
+    {id:'beam-broadening',name:'Beam broadening',description:'Propagate energy spread and angular divergence through the resonance relation.'}
+  ],
+  'frequency-response':[
+    {id:'duffing',name:'Duffing nonlinear sweep',description:'Forward/reverse continuation sweep with cubic stiffness and branch sensitivity.'}
+  ]
+});
+
 let nativeExperimentResult = null;
 
 function nativeParameterHtml(field){
@@ -257,6 +343,11 @@ function nativeParameterHtml(field){
 function renderNativeExperimentControls(spec){
   const schema=NATIVE_PARAMETER_SCHEMAS[spec.id]||[];
   uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
+  const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
+  uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
+  const tools=NATIVE_TOOL_SPECS[spec.id]||[];
+  uEl('nativeExperimentTools').innerHTML=tools.length?tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join(''):'<div class="empty-state compact-empty">This experiment keeps its analysis in the main Results workflow.</div>';
+  document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;
   uEl('nativeExperimentMetrics').innerHTML='';
@@ -267,7 +358,7 @@ function renderNativeExperimentControls(spec){
 }
 function collectNativeExperimentParameters(){
   const values={};
-  document.querySelectorAll('#nativeExperimentControls [data-native-param]').forEach(node=>{
+  document.querySelectorAll('#nativeExperimentControls [data-native-param], #nativeExperimentAdvancedControls [data-native-param]').forEach(node=>{
     const key=node.dataset.nativeParam;
     if(node.type==='checkbox')values[key]=node.checked;
     else if(node.type==='number'){const v=Number(node.value);if(!Number.isFinite(v))throw new Error(key+' must be finite');values[key]=v}
@@ -325,5 +416,24 @@ async function runNativeExperiment(){
     toast(String(e),true);
   }finally{
     button.disabled=false;button.textContent='Run Experiment';
+  }
+}
+
+
+async function runNativeExperimentTool(tool){
+  if(!activeNativeExperimentId||!invoke)return;
+  const status=uEl('nativeExperimentToolStatus');
+  try{
+    status.textContent='Running '+tool+'…';
+    const parameters=collectNativeExperimentParameters();
+    parameters.__tool=tool;
+    const mode=uEl('nativeExperimentRunMode').value||'safe';
+    const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
+    renderNativeExperimentResult(payload);
+    status.textContent='Completed '+tool+'. Results are available in Results and Verification.';
+    document.querySelector('[data-native-exp-tab="results"]')?.click();
+  }catch(e){
+    status.textContent=String(e);
+    toast(String(e),true);
   }
 }

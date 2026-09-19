@@ -48,7 +48,7 @@ function toast(message, error=false){
 function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active-view'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
-  const map={home:['homeView','Physical Lab','One local home for your computational physics tools.'],labs:['labsView','Physics Labs','Install, open and switch between computational models.'],modelbuilder:['modelBuilderView','Research Model Builder','Preserve the science. Standardize the interface. Automate the bridge.'],runtime:['runtimeView','Runtime Center','Scientific runtimes, builders and dependency health.'],dependencies:['dependenciesView','Dependency Center','Everything Physical Lab needs, and exactly how it is delivered.'],workspaces:['workspacesView','Projects','Reproducible experimental workspaces.'],data:['dataView','Data Bridge','Measurements, Arduino serial capture and dataset provenance.'],integrity:['integrityView','Integrity Center','Per-Lab compatibility and scientific smoke tests.'],pipelines:['pipelinesView','Physics Pipelines','Explicit cross-Lab handoffs and native adapter boundaries.'],campaigns:['campaignsView','Campaigns','Persistent parameter-scan planning and run queues.'],results:['resultsView','Results Center','Statistics, model validation and reproducibility exports.'],tasks:['tasksView','Task Center','Live work performed by Physical Lab.'],settings:['settingsView','Settings','Desktop-shell defaults and visualization policy.'],lab:['labView','Lab Session','Running locally inside Physical Lab.'],utube:['utubeView','Rotating U-Tube','Native Engineering Club experiment workspace.']};
+  const map={home:['homeView','Physical Lab','One local home for your computational physics tools.'],labs:['labsView','Physics Labs','Install, open and switch between computational models.'],modelbuilder:['modelBuilderView','Research Model Builder','Preserve the science. Standardize the interface. Automate the bridge.'],runtime:['runtimeView','Runtime Center','Scientific runtimes, builders and dependency health.'],dependencies:['dependenciesView','Dependency Center','Everything Physical Lab needs, and exactly how it is delivered.'],workspaces:['workspacesView','Projects','Reproducible experimental workspaces.'],data:['dataView','Data Bridge','Measurements, Arduino serial capture and dataset provenance.'],integrity:['integrityView','Integrity Center','Per-Lab compatibility and scientific smoke tests.'],pipelines:['pipelinesView','Physics Pipelines','Explicit cross-Lab handoffs and native adapter boundaries.'],campaigns:['campaignsView','Campaigns','Persistent parameter-scan planning and run queues.'],results:['resultsView','Results Center','Statistics, model validation and reproducibility exports.'],tasks:['tasksView','Task Center','Live work performed by Physical Lab.'],settings:['settingsView','Settings','Desktop-shell defaults and visualization policy.'],lab:['labView','Lab Session','Running locally inside Physical Lab.'],utube:['utubeView','Rotating U-Tube','Native Engineering Club experiment workspace.'],experiment:['nativeExperimentView','Experiment','Native Engineering Lab experiment workspace.']};
   const item=map[name]||map.home; el(item[0]).classList.add('active-view'); el('viewTitle').textContent=item[1]; el('viewSubtitle').textContent=item[2];
 }
 
@@ -208,13 +208,13 @@ function render(){
   if(el('logPath'))el('logPath').textContent=logDir||'not available'; if(el('dataPath'))el('dataPath').textContent=dataDir||'not available';
   const installed=labs.filter(m=>statusFor(m).ready).length;
   el('stats').innerHTML=[[String(modules.length),'Integrated modules'],[String(labs.length),'Physics labs'],[String(runtimes.length),'Runtime builders'],[String(installed),'Ready to open']].map(s=>`<div class="stat"><strong>${s[0]}</strong><span>${s[1]}</span></div>`).join('');
-  el('featuredGrid').innerHTML=nativeUtubeCard()+labs.slice(-2).map(labCard).join('');
+  el('featuredGrid').innerHTML=labs.slice(0,3).map(labCard).join('');
   const cats=['All',...new Set(labs.map(m=>m.category))];
   el('labFilters').innerHTML=cats.map(c=>`<button class="filter ${c===activeCategory?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
   const visible=activeCategory==='All'?labs:labs.filter(m=>m.category===activeCategory);
-  el('labGrid').innerHTML=(activeCategory==='All'?nativeUtubeCard():'')+visible.map(labCard).join('');
+  el('labGrid').innerHTML=visible.map(labCard).join('')+(activeCategory==='All'&&typeof nativeExtraExperimentCards==='function'?nativeExtraExperimentCards():'');
   el('runtimeGrid').innerHTML=runtimes.map(runtimeCard).join('');
-  renderRuntimeSummary(); renderDependencies(); renderResearch(); renderModelBuilder(); renderSettings(); applyUiSettings(); bindDynamic(); bindNativeUtube(); renderTasks(); applySearch();
+  renderRuntimeSummary(); renderDependencies(); renderResearch(); renderModelBuilder(); renderSettings(); applyUiSettings(); bindDynamic(); bindNativeUtube(); bindNativeExperimentShell(); renderTasks(); applySearch();
 }
 
 

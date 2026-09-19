@@ -522,7 +522,27 @@ async function openCapabilitySurface(surfaceId){
     openNativeExperiment(nativeId);
     return;
   }
-  if(!invoke){toast('Capability opening is available in the desktop build.',true);return}
+  const nativeViewRoutes={
+    'data-bridge':'data',
+    'measurement-registry':'data',
+    'research-notebook':'workspaces',
+    'run-comparison':'results',
+    'reproducibility-pack':'results',
+    'model-coupling':'pipelines',
+    'pipeline-dag':'pipelines',
+    'operations-planning':'campaigns',
+    'evidence-center':'workspaces'
+  };
+  if(nativeViewRoutes[surfaceId]){
+    showView(nativeViewRoutes[surfaceId]);
+    return;
+  }
+  if(['utube-physical','utube-uncertainty','utube-advanced','digital-twin'].includes(surfaceId)){
+    openNativeUtube();
+    document.querySelector('[data-utube-tab="tools"]')?.click();
+    return;
+  }
+    if(!invoke){toast('Capability opening is available in the desktop build.',true);return}
   const moduleId=capabilityDefaultProfile(cap);
   const m=modules.find(x=>x.id===moduleId);
   if(!m){toast('Required Lab profile is not installed in this build: '+moduleId,true);return}
@@ -542,7 +562,8 @@ async function openCapabilitySurface(surfaceId){
 }
 
 function capabilityCard(cap){
-  const access=CAPABILITY_NATIVE_EXPERIMENT_MAP[cap.id]?'Native':'Original capability';
+  const nativeViewIds=new Set(['data-bridge','measurement-registry','research-notebook','run-comparison','reproducibility-pack','model-coupling','pipeline-dag','operations-planning','evidence-center','utube-physical','utube-uncertainty','utube-advanced','digital-twin']);
+  const access=(CAPABILITY_NATIVE_EXPERIMENT_MAP[cap.id]||nativeViewIds.has(cap.id))?'Native':'Original capability';
   const route=cap.routeHint?'<div class="capability-route">'+uEsc(cap.routeHint)+'</div>':'';
   return '<article class="module-card capability-card" data-capability-id="'+uEsc(cap.id)+'" data-search="'+uEsc((cap.label+' '+cap.category+' '+cap.description+' '+cap.id).toLowerCase())+'">'+
     '<div class="card-top"><div class="module-icon">◈</div><span class="status-pill ready">'+uEsc(access)+'</span></div>'+

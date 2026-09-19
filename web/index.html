@@ -105,6 +105,35 @@
         <div id="actionGrid" class="card-grid capability-grid"></div>
       </section>
 
+      <section id="actionWorkspaceView" class="view">
+        <div class="native-experiment-head simplified-head">
+          <button id="backFromActionWorkspace" class="secondary small">← All Tools & Actions</button>
+          <div>
+            <div id="actionWorkspaceEyebrow" class="eyebrow">ACTION WORKSPACE</div>
+            <h2 id="actionWorkspaceTitle">Tool / Action</h2>
+            <p id="actionWorkspaceSubtitle">Direct Engineering Lab action entry.</p>
+          </div>
+        </div>
+        <div class="two-col">
+          <article class="experiment-panel">
+            <div class="panel-heading"><div><h3>Action identity</h3><p>Exact pre-redesign control identity and source.</p></div></div>
+            <div id="actionWorkspaceMeta" class="native-result-metrics"></div>
+          </article>
+          <article class="experiment-panel">
+            <div class="panel-heading"><div><h3>Migration & access</h3><p>The app states whether this action is native/direct or still compatibility-backed.</p></div></div>
+            <div id="actionWorkspaceRoute" class="verification-panel"></div>
+          </article>
+        </div>
+        <article class="experiment-panel">
+          <div class="panel-heading"><div><h3>Open this exact tool</h3><p>Use the best available direct route without hiding the original function.</p></div></div>
+          <div class="card-actions">
+            <button id="actionWorkspaceOpen" class="primary">Open exact tool</button>
+            <button id="actionWorkspaceOpenCapability" class="secondary">Open capability</button>
+          </div>
+          <div id="actionWorkspaceStatus" class="native-status">Ready.</div>
+        </article>
+      </section>
+
 
       <section id="modelBuilderView" class="view">
         <div class="research-hero"><div><div class="eyebrow">PRESERVE THE SCIENCE • AUTOMATE THE BRIDGE</div><h2>Research Model Builder</h2><p>Turn a trusted local Python research model into a reviewable ModelSpec, deterministic interface and Project-ready model bundle without silently rewriting the scientific source.</p></div><div class="research-badge" id="modelBuilderProjectBadge">No project selected</div></div>

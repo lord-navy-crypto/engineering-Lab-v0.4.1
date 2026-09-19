@@ -700,7 +700,135 @@ def _lattice_config_from_params(p: dict[str, Any]):
     )
 
 
+
+def _context_result(p: dict[str, Any]) -> dict[str, Any]:
+    value = p.get("contextResult")
+    if not isinstance(value, dict):
+        raise ValueError("Run the experiment first so this analysis tool has a current structured result.")
+    return value
+
+
+def _first_numeric_series(context: dict[str, Any]) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    for series in context.get("series") or []:
+        if not isinstance(series, dict):
+            continue
+        x = np.asarray(series.get("x") or [], dtype=float).reshape(-1)
+        y = np.asarray(series.get("y") or [], dtype=float).reshape(-1)
+        n = min(len(x), len(y))
+        if n >= 3:
+            x, y = x[:n], y[:n]
+            mask = np.isfinite(x) & np.isfinite(y)
+            if int(np.count_nonzero(mask)) >= 3:
+                return x[mask], y[mask], series
+    raise ValueError("The current result has no numeric x/y series with at least three finite points.")
+
+
+def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -> dict[str, Any]:
+    context = _context_result(p)
+
+    if tool == "result-inspector":
+        from physical_lab_result_inspector import inspect_result, numerical_sanity_report
+        inspection = inspect_result(context)
+        sanity = numerical_sanity_report(context)
+        inventory = inspection.get("inventory") or []
+        checks = sanity.get("checks") or []
+        metrics = {
+            "fieldCount": len(inventory),
+            "numericFieldCount": sum(1 for row in inventory if row.get("classification") in {"scalar", "vector", "matrix"}),
+            "sanityCheckCount": len(checks),
+            "warningCount": sum(1 for row in checks if str(row.get("severity")).lower() in {"warning", "error"}),
+        }
+        tables = [
+            {"id": "schema-inventory", "label": "Result schema inventory", "rows": inventory[:250]},
+            {"id": "sanity-checks", "label": "Numerical sanity checks", "rows": checks[:250]},
+        ]
+        return result(experiment_id, "physical_lab_result_inspector", p, metrics, [],
+                      "Structural inspection and numerical sanity checks summarize the current result contract; they do not independently validate the underlying physical model.", tables)
+
+    if tool == "bootstrap":
+        from physical_lab_applied_analysis import bootstrap_statistic
+        x, y, series = _first_numeric_series(context)
+        out = bootstrap_statistic(
+            y,
+            statistic=str(p.get("bootstrapStatistic", "mean")),
+            resamples=i(p, "bootstrapResamples", 1500, 100, 20000),
+            confidence=f(p, "bootstrapConfidence", 0.95, 0.5, 0.999),
+            seed=i(p, "analysisSeed", 0, 0, 2147483647),
+        )
+        metrics = {
+            "estimate": out.get("estimate"),
+            "confidenceLow": out.get("confidence_interval", [None, None])[0],
+            "confidenceHigh": out.get("confidence_interval", [None, None])[1],
+            "standardError": out.get("standard_error"),
+            "sampleCount": len(y),
+        }
+        return result(experiment_id, "physical_lab_applied_analysis.bootstrap_statistic", p, metrics, [],
+                      "Bootstrap uncertainty here is conditional on the selected finite result series and resampling protocol; it does not include omitted model-form or measurement uncertainty.")
+
+    if tool in {"regression", "robust-regression"}:
+        import pandas as pd
+        x, y, series = _first_numeric_series(context)
+        frame = pd.DataFrame({"x": x, "y": y})
+        if tool == "regression":
+            from physical_lab_applied_analysis import regression_diagnostics
+            out = regression_diagnostics(frame, ["x"], "y", include_intercept=True)
+            coeff = out.get("coefficients") or {}
+            metrics = {
+                "rSquared": out.get("r_squared"),
+                "adjustedRSquared": out.get("adjusted_r_squared"),
+                "rmse": out.get("rmse"),
+                "intercept": coeff.get("intercept"),
+                "slope": coeff.get("x"),
+            }
+            series_out = [xy_series("fit-data", str(series.get("label") or "data"), x, y, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y"), chart="scatter")]
+            fitted = out.get("fitted")
+            if fitted is not None:
+                series_out.append(xy_series("linear-fit", "linear fit", x, fitted, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y")))
+            return result(experiment_id, "physical_lab_applied_analysis.regression_diagnostics", p, metrics, series_out,
+                          "Ordinary least-squares diagnostics summarize the selected current result series; residual structure and model assumptions still require interpretation.")
+        from physical_lab_applied_analysis_advanced import robust_regression_huber
+        out = robust_regression_huber(frame, ["x"], "y", delta=f(p, "huberDelta", 1.345, 0.1, 20.0))
+        coeff = out.get("coefficients") or {}
+        metrics = {
+            "intercept": coeff.get("intercept"),
+            "slope": coeff.get("x"),
+            "scale": out.get("scale"),
+            "iterations": out.get("iterations"),
+            "converged": out.get("converged"),
+        }
+        return result(experiment_id, "physical_lab_applied_analysis_advanced.robust_regression_huber", p, metrics,
+                      [xy_series("robust-data", str(series.get("label") or "data"), x, y, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y"), chart="scatter")],
+                      "Huber regression is a robust descriptive fit for the selected result series; it does not establish the correct physical functional form.")
+
+    if tool == "convergence-diagnostics":
+        from physical_lab_research_orchestrator import convergence_diagnostics
+        x, y, series = _first_numeric_series(context)
+        if len(y) < 4:
+            raise ValueError("Convergence diagnostics need at least four finite points.")
+        reference = float(y[-1])
+        error = np.abs(y - reference)
+        resolution = np.arange(1, len(y) + 1, dtype=float)
+        usable = error > max(1e-15, np.finfo(float).eps)
+        if int(np.count_nonzero(usable)) < 3:
+            usable = np.ones_like(error, dtype=bool)
+            error = np.maximum(error, 1e-15)
+        out = convergence_diagnostics(resolution[usable], error[usable])
+        metrics = {
+            "estimatedOrder": out.get("estimated_order"),
+            "rSquared": out.get("r_squared"),
+            "lastError": float(error[-2]) if len(error) >= 2 else None,
+            "referenceValue": reference,
+        }
+        return result(experiment_id, "physical_lab_research_orchestrator.convergence_diagnostics", p, metrics,
+                      [xy_series("convergence-error", "distance from final sample", resolution, error, x_label="sample index", y_label="absolute difference")],
+                      "This convenience diagnostic treats the final series value as a reference and sample index as a resolution proxy. Use an explicit refinement study when the x-axis is not a true numerical resolution parameter.")
+
+    raise ValueError(f"Unsupported global analysis tool: {tool}")
+
+
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
+    if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics"}:
+        return run_global_analysis_tool(experiment_id, tool, p)
     if experiment_id == "kerr-geodesics" and tool == "refinement":
         from physical_lab_kerr_geodesics import run_refinement_pair
         out = run_refinement_pair(_kerr_config_from_params(p))

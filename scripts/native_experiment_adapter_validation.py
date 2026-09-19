@@ -116,3 +116,24 @@ for tool, extra in WORKFLOW_TOOL_CASES:
     assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip()
     print(f"PASS WORKFLOW TOOL {tool}: {payload['backend']}")
 print(f"Native workflow analysis smoke suite: PASS {len(WORKFLOW_TOOL_CASES)}/{len(WORKFLOW_TOOL_CASES)}")
+
+
+FINAL_RESTORATION_UTUBE_TOOLS = [
+    "dimensionless-groups","inverse-geometry","design-space","robust-design","adaptive-plan",
+    "verification-requirements","research-questions","uncertainty-budget",
+    "hysteresis-analysis","rate-sweep","digital-twin-calibration","digital-twin-field","beam-phase-space"
+]
+for tool in FINAL_RESTORATION_UTUBE_TOOLS:
+    payload = runner.run_experiment_tool("utube-studio", tool, {
+        "volumeMl":3.0,"rpm":260.0,"rinMm":15.12,"radiusMm":7.48,"nq":24,
+        "rhoKgM3":997.8,"gammaMnM":72.0,"thetaDeg":0.0,
+        "uVolumeMl":0.05,"uRpm":1.0,"uRinMm":0.2,"uRadiusMm":0.1,
+        "targetThresholdRpm":250.0,"responseTau":0.2,"quasiStaticHalfwidth":1.0,
+        "betaGamma":1.0
+    }, "safe")
+    assert payload["schema"] == runner.SCHEMA, tool
+    assert payload["experimentId"] == "utube-studio", tool
+    assert isinstance(payload.get("metrics"), dict), tool
+    assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip(), tool
+    print(f"PASS FINAL RESTORATION TOOL {tool}: {payload['backend']}")
+print(f"Final restoration U-Tube smoke suite: PASS {len(FINAL_RESTORATION_UTUBE_TOOLS)}/{len(FINAL_RESTORATION_UTUBE_TOOLS)}")

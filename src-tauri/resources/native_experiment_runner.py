@@ -731,6 +731,16 @@ def _result_frame_and_numeric_columns(context: dict[str, Any]):
     return frame, columns
 
 
+def _varying_numeric_columns(frame, columns):
+    import pandas as pd
+    out = []
+    for col in columns:
+        values = pd.to_numeric(frame[col], errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+        if len(values) >= 3 and int(values.nunique()) >= 2:
+            out.append(col)
+    return out
+
+
 def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -> dict[str, Any]:
     context = _context_result(p)
 
@@ -803,6 +813,84 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
                       [xy_series("standardized-sensitivity","standardized sensitivity",range(len(rows)),out["standardized_slope"],x_label="parameter rank",y_label="standardized slope")],
                       "Standardized slopes and Spearman coefficients summarize association in the current finite result table; they do not imply causation.",
                       [{"id":"standardized-sensitivity","label":"Standardized sensitivity","rows":rows}])
+
+    if tool in {"polynomial-regression","monte-carlo-propagation","doe-design","parameter-estimation","polynomial-cv","pca-svd","conditioning-diagnostics","tikhonov","tsvd","correlation-matrix","pareto-frontier","robust-sensitivity","run-comparison","morris-design"}:
+        import pandas as pd
+        frame, columns = _result_frame_and_numeric_columns(context)
+        varying = _varying_numeric_columns(frame, [c for c in columns if c != "index"])
+        if tool == "monte-carlo-propagation":
+            from physical_lab_applied_analysis import monte_carlo_propagation
+            means=[0.0,1.0,2.0]; stds=[0.1,0.2,0.15]; coeff=[1.0,-0.5,0.25]
+            out=monte_carlo_propagation(means=means,standard_uncertainties=stds,coefficients=coeff,samples=i(p,"monteCarloSamples",2000,100,20000),seed=i(p,"analysisSeed",0,0,2147483647))
+            return result(experiment_id,"physical_lab_applied_analysis.monte_carlo_propagation",p,{"mean":out["mean"],"standardDeviation":out["standard_deviation"],"median":out["median"],"samples":out["samples"]},[xy_series("mc-distribution","Monte Carlo distribution",range(len(out["distribution"])),out["distribution"],x_label="sample",y_label="output")],out["boundary"])
+        if tool == "doe-design":
+            from physical_lab_applied_analysis import design_experiment
+            factors=[{"name":"factor_a","low":-1.0,"high":1.0},{"name":"factor_b","low":0.0,"high":2.0}]
+            out=design_experiment(factors,method=str(p.get("doeMethod","latin-hypercube")),samples=i(p,"doeSamples",24,2,256),seed=i(p,"analysisSeed",0,0,2147483647))
+            design=out["design"]
+            return result(experiment_id,"physical_lab_applied_analysis.design_experiment",p,{"rowCount":out["row_count"],"method":out["method"],"factorCount":len(out["factors"])},[],out["boundary"],[{"id":"doe-design","label":"DOE design","rows":design.to_dict(orient="records")}])
+        if tool == "morris-design":
+            from physical_lab_applied_analysis_advanced import morris_design
+            factors=[{"name":"factor_a","low":-1.0,"high":1.0},{"name":"factor_b","low":0.0,"high":2.0}]
+            out=morris_design(factors,trajectories=i(p,"morrisTrajectories",6,2,100),levels=i(p,"morrisLevels",6,4,20),seed=i(p,"analysisSeed",0,0,2147483647))
+            return result(experiment_id,"physical_lab_applied_analysis_advanced.morris_design",p,{"rows":len(out["rows"]),"trajectories":out["trajectories"],"levels":out["levels"]},[],out["boundary"],[{"id":"morris-design","label":"Morris screening design","rows":out["rows"]}])
+        if len(varying) < 2:
+            raise ValueError(f"{tool} needs at least two varying numeric result fields.")
+        xcol, ycol = varying[0], varying[-1]
+        if tool == "polynomial-regression":
+            from physical_lab_applied_analysis import polynomial_regression
+            out=polynomial_regression(frame,xcol,ycol,degree=i(p,"polynomialDegree",2,1,6))
+            diag=out["diagnostics"]
+            return result(experiment_id,"physical_lab_applied_analysis.polynomial_regression",p,{"degree":out["degree"],"rSquared":out["r2"],"rmse":out["rmse"],"rank":out["rank"]},[xy_series("poly-observed","observed",diag[xcol],diag["observed"],x_label=xcol,y_label=ycol,chart="scatter"),xy_series("poly-fit","polynomial fit",diag[xcol],diag["predicted"],x_label=xcol,y_label=ycol)],out["boundary"],[{"id":"coefficients","label":"Polynomial coefficients","rows":out["coefficients"]}])
+        if tool == "parameter-estimation":
+            from physical_lab_applied_analysis import estimate_parameters
+            out=estimate_parameters(frame,xcol,ycol,model=str(p.get("parameterModel","linear")))
+            diag=out["diagnostics"]
+            return result(experiment_id,"physical_lab_applied_analysis.estimate_parameters",p,{"model":out["model"],"rmse":out["rmse"],"mae":out["mae"],"n":out["n"]},[xy_series("parameter-observed","observed",diag[xcol],diag["observed"],x_label=xcol,y_label=ycol,chart="scatter"),xy_series("parameter-fit","estimated model",diag[xcol],diag["predicted"],x_label=xcol,y_label=ycol)],out["boundary"],[{"id":"parameters","label":"Estimated parameters","rows":out["parameters"]}])
+        if tool == "polynomial-cv":
+            from physical_lab_applied_analysis_advanced import cross_validate_polynomials
+            out=cross_validate_polynomials(frame,xcol,ycol,degrees=(1,2,3),folds=min(5,max(2,len(frame)//4)),seed=i(p,"analysisSeed",0,0,2147483647))
+            return result(experiment_id,"physical_lab_applied_analysis_advanced.cross_validate_polynomials",p,{"modelsCompared":len(out),"bestDegree":int(out.iloc[0]["degree"]) if len(out) else None,"bestCvRmse":float(out.iloc[0]["cv_rmse_mean"]) if len(out) else None},[], "Cross-validation compares predictive error among the specified polynomial families; it does not establish physical model truth.",[{"id":"polynomial-cv","label":"Polynomial cross-validation","rows":out.to_dict(orient="records")}])
+        if tool == "pca-svd":
+            from physical_lab_applied_math_deep import pca_svd
+            chosen=varying[:min(4,len(varying))]
+            out=pca_svd(frame,chosen,standardize=True,max_components=min(3,len(chosen)))
+            return result(experiment_id,"physical_lab_applied_math_deep.pca_svd",p,{"rows":out["rows"],"effectiveRank":out["effective_rank"],"componentCount":len(out["explained_variance_ratio"])},[xy_series("pca-variance","explained variance",range(1,len(out["explained_variance_ratio"])+1),out["explained_variance_ratio"],x_label="component",y_label="explained variance ratio")],out["boundary"],[{"id":"pca-loadings","label":"PCA loadings","rows":out["loadings"].to_dict(orient="records")}])
+        if tool == "conditioning-diagnostics":
+            from physical_lab_applied_math_deep import conditioning_diagnostics
+            chosen=varying[:min(4,len(varying))]
+            out=conditioning_diagnostics(frame,chosen,center=True,standardize=True)
+            return result(experiment_id,"physical_lab_applied_math_deep.conditioning_diagnostics",p,{"rank":out["rank"],"columnCount":out["column_count"],"fullColumnRank":out["full_column_rank"],"conditionNumber":out["condition_number"]},[xy_series("singular-values","singular values",range(1,len(out["singular_values"])+1),out["singular_values"],x_label="index",y_label="singular value")],out["boundary"])
+        predictors=varying[:-1][:min(3,len(varying)-1)]
+        response=varying[-1]
+        if tool == "tikhonov":
+            from physical_lab_applied_math_deep import tikhonov_regression
+            out=tikhonov_regression(frame,predictors,response,regularization=f(p,"regularization",1e-3,0.0,1e6),standardize=True)
+            return result(experiment_id,"physical_lab_applied_math_deep.tikhonov_regression",p,{"rmse":out["rmse"],"mae":out["mae"],"dataResidualNorm":out["data_residual_norm"],"regularizationNorm":out["regularization_norm"]},[],out["boundary"],[{"id":"tikhonov-coefficients","label":"Tikhonov coefficients","rows":out["coefficients"]},{"id":"tikhonov-diagnostics","label":"Tikhonov diagnostics","rows":out["diagnostics"].to_dict(orient="records")}])
+        if tool == "tsvd":
+            from physical_lab_applied_math_deep import truncated_svd_regression
+            rank=max(1,min(len(predictors),i(p,"tsvdRank",1,1,10)))
+            out=truncated_svd_regression(frame,predictors,response,rank=rank,standardize=True)
+            return result(experiment_id,"physical_lab_applied_math_deep.truncated_svd_regression",p,{"rank":out["rank"],"maxRank":out["max_rank"],"rmse":out["rmse"],"dataResidualNorm":out["data_residual_norm"],"solutionNorm":out["solution_norm"]},[],out["boundary"],[{"id":"tsvd-coefficients","label":"TSVD coefficients","rows":out["coefficients"]},{"id":"tsvd-diagnostics","label":"TSVD diagnostics","rows":out["diagnostics"].to_dict(orient="records")}])
+        if tool == "correlation-matrix":
+            from physical_lab_tradeoff_analysis import correlation_matrix
+            chosen=varying[:min(6,len(varying))]
+            out=correlation_matrix(frame,chosen,method=str(p.get("correlationMethod","pearson")))
+            rows=[{"field":idx,**{str(c):float(v) if pd.notna(v) else None for c,v in row.items()}} for idx,row in out.to_dict(orient="index").items()]
+            return result(experiment_id,"physical_lab_tradeoff_analysis.correlation_matrix",p,{"fieldCount":len(chosen),"method":str(p.get("correlationMethod","pearson"))},[],"Correlation summarizes pairwise association in the current finite result table and does not imply causation.",[{"id":"correlation","label":"Correlation matrix","rows":rows}])
+        if tool == "pareto-frontier":
+            from physical_lab_tradeoff_analysis import pareto_frontier
+            out=pareto_frontier(frame,x=xcol,x_goal="min",y=ycol,y_goal="max")
+            return result(experiment_id,"physical_lab_tradeoff_analysis.pareto_frontier",p,{"points":len(out),"paretoPoints":int(out["pareto"].sum()) if "pareto" in out else 0,"xObjective":xcol,"yObjective":ycol},[xy_series("pareto-points","Pareto objective points",out[xcol],out[ycol],x_label=xcol,y_label=ycol,chart="scatter")],"Pareto membership depends on the selected objectives and directions; it is not a universal ranking.",[{"id":"pareto","label":"Pareto frontier","rows":out.to_dict(orient="records")}])
+        if tool == "robust-sensitivity":
+            from physical_lab_tradeoff_analysis import robust_sensitivity_summary
+            out=robust_sensitivity_summary(frame,predictors,response)
+            return result(experiment_id,"physical_lab_tradeoff_analysis.robust_sensitivity_summary",p,{"parameters":len(out),"response":response},[],"Robust sensitivity combines several descriptive diagnostics without creating a synthetic master score.",[{"id":"robust-sensitivity","label":"Robust sensitivity summary","rows":out.to_dict(orient="records")}])
+        if tool == "run-comparison":
+            from physical_lab_research_orchestrator import compare_numeric_runs
+            rows=frame[varying[:min(5,len(varying))]].dropna().head(8).to_dict(orient="records")
+            out=compare_numeric_runs(rows,baseline_index=0)
+            return result(experiment_id,"physical_lab_research_orchestrator.compare_numeric_runs",p,{"runs":len(out["rows"]),"sharedMetrics":len(out["shared_metrics"]),"baselineIndex":out["baseline_index"]},[],out["boundary"],[{"id":"run-comparison","label":"Run comparison","rows":out["rows"]}])
 
     if tool == "result-inspector":
         from physical_lab_result_inspector import inspect_result, numerical_sanity_report
@@ -924,7 +1012,7 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
 
 
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
-    if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity"}:
+    if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity", "polynomial-regression", "monte-carlo-propagation", "doe-design", "parameter-estimation", "polynomial-cv", "pca-svd", "conditioning-diagnostics", "tikhonov", "tsvd", "correlation-matrix", "pareto-frontier", "robust-sensitivity", "run-comparison", "morris-design"}:
         return run_global_analysis_tool(experiment_id, tool, p)
     if experiment_id == "kerr-geodesics" and tool == "refinement":
         from physical_lab_kerr_geodesics import run_refinement_pair

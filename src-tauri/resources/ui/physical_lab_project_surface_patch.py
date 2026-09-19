@@ -123,7 +123,16 @@ def _render_all_workspaces(st, profile: str) -> None:
     )
 
     options = {f"{row.label} · {row.category}": row.surface_id for row in filtered}
-    chosen_label = st.selectbox("Workspace", list(options), key=f"pl_surface_choice_{profile}")
+    target_surface = str(st.query_params.get("pl_surface") or "").strip()
+    option_labels = list(options)
+    target_label = next((label for label, sid in options.items() if sid == target_surface), None)
+    if target_label and st.session_state.get(f"pl_surface_deeplink_seen_{profile}") != target_surface:
+        st.session_state[f"pl_surface_choice_{profile}"] = target_label
+        st.session_state[f"pl_surface_deeplink_seen_{profile}"] = target_surface
+        target_row = registry.get_surface(target_surface)
+        if target_row is not None and target_row.launch_mode == "direct":
+            st.session_state[f"pl_all_workspaces_active_{profile}"] = target_surface
+    chosen_label = st.selectbox("Workspace", option_labels, key=f"pl_surface_choice_{profile}")
     chosen = registry.get_surface(options[chosen_label])
     if chosen is None:
         st.warning("The selected workspace is no longer registered.")
@@ -135,6 +144,8 @@ def _render_all_workspaces(st, profile: str) -> None:
 
     if chosen.launch_mode == "profile":
         required = ", ".join(chosen.profiles) if chosen.profiles else "native profile"
+        if target_surface == chosen.surface_id:
+            st.success(f"Opened capability target: {chosen.label}")
         if profile in chosen.profiles:
             st.info(
                 f"Available in the current `{profile}` Lab through its native route: "
@@ -148,6 +159,8 @@ def _render_all_workspaces(st, profile: str) -> None:
         return
 
     if chosen.launch_mode == "route":
+        if target_surface == chosen.surface_id:
+            st.success(f"Opened capability target: {chosen.label}")
         st.info(chosen.route_hint or "Available through Project Workspace.")
         if chosen.surface_id == "utube-studio" and st.button(
             "Open U-Tube Research Studio",

@@ -192,7 +192,8 @@
       "resources/ui/physical_lab_surface_registry.py": "ui/physical_lab_surface_registry.py",
       "resources/ui/physical_lab_science_protocol.py": "ui/physical_lab_science_protocol.py",
       "resources/ui/physical_lab_science_protocol_ui.py": "ui/physical_lab_science_protocol_ui.py",
-      "resources/ui/physical_lab_analysis_plan_store.py": "ui/physical_lab_analysis_plan_store.py"
+      "resources/ui/physical_lab_analysis_plan_store.py": "ui/physical_lab_analysis_plan_store.py",
+      "resources/native_experiment_runner.py": "native_experiment_runner.py"
     },
     "macOS": {
       "minimumSystemVersion": "11.0",

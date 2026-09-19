@@ -183,6 +183,15 @@
         </div>
         <div class="native-exp-tab-panel" data-native-exp-panel="overview">
           <div id="nativeExperimentOverview" class="native-exp-cap-grid"></div>
+          <article class="native-run-panel">
+            <div class="native-viz-title"><span>Experiment controls</span><small>serverless native execution</small></div>
+            <div id="nativeExperimentControls" class="native-parameter-grid"></div>
+            <div class="native-run-actions">
+              <label>Engine mode<select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select></label>
+              <button id="nativeExperimentRun" class="primary">Run experiment</button>
+              <span id="nativeExperimentRunStatus">Ready.</span>
+            </div>
+          </article>
         </div>
         <div class="native-exp-tab-panel" data-native-exp-panel="visualization" hidden>
           <article class="native-viz-panel">
@@ -194,6 +203,11 @@
             <div id="nativeExperimentPreview"></div>
             <p id="nativeExperimentPreviewBoundary" class="hint"></p>
           </article>
+          <div class="native-result-head"><div><span>Backend</span><strong id="nativeExperimentBackend">not run</strong></div></div>
+          <div id="nativeExperimentMetrics" class="native-result-metrics"></div>
+          <div id="nativeExperimentResultCharts" class="native-result-charts"></div>
+          <div id="nativeExperimentResultTables"></div>
+          <p id="nativeExperimentResultBoundary" class="boundary-inline"></p>
         </div>
         <div class="native-exp-tab-panel" data-native-exp-panel="boundary" hidden>
           <div class="boundary-card">

@@ -5,6 +5,10 @@ on:
     paths:
       - "web/**"
       - "scripts/native_utube_workspace_validation.py"
+      - "scripts/native_experiment_adapter_validation.py"
+      - "src-tauri/resources/native_experiment_runner.py"
+      - "src-tauri/src/lib.rs"
+      - "src-tauri/tauri.conf.json"
       - ".github/workflows/native-utube-workspace-integrity.yml"
   push:
     branches: [main]
@@ -24,7 +28,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check numpy scipy pandas
       - run: node --check web/utube-native.js
       - run: node --check web/native-experiments.js
       - run: node --check web/app.js
+      - run: python scripts/prepare.py
+      - run: test -f dist/native-experiments.js && test -f dist/utube-native.js
+      - run: node --check dist/native-experiments.js
+      - run: node --check dist/utube-native.js
+      - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py
       - run: python scripts/native_utube_workspace_validation.py
+      - run: python scripts/native_experiment_adapter_validation.py
+      - run: rustfmt --edition 2021 --emit stdout src-tauri/src/lib.rs >/dev/null

@@ -1068,6 +1068,112 @@ fn safe_engine_script(app:&AppHandle)->Result<PathBuf,String>{
     Err("Physical Lab safe-mode engine resource is missing.".into())
 }
 
+fn native_experiment_runner_script(app:&AppHandle)->Result<PathBuf,String>{
+    if let Ok(resource_dir)=app.path().resource_dir(){
+        let p=resource_dir.join("native_experiment_runner.py");
+        if p.is_file(){return Ok(p)}
+    }
+    let dev=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/native_experiment_runner.py");
+    if dev.is_file(){return Ok(dev)}
+    Err("Engineering Lab native experiment runner resource is missing.".into())
+}
+
+fn native_backend_module_id(experiment_id:&str)->Option<&'static str>{
+    match experiment_id {
+        "numerical-methods" => Some("numerical-methods"),
+        "ising-monte-carlo" => Some("ising-monte-carlo"),
+        "random-walk-monte-carlo" => Some("random-walk-monte-carlo"),
+        "nonlinear-chaos" => Some("nonlinear-chaos"),
+        "oscillation-integration" => Some("oscillation-integration"),
+        "radia-magnet-studio" => Some("radia-magnet-studio"),
+        "radiation-platform" => Some("radiation-platform"),
+        "kerr-geodesics" => Some("kerr-geodesics"),
+        "solar-system-dynamics" => Some("solar-system-dynamics"),
+        "honeycomb-lattice" => Some("honeycomb-lattice"),
+        "utube-studio" => Some("oscillation-integration"),
+        "kerr-shadow" => Some("kerr-geodesics"),
+        "undulator-spectrum" => Some("radiation-platform"),
+        "frequency-response" => Some("oscillation-integration"),
+        _ => None,
+    }
+}
+
+fn native_python_for_experiment(app:&AppHandle, backend:&ModuleSpec)->Option<PathBuf>{
+    if let Ok(path)=venv_python(app,&backend.id){
+        if path.is_file(){return Some(path)}
+    }
+    for id in [
+        "numerical-methods","ising-monte-carlo","random-walk-monte-carlo",
+        "nonlinear-chaos","oscillation-integration","kerr-geodesics",
+        "solar-system-dynamics","honeycomb-lattice","radiation-platform",
+        "radia-magnet-studio"
+    ] {
+        if let Ok(path)=venv_python(app,id){
+            if path.is_file(){return Some(path)}
+        }
+    }
+    python_for_spec(backend).map(PathBuf::from)
+}
+
+#[tauri::command]
+fn native_experiment_run(
+    app:AppHandle,
+    experiment_id:String,
+    parameters:serde_json::Value,
+    mode:Option<String>,
+)->Result<serde_json::Value,String>{
+    let requested=mode.unwrap_or_else(||"safe".into()).to_ascii_lowercase();
+    if requested!="safe" && requested!="full" {return Err("Mode must be 'safe' or 'full'.".into())}
+    let backend_id=native_backend_module_id(&experiment_id).ok_or_else(||format!("Unknown native experiment: {experiment_id}"))?;
+    let backend=module_spec(backend_id)?;
+    let python=native_python_for_experiment(&app,&backend).ok_or_else(||format!("No compatible scientific Python runtime is available for {experiment_id}. Install or repair one Engineering Lab experiment environment first."))?;
+    let script=native_experiment_runner_script(&app)?;
+    let ui=ui_overlay_dir(&app).ok_or_else(||"Engineering Lab UI/science resource directory is missing.".to_string())?;
+    let mut pythonpath=ui.to_string_lossy().to_string();
+    if let Ok(source)=source_dir(&app,backend_id){
+        if source.is_dir(){pythonpath.push(':');pythonpath.push_str(&source.to_string_lossy());}
+    }
+    if requested=="full" {
+        if let Some(radia)=radia_dir(){
+            if radia.is_dir(){pythonpath.push(':');pythonpath.push_str(&radia.to_string_lossy());}
+        }
+    }
+    if let Ok(existing)=std::env::var("PYTHONPATH"){
+        if !existing.is_empty(){pythonpath.push(':');pythonpath.push_str(&existing);}
+    }
+
+    let mut child=Command::new(&python)
+        .arg(&script)
+        .args(["--experiment",&experiment_id,"--mode",&requested])
+        .env("PYTHONUNBUFFERED","1")
+        .env("PYTHONPATH",pythonpath)
+        .env("PHYSICAL_LAB_ENGINE_MODE",&requested)
+        .env("PHYSICAL_LAB_UI_PROFILE",&experiment_id)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e|format!("Could not start native experiment {experiment_id}: {e}"))?;
+
+    let input=serde_json::to_vec(&parameters).map_err(|e|format!("Could not encode native experiment parameters: {e}"))?;
+    if let Some(mut stdin)=child.stdin.take(){
+        stdin.write_all(&input).map_err(|e|format!("Could not send parameters to native experiment: {e}"))?;
+    }
+    let output=child.wait_with_output().map_err(|e|format!("Native experiment process failed: {e}"))?;
+    let stdout=String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr=String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stdout.is_empty(){
+        return Err(if stderr.is_empty(){format!("Native experiment {experiment_id} returned no result.")}else{stderr});
+    }
+    let parsed:serde_json::Value=serde_json::from_str(&stdout).map_err(|e|format!("Native experiment returned invalid JSON: {e}. stderr: {stderr}"))?;
+    if !output.status.success(){
+        let message=parsed.get("error").and_then(|v|v.as_str()).unwrap_or_else(||if stderr.is_empty(){"Native experiment failed"}else{&stderr});
+        return Err(message.to_string());
+    }
+    append_log(&app,&format!("NATIVE RUN | {experiment_id} | mode={requested} | backend={} | python={}",backend.id,python.to_string_lossy()));
+    Ok(parsed)
+}
+
 fn spawn_safe_engine(app:&AppHandle,spec:&ModuleSpec,port:u16)->Result<Child,String>{
     let python=python_for_spec(spec).or_else(||python_info().2).ok_or_else(||"Safe mode requires a compatible Python 3 interpreter.".to_string())?;
     let script=safe_engine_script(app)?;
@@ -1167,7 +1273,7 @@ fn stop_module(state: State<'_, PhysicalLabState>, module_id: String) -> Result<
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(PhysicalLabState::default())
-        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, launch_module, stop_module,
+        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, native_experiment_run, launch_module, stop_module,
             research::create_workspace, research::list_workspaces, research::open_workspace, research::record_run_snapshot,
             research::import_measurement_dataset, research::list_datasets, research::list_serial_devices, research::capture_serial_measurement,
             research::analyze_dataset, research::validate_dataset_columns, research::lab_compatibility_matrix, research::repair_lab_environment,

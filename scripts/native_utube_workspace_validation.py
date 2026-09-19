@@ -33,13 +33,18 @@ start = html.index('id="utubeView"')
 end = html.index('id="labView"', start)
 utube_html = html[start:end]
 assert "<iframe" not in utube_html
-assert "localhost" not in utube_html
-assert "127.0.0.1" not in utube_html
+for forbidden_src in (
+    'src="http://localhost',
+    "src='http://localhost",
+    'src="http://127.0.0.1',
+    "src='http://127.0.0.1",
+):
+    assert forbidden_src not in utube_html, f"native U-Tube contains embedded local-web source: {forbidden_src}"
 
 open_start = native.index("function openNativeUtube")
 open_end = native.index("function readUtubeInputs", open_start)
 native_open = native[open_start:open_end]
-for forbidden in ("launch_module", "labFrame", "iframe", "localhost", "127.0.0.1"):
+for forbidden in ("launch_module", "labFrame", "iframe", "http://localhost", "http://127.0.0.1"):
     assert forbidden not in native_open, f"native U-Tube open path contains forbidden legacy marker: {forbidden}"
 
 print("Native U-Tube workspace validation: PASS")

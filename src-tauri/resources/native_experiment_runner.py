@@ -406,8 +406,9 @@ def kerr_geodesics(p: dict[str, Any], mode: str) -> dict[str, Any]:
         apoapsis=f(p, "apoapsis", 10.0, 2.2, 150.0),
         lam_max=f(p, "lambdaMax", 16.0, 1.0, 80.0),
         samples=i(p, "samples", 1000, 200, 4000),
-        rtol=1e-9,
-        atol=1e-11,
+        rtol=f(p, "rtol", 1e-9, 1e-13, 1e-5),
+        atol=f(p, "atol", 1e-11, 1e-15, 1e-7),
+        horizon_pad=f(p, "horizonPad", 1e-4, 1e-8, 0.1),
     )
     out = integrate_case(cfg)
     summary = result_summary(out)
@@ -435,9 +436,17 @@ def solar_system(p: dict[str, Any], mode: str) -> dict[str, Any]:
         duration_years=f(p, "durationYears", 30.0, 0.05, 200.0),
         samples=i(p, "samples", 900, 100, 5000),
         inclination_jupiter_deg=f(p, "inclinationDeg", 10.0, 0.0, 60.0),
+        saturn_inclination_factor=f(p, "saturnInclinationFactor", 0.25, 0.0, 1.0),
         saturn_backreaction=b(p, "saturnBackreaction", True),
         solar_1pn=b(p, "solar1pn", False),
-        max_step_years=f(p, "maxStepYears", 0.04, 0.001, 0.5),
+        velocity_cross=b(p, "velocityCross", False),
+        radial_drag=b(p, "radialDrag", False),
+        velocity_cross_strength=f(p, "velocityCrossStrength", 1e-4, 0.0, 1e-2),
+        radial_drag_strength=f(p, "radialDragStrength", 1e-8, 0.0, 1e-5),
+        omega_z_per_year=f(p, "omegaZPerYear", 0.1, 0.0, 10.0),
+        rtol=f(p, "rtol", 1e-10, 1e-13, 1e-5),
+        atol=f(p, "atol", 1e-12, 1e-15, 1e-7),
+        max_step_years=f(p, "maxStepYears", 0.04, 0.0001, 1.0),
     )
     out = integrate_case(cfg)
     summary = result_summary(out)
@@ -464,17 +473,37 @@ def solar_system(p: dict[str, Any], mode: str) -> dict[str, Any]:
 def honeycomb_lattice(p: dict[str, Any], mode: str) -> dict[str, Any]:
     from physical_lab_lattice_dynamics import LatticeConfig, integrate_case, result_summary
     cfg = LatticeConfig(
-        nx=i(p, "nx", 3, 2, 7),
-        ny=i(p, "ny", 3, 2, 7),
-        layers=i(p, "layers", 2, 1, 4),
+        nx=i(p, "nx", 3, 2, 10),
+        ny=i(p, "ny", 3, 2, 10),
+        layers=i(p, "layers", 2, 1, 5),
         stacking=str(p.get("stacking", "ABA")).upper() if str(p.get("stacking", "ABA")).upper() in {"AA", "ABA", "ABC"} else "ABA",
-        strain_x=f(p, "strainX", 0.0, -0.2, 0.2),
-        damping=f(p, "damping", 0.02, 0.0, 1.0),
-        drive_amplitude=f(p, "driveAmplitude", 0.08, 0.0, 1.0),
-        drive_frequency=f(p, "driveFrequency", 1.0, 0.01, 10.0),
-        duration=f(p, "duration", 8.0, 1.0, 40.0),
-        samples=i(p, "samples", 420, 100, 1800),
-        max_step=f(p, "maxStep", 0.03, 0.002, 0.1),
+        bond_length=f(p, "bondLength", 1.0, 0.05, 20.0),
+        layer_spacing=f(p, "layerSpacing", 0.35, 0.01, 10.0),
+        strain_x=f(p, "strainX", 0.0, -0.25, 0.25),
+        mass=f(p, "mass", 1.0, 1e-6, 1e6),
+        k_in=f(p, "kIn", 10.0, 1e-6, 1e6),
+        alpha=f(p, "alpha", 2.0, 0.0, 1e4),
+        k_inter=f(p, "kInter", 3.0, 1e-6, 1e6),
+        beta_inter=f(p, "betaInter", 1.0, 0.0, 1e4),
+        damping=f(p, "damping", 0.02, 0.0, 10.0),
+        interlayer_damping=f(p, "interlayerDamping", 0.01, 0.0, 10.0),
+        defect_mode=str(p.get("defectMode", "none")) if str(p.get("defectMode", "none")) in {"none","mass","weak-bond","line-weak-bond"} else "none",
+        defect_mass_multiplier=f(p, "defectMassMultiplier", 2.0, 0.0, 100.0),
+        defect_bond_scale=f(p, "defectBondScale", 0.4, 0.0, 10.0),
+        drive_mode=str(p.get("driveMode", "sin")) if str(p.get("driveMode", "sin")) in {"none","sin","pulse","beat","chirp"} else "sin",
+        drive_amplitude=f(p, "driveAmplitude", 0.08, 0.0, 10.0),
+        drive_frequency=f(p, "driveFrequency", 1.0, 0.0, 100.0),
+        uniform_force_x=f(p, "uniformForceX", 0.0, -100.0, 100.0),
+        stochastic_mode=b(p, "stochasticMode", False),
+        temperature_reduced=f(p, "temperatureReduced", 0.0, 0.0, 100.0),
+        seed=i(p, "seed", 12345, 0, 2147483647),
+        initial_displacement=f(p, "initialDisplacement", 0.01, 0.0, 10.0),
+        duration=f(p, "duration", 8.0, 1.0, 200.0),
+        samples=i(p, "samples", 420, 64, 20000),
+        rtol=f(p, "rtol", 1e-9, 1e-13, 1e-5),
+        atol=f(p, "atol", 1e-11, 1e-15, 1e-7),
+        max_step=f(p, "maxStep", 0.03, 0.0001, 1.0),
+        langevin_dt=f(p, "langevinDt", 0.005, 1e-5, 0.2),
     )
     out = integrate_case(cfg)
     summary = result_summary(out)
@@ -603,6 +632,173 @@ def frequency_response(p: dict[str, Any], mode: str) -> dict[str, Any]:
     )
 
 
+
+def _kerr_config_from_params(p: dict[str, Any]):
+    from physical_lab_kerr_geodesics import KerrOrbitConfig
+    particle = str(p.get("particleType", "massive")).lower()
+    return KerrOrbitConfig(
+        spin=f(p, "spin", 0.7, 0.0, 0.995),
+        inclination_deg=f(p, "inclinationDeg", 25.0, 0.0, 89.0),
+        particle_type="photon" if particle == "photon" else "massive",
+        periapsis=f(p, "periapsis", 6.5, 2.1, 80.0),
+        apoapsis=f(p, "apoapsis", 10.0, 2.2, 150.0),
+        lam_max=f(p, "lambdaMax", 16.0, 1.0, 80.0),
+        samples=i(p, "samples", 1000, 200, 4000),
+        rtol=f(p, "rtol", 1e-9, 1e-13, 1e-5),
+        atol=f(p, "atol", 1e-11, 1e-15, 1e-7),
+        horizon_pad=f(p, "horizonPad", 1e-4, 1e-8, 0.1),
+    )
+
+
+def _solar_config_from_params(p: dict[str, Any]):
+    from physical_lab_solar_system_dynamics import SolarSystemConfig
+    return SolarSystemConfig(
+        duration_years=f(p, "durationYears", 30.0, 0.05, 1000.0),
+        samples=i(p, "samples", 900, 100, 50000),
+        inclination_jupiter_deg=f(p, "inclinationDeg", 10.0, 0.0, 60.0),
+        saturn_inclination_factor=f(p, "saturnInclinationFactor", 0.25, 0.0, 1.0),
+        saturn_backreaction=b(p, "saturnBackreaction", True),
+        solar_1pn=b(p, "solar1pn", False),
+        velocity_cross=b(p, "velocityCross", False),
+        radial_drag=b(p, "radialDrag", False),
+        velocity_cross_strength=f(p, "velocityCrossStrength", 1e-4, 0.0, 1e-2),
+        radial_drag_strength=f(p, "radialDragStrength", 1e-8, 0.0, 1e-5),
+        omega_z_per_year=f(p, "omegaZPerYear", 0.1, 0.0, 10.0),
+        rtol=f(p, "rtol", 1e-10, 1e-13, 1e-5),
+        atol=f(p, "atol", 1e-12, 1e-15, 1e-7),
+        max_step_years=f(p, "maxStepYears", 0.04, 0.0001, 1.0),
+    )
+
+
+def _lattice_config_from_params(p: dict[str, Any]):
+    from physical_lab_lattice_dynamics import LatticeConfig
+    stacking=str(p.get("stacking", "ABA")).upper()
+    defect=str(p.get("defectMode", "none"))
+    drive=str(p.get("driveMode", "sin"))
+    return LatticeConfig(
+        nx=i(p, "nx", 3, 2, 10), ny=i(p, "ny", 3, 2, 10), layers=i(p, "layers", 2, 1, 5),
+        stacking=stacking if stacking in {"AA","ABA","ABC"} else "ABA",
+        bond_length=f(p, "bondLength", 1.0, 0.05, 20.0),
+        layer_spacing=f(p, "layerSpacing", 0.35, 0.01, 10.0),
+        strain_x=f(p, "strainX", 0.0, -0.25, 0.25),
+        mass=f(p, "mass", 1.0, 1e-6, 1e6), k_in=f(p, "kIn", 10.0, 1e-6, 1e6),
+        alpha=f(p, "alpha", 2.0, 0.0, 1e4), k_inter=f(p, "kInter", 3.0, 1e-6, 1e6),
+        beta_inter=f(p, "betaInter", 1.0, 0.0, 1e4),
+        damping=f(p, "damping", 0.02, 0.0, 10.0), interlayer_damping=f(p, "interlayerDamping", 0.01, 0.0, 10.0),
+        defect_mode=defect if defect in {"none","mass","weak-bond","line-weak-bond"} else "none",
+        defect_mass_multiplier=f(p, "defectMassMultiplier", 2.0, 0.0, 100.0),
+        defect_bond_scale=f(p, "defectBondScale", 0.4, 0.0, 10.0),
+        drive_mode=drive if drive in {"none","sin","pulse","beat","chirp"} else "sin",
+        drive_amplitude=f(p, "driveAmplitude", 0.08, 0.0, 10.0),
+        drive_frequency=f(p, "driveFrequency", 1.0, 0.0, 100.0),
+        uniform_force_x=f(p, "uniformForceX", 0.0, -100.0, 100.0),
+        stochastic_mode=b(p, "stochasticMode", False), temperature_reduced=f(p, "temperatureReduced", 0.0, 0.0, 100.0),
+        seed=i(p, "seed", 12345, 0, 2147483647), initial_displacement=f(p, "initialDisplacement", 0.01, 0.0, 10.0),
+        duration=f(p, "duration", 8.0, 1.0, 200.0), samples=i(p, "samples", 420, 64, 20000),
+        rtol=f(p, "rtol", 1e-9, 1e-13, 1e-5), atol=f(p, "atol", 1e-11, 1e-15, 1e-7),
+        max_step=f(p, "maxStep", 0.03, 0.0001, 1.0), langevin_dt=f(p, "langevinDt", 0.005, 1e-5, 0.2),
+    )
+
+
+def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
+    if experiment_id == "kerr-geodesics" and tool == "refinement":
+        from physical_lab_kerr_geodesics import run_refinement_pair
+        out = run_refinement_pair(_kerr_config_from_params(p))
+        tight = out["tight"]
+        keys = list(out["absolute_deltas"].keys())
+        return result(experiment_id, "physical_lab_kerr_geodesics.run_refinement_pair", p, {
+            "tightResidual": out["tight_residual"],
+            **{f"delta_{k}": v for k, v in out["absolute_deltas"].items()},
+        }, [xy_series("refinement-deltas","absolute refinement deltas",range(len(keys)),[out["absolute_deltas"][k] for k in keys],x_label="diagnostic index",y_label="absolute delta")],
+        "Loose-versus-tight numerical refinement check for the same Kerr configuration.", [{"id":"tight","label":"Tight result","rows":[tight]}])
+
+    if experiment_id == "solar-system-dynamics" and tool in {"refinement","ftle"}:
+        cfg = _solar_config_from_params(p)
+        if tool == "refinement":
+            from physical_lab_solar_system_dynamics import run_refinement_pair
+            out = run_refinement_pair(cfg)
+            keys=list(out["relative_changes"].keys())
+            return result(experiment_id,"physical_lab_solar_system_dynamics.run_refinement_pair",p,{
+                "maxRelativeChange":out["max_relative_change"], **{f"relative_{k}":v for k,v in out["relative_changes"].items()}
+            },[xy_series("refinement","relative refinement changes",range(len(keys)),[out["relative_changes"][k] for k in keys],x_label="diagnostic index",y_label="relative change")],
+            "Loose-versus-tight integration refinement for the bounded Solar-System model.")
+        from physical_lab_solar_system_dynamics import finite_time_lyapunov_indicator
+        out=finite_time_lyapunov_indicator(cfg,d0=f(p,"ftleD0",1e-8,1e-12,1e-3),segment_years=f(p,"ftleSegmentYears",2.0,0.05,20.0),max_years=f(p,"ftleMaxYears",30.0,0.1,200.0))
+        return result(experiment_id,"physical_lab_solar_system_dynamics.finite_time_lyapunov_indicator",p,{
+            "finiteTimeRatePerYear":out["finite_time_rate_per_year"],"elapsedYears":out["elapsed_years"],"renormalizations":out["renormalizations"]
+        },[xy_series("ftle-separation","pre-renormalization separation",out["times_years"],out["pre_renormalization_separation"],x_label="time (yr)",y_label="phase-space separation")],out["boundary"])
+
+    if experiment_id == "honeycomb-lattice" and tool in {"normal-modes","phonon-dispersion","phonon-dos"}:
+        cfg=_lattice_config_from_params(p)
+        if tool=="normal-modes":
+            from physical_lab_lattice_dynamics import build_lattice, normal_modes
+            out=normal_modes(build_lattice(cfg)); freq=out["frequencies_cycles_per_time"]
+            return result(experiment_id,"physical_lab_lattice_dynamics.normal_modes",p,{
+                "zeroModeCount":out["zero_mode_count"],"negativeEigenvalueCount":out["negative_eigenvalue_count"],"mostNegativeEigenvalue":out["most_negative_eigenvalue"]
+            },[xy_series("modes","normal-mode frequencies",range(len(freq)),freq,x_label="mode index",y_label="frequency")],out["boundary"])
+        from physical_lab_lattice_phonons import phonon_dispersion, phonon_dos
+        if tool=="phonon-dos":
+            out=phonon_dos(cfg,q_grid=i(p,"phononQGrid",12,4,80),bins=i(p,"phononBins",80,16,240))
+            return result(experiment_id,"physical_lab_lattice_phonons.phonon_dos",p,{
+                "sampleCount":out["sample_count"],"branchCount":out["branch_count"],"normalizationError":out["normalization_error"],"frequencyMin":out["frequency_min"],"frequencyMax":out["frequency_max"]
+            },[xy_series("dos","phonon DOS",out["frequency_centers"],out["density"],x_label="frequency",y_label="density")],out["boundary"])
+        out=phonon_dispersion(cfg,points_per_segment=i(p,"phononPointsPerSegment",24,8,100))
+        coord=np.asarray(out["path_coordinate"]); freqs=np.asarray(out["frequencies_cycles_per_time"])
+        series=[xy_series(f"branch-{j}",f"branch {j}",coord,freqs[:,j],x_label="high-symmetry path",y_label="frequency") for j in range(freqs.shape[1])]
+        return result(experiment_id,"physical_lab_lattice_phonons.phonon_dispersion",p,{
+            "branchCount":out["branch_count"],"gammaZeroModeCount":out["gamma_zero_mode_count"],"hermiticityResidualMax":out["hermiticity_residual_max"],"negativeEigenvalueMagnitudeMax":out["negative_eigenvalue_magnitude_max"]
+        },series,out["boundary"])
+
+    if experiment_id == "undulator-spectrum" and tool in {"angular-map","beam-broadening"}:
+        from physical_lab_undulator_spectrum import angular_harmonic_map, beam_broadened_resonance
+        period=f(p,"periodMm",50.0,1.0,1000.0)/1000.0; gamma=f(p,"gamma",6000.0,2.0,1e7); K=f(p,"K",0.7,0.0,20.0); harmonic=i(p,"harmonic",1,1,15)
+        if tool=="angular-map":
+            out=angular_harmonic_map(period_m=period,gamma=gamma,K=K,harmonic=harmonic,theta_max_mrad=f(p,"thetaMaxMrad",1.0,.05,10.0),points=i(p,"angularPoints",61,21,181))
+            axis=np.asarray(out["theta_axis_mrad"]); grid=np.asarray(out["resonance_energy_eV"]); cut=grid[len(axis)//2]
+            return result(experiment_id,"physical_lab_undulator_spectrum.angular_harmonic_map",p,{
+                "onAxisEnergyEV":out["on_axis_energy_eV"],"edgeEnergyEV":out["edge_energy_eV"],"minimumEnergyEV":out["minimum_energy_eV"],"maximumEnergyEV":out["maximum_energy_eV"]
+            },[xy_series("angular-cut","central angular cut",axis,cut,x_label="theta_x (mrad)",y_label="resonance energy (eV)")],out["boundary"])
+        out=beam_broadened_resonance(period_m=period,gamma=gamma,K=K,harmonic=harmonic,relative_energy_spread_rms=f(p,"relativeEnergySpreadRms",1e-3,0.0,.2),angular_divergence_rms_mrad=f(p,"angularDivergenceRmsMrad",.05,0.0,10.0),samples=i(p,"beamSamples",12000,2000,200000),seed=i(p,"beamSeed",20260911,0,2147483647),bins=i(p,"beamBins",120,40,500))
+        return result(experiment_id,"physical_lab_undulator_spectrum.beam_broadened_resonance",p,{
+            "nominalEnergyEV":out["nominal_energy_eV"],"meanEnergyEV":out["mean_energy_eV"],"medianEnergyEV":out["median_energy_eV"],"rmsEnergySpreadEV":out["rms_energy_spread_eV"],"relativeRmsLinewidth":out["relative_rms_linewidth"],"p05EV":out["p05_eV"],"p95EV":out["p95_eV"]
+        },[xy_series("beam-broadening","beam-broadened resonance",out["bin_center_eV"],out["density"],x_label="photon energy (eV)",y_label="density")],out["boundary"])
+
+    if experiment_id == "frequency-response" and tool == "duffing":
+        from physical_lab_frequency_response import duffing_frequency_sweep
+        out=duffing_frequency_sweep(omega_0=f(p,"omega0",1.0,.1,20.0),zeta=f(p,"zeta",.05,0.0,1.0),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=f(p,"frequencyStart",.7,.05,20.0),frequency_stop=f(p,"frequencyStop",1.6,.1,30.0),frequency_points=i(p,"frequencyPoints",17,7,41),settle_cycles=i(p,"settleCycles",16,4,120),observe_cycles=i(p,"observeCycles",5,3,40),points_per_cycle=i(p,"pointsPerCycle",48,32,240))
+        rows=out["rows"]; omega=[r["omega_rad_s"] for r in rows]
+        return result(experiment_id,"physical_lab_frequency_response.duffing_frequency_sweep",p,{
+            "forwardPeakFrequencyRadS":out["forward_peak_frequency_rad_s"],"forwardPeakAmplitude":out["forward_peak_amplitude"],"reversePeakFrequencyRadS":out["reverse_peak_frequency_rad_s"],"reversePeakAmplitude":out["reverse_peak_amplitude"],"maxBranchAmplitudeGap":out["max_branch_amplitude_gap"]
+        },[
+            xy_series("duffing-forward","forward amplitude",omega,[r["forward_amplitude"] for r in rows],x_label="omega (rad/s)",y_label="amplitude"),
+            xy_series("duffing-reverse","reverse amplitude",omega,[r["reverse_amplitude"] for r in rows],x_label="omega (rad/s)",y_label="amplitude")
+        ],out["boundary"],[{"id":"duffing","label":"Duffing sweep","rows":rows}])
+
+    if experiment_id == "utube-studio" and tool in {"operating-state","elasticity","scan-plan","uncertainty"}:
+        volume=f(p,"volumeMl",3.0,.05,30.0); rpm=f(p,"rpm",260.0,1.0,1000.0); rin=f(p,"rinMm",15.12,1.0,100.0)/1000.0; radius=f(p,"radiusMm",7.48,.1,50.0)/1000.0; nq=i(p,"nq",48,12,128)
+        if tool=="operating-state":
+            from physical_lab_utube_advanced import operating_state
+            out=operating_state(volume,rpm,rin_m=rin,a_m=radius,nq=nq,near_threshold_band_rpm=f(p,"nearThresholdBandRpm",3.0,.1,50.0))
+            return result(experiment_id,"physical_lab_utube_advanced.operating_state",p,out,[] ,out["boundary"])
+        if tool=="elasticity":
+            from physical_lab_utube_advanced import threshold_elasticity
+            frame=threshold_elasticity(volume,rin_m=rin,a_m=radius,relative_step=f(p,"elasticityStep",1e-3,1e-5,.1),nq=nq); rows=frame.to_dict(orient="records")
+            return result(experiment_id,"physical_lab_utube_advanced.threshold_elasticity",p,{"maxAbsElasticity":max(abs(float(r["elasticity"])) for r in rows)},[xy_series("elasticity","threshold elasticity",range(len(rows)),[r["elasticity"] for r in rows],x_label="parameter index",y_label="elasticity")],"Local central-difference sensitivity of threshold to volume and geometry.",[{"id":"elasticity","label":"Elasticity","rows":rows}])
+        if tool=="scan-plan":
+            from physical_lab_utube_experiment import threshold
+            from physical_lab_utube_advanced import experiment_scan_plan
+            ng=threshold(volume,rin=rin,a=radius,nq=nq); frame=experiment_scan_plan(ng,coarse_span_rpm=f(p,"coarseSpanRpm",40.0,1.0,200.0),coarse_step_rpm=f(p,"coarseStepRpm",10.0,.1,100.0),fine_span_rpm=f(p,"fineSpanRpm",8.0,.5,100.0),fine_step_rpm=f(p,"fineStepRpm",2.0,.1,50.0)); rows=frame.to_dict(orient="records")
+            return result(experiment_id,"physical_lab_utube_advanced.experiment_scan_plan",p,{"predictedThresholdRpm":ng,"plannedPoints":len(rows)},[xy_series("scan-plan","planned rpm points",range(len(rows)),[r["n_rpm"] for r in rows],x_label="step",y_label="rpm")],"Deterministic two-resolution experimental scan plan around the model threshold.",[{"id":"scan-plan","label":"Scan plan","rows":rows}])
+        from physical_lab_utube_uncertainty import propagate_uncertainty
+        means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
+        std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0,"rho_kg_m3":f(p,"uRho",1.0,0.0,100.0),"gamma_mN_m":f(p,"uGamma",1.0,0.0,100.0),"theta_deg":f(p,"uThetaDeg",1.0,0.0,90.0)}
+        out=propagate_uncertainty(means,std,samples=i(p,"uncertaintySamples",300,50,5000),seed=i(p,"uncertaintySeed",0,0,2147483647),nq=nq); ng=out["outputs"]["n_g_rpm"]; rec=out["records"]
+        vals=[r.get("n_g_rpm") for r in rec if r.get("n_g_rpm") is not None]
+        return result(experiment_id,"physical_lab_utube_uncertainty.propagate_uncertainty",p,{"samplesSucceeded":out["samples_succeeded"],"samplesFailed":out["samples_failed"],"thresholdMeanRpm":ng.get("mean"),"thresholdStdRpm":ng.get("std"),"thresholdP05Rpm":ng.get("p05"),"thresholdP95Rpm":ng.get("p95")},[xy_series("uncertainty","threshold samples",range(len(vals)),vals,x_label="sample",y_label="n_g (rpm)")],out["boundary"])
+
+    raise ValueError(f"Unsupported tool '{tool}' for experiment '{experiment_id}'")
+
+
 HANDLERS = {
     "numerical-methods": numerical_methods,
     "ising-monte-carlo": ising_monte_carlo,
@@ -631,7 +827,8 @@ def main() -> int:
         parameters = json.loads(raw) if raw else {}
         if not isinstance(parameters, dict):
             raise ValueError("parameters must be a JSON object")
-        payload = HANDLERS[args.experiment](parameters, args.mode)
+        tool = str(parameters.pop("__tool", "") or "").strip()
+        payload = run_experiment_tool(args.experiment, tool, parameters, args.mode) if tool else HANDLERS[args.experiment](parameters, args.mode)
         sys.stdout.write(json.dumps(clean(payload), separators=(",", ":"), allow_nan=False))
         return 0
     except Exception as exc:

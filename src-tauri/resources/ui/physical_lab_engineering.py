@@ -130,6 +130,18 @@ def _load_model_depth_ui_module():
     return _load("physical_lab_model_depth_ui", "physical_lab_model_depth_ui.py")
 
 
+def _load_model_depth_iv_ui_module():
+    _load("physical_lab_model_depth_iv", "physical_lab_model_depth_iv.py")
+    return _load("physical_lab_model_depth_iv_ui", "physical_lab_model_depth_iv_ui.py")
+
+
+def _load_model_depth_vii_ui_module():
+    _load("physical_lab_model_depth_vii", "physical_lab_model_depth_vii.py")
+    _load("physical_lab_model_depth_viii", "physical_lab_model_depth_viii.py")
+    _load("physical_lab_model_depth_ix", "physical_lab_model_depth_ix.py")
+    return _load("physical_lab_model_depth_vii_ui", "physical_lab_model_depth_vii_ui.py")
+
+
 def _load_model_depth_v_ui_module():
     _load("physical_lab_model_depth_v", "physical_lab_model_depth_v.py")
     return _load("physical_lab_model_depth_v_ui", "physical_lab_model_depth_v_ui.py")
@@ -259,6 +271,18 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         analysis_tools.append(
             ("Model depth", "Deeper model diagnostics and derived quantities.", "model-depth",
              lambda: _load_model_depth_ui_module().render_model_depth_workspace(st, profile))
+        )
+
+    if profile in {"nonlinear-chaos", "numerical-methods"}:
+        analysis_tools.append(
+            ("Model depth IV · numerical structure", "Secular dynamics or conditioning, stiffness and long-time integration studies.", "model-depth-iv",
+             lambda: _load_model_depth_iv_ui_module().render_model_depth_iv_workspace(st, profile))
+        )
+
+    if profile in {"oscillation-integration", "numerical-methods"}:
+        analysis_tools.append(
+            ("Model depth VII–IX · inverse, signals & control", "Inverse problems and system identification, followed by signal-processing and control/PDE studies.", "model-depth-vii-ix",
+             lambda: _load_model_depth_vii_ui_module().render_model_depth_vii_workspace(st, profile))
         )
 
     if profile in {"random-walk-monte-carlo", "oscillation-integration"}:

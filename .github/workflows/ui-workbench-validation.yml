@@ -3,8 +3,21 @@ name: Engineering Lab UI Workbench Validation
 on:
   pull_request:
     paths:
+      - 'src-tauri/resources/ui/physical_lab_ui_system.py'
+      - 'src-tauri/resources/ui/physical_lab_sitecustomize_base.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_engineering.py'
       - 'src-tauri/resources/ui/physical_lab_advanced.py'
       - 'src-tauri/resources/ui/physical_lab_engineering.py'
+      - 'src-tauri/resources/ui/physical_lab_frequency_response_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_undulator_spectrum_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_digital_twin_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_kerr_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_solar_system_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_lattice_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_builtin_lab_entry.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/self_check.py'
       - '.github/workflows/ui-workbench-validation.yml'
   workflow_dispatch:
 
@@ -17,11 +30,22 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile modified UI modules
+      - name: Compile rebuilt UI modules
         run: |
           python -m py_compile \
+            src-tauri/resources/ui/physical_lab_ui_system.py \
+            src-tauri/resources/ui/physical_lab_sitecustomize_base.py \
+            src-tauri/resources/ui/physical_lab_visualization.py \
+            src-tauri/resources/ui/physical_lab_visualization_engineering.py \
             src-tauri/resources/ui/physical_lab_advanced.py \
-            src-tauri/resources/ui/physical_lab_engineering.py
+            src-tauri/resources/ui/physical_lab_engineering.py \
+            src-tauri/resources/ui/physical_lab_frequency_response_ui.py \
+            src-tauri/resources/ui/physical_lab_undulator_spectrum_ui.py \
+            src-tauri/resources/ui/physical_lab_digital_twin_ui.py \
+            src-tauri/resources/ui/physical_lab_kerr_ui.py \
+            src-tauri/resources/ui/physical_lab_solar_system_ui.py \
+            src-tauri/resources/ui/physical_lab_lattice_ui.py \
+            src-tauri/resources/ui/physical_lab_builtin_lab_entry.py
 
       - name: Run repository source self-check
         run: python scripts/self_check.py

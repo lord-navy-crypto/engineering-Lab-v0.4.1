@@ -43,20 +43,9 @@ function renderNativeExperimentShell(spec){
   uEl('nativeExperimentEyebrow').textContent=spec.category.toUpperCase();
   uEl('nativeExperimentTitle').textContent=spec.name;
   uEl('nativeExperimentSubtitle').textContent=spec.focus+'.';
-  uEl('nativeExperimentBadge').textContent='Application workspace · no iframe';
-  const cards=[
-    ['Model','Scientific parameters and solver state belong to this experiment only.'],
-    ['Visualization','Figures render in the Engineering Lab application surface rather than a nested web page.'],
-    ['Analysis','Experiment-specific analysis stays scoped to this experiment; shared evidence is linked explicitly.'],
-    ['Verification','Convergence, references, uncertainty and validation evidence stay separate from model truth claims.']
-  ];
-  uEl('nativeExperimentOverview').innerHTML=cards.map((x,i)=>'<article class="native-exp-cap"><span>0'+(i+1)+'</span><h3>'+uEsc(x[0])+'</h3><p>'+uEsc(x[1])+'</p></article>').join('');
-  renderNativeMigrationViz(spec);
-  renderNativeExperimentPreview(spec);
   renderNativeExperimentControls(spec);
-  uEl('nativeExperimentStatus').textContent=spec.stage==='native'
-    ? 'Native experiment implementation active.'
-    : 'Native application shell active. Legacy Streamlit/localhost presentation is not used by this entry; solver adapters are migrated behind this surface.';
+  document.querySelector('[data-native-exp-tab="setup"]')?.click();
+  uEl('nativeExperimentStatus').textContent='Ready.';
 }
 function renderNativeMigrationViz(spec){
   const nodes=[
@@ -270,10 +259,11 @@ function renderNativeExperimentControls(spec){
   uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;
-  uEl('nativeExperimentMetrics').innerHTML='<div class="empty-state compact-empty">Run the experiment to generate metrics.</div>';
+  uEl('nativeExperimentMetrics').innerHTML='';
   uEl('nativeExperimentResultCharts').innerHTML='';
   uEl('nativeExperimentResultTables').innerHTML='';
-  uEl('nativeExperimentResultBoundary').textContent='';
+  uEl('nativeExperimentResultBoundary').textContent='Run the experiment to view its model assumptions and scientific boundary.';
+  if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=false;
 }
 function collectNativeExperimentParameters(){
   const values={};
@@ -314,7 +304,8 @@ function renderNativeExperimentResult(payload){
     return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
   }).join('');
   uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'';
-  uEl('nativeExperimentBackend').textContent=payload.backend||'native adapter';
+  if(uEl('nativeExperimentBackend'))uEl('nativeExperimentBackend').textContent=payload.backend||'scientific adapter';
+  if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=true;
 }
 async function runNativeExperiment(){
   if(!activeNativeExperimentId||activeNativeExperimentId==='utube-studio')return;
@@ -328,7 +319,7 @@ async function runNativeExperiment(){
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeExperimentResult(payload);
     uEl('nativeExperimentRunStatus').textContent='Completed · structured result returned directly to Engineering Lab.';
-    document.querySelector('[data-native-exp-tab="visualization"]')?.click();
+    document.querySelector('[data-native-exp-tab="results"]')?.click();
   }catch(e){
     uEl('nativeExperimentRunStatus').textContent=String(e);
     toast(String(e),true);

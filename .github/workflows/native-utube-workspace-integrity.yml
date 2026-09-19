@@ -7,6 +7,8 @@ on:
       - "scripts/native_utube_workspace_validation.py"
       - "scripts/native_experiment_adapter_validation.py"
       - "src-tauri/resources/native_experiment_runner.py"
+      - "src-tauri/resources/native_capability_parity.json"
+      - "src-tauri/resources/ui/physical_lab_surface_registry.py"
       - "src-tauri/src/lib.rs"
       - "src-tauri/tauri.conf.json"
       - ".github/workflows/native-utube-workspace-integrity.yml"
@@ -15,6 +17,10 @@ on:
     paths:
       - "web/**"
       - "scripts/native_utube_workspace_validation.py"
+      - "scripts/native_experiment_adapter_validation.py"
+      - "src-tauri/resources/native_experiment_runner.py"
+      - "src-tauri/resources/native_capability_parity.json"
+      - "src-tauri/resources/ui/physical_lab_surface_registry.py"
       - ".github/workflows/native-utube-workspace-integrity.yml"
 
 jobs:

@@ -345,6 +345,14 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
   ]
 });
 
+const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
+  {id:'result-inspector',name:'Result Inspector',description:'Inspect the current structured result, schema inventory, and numerical sanity checks.'},
+  {id:'bootstrap',name:'Bootstrap uncertainty',description:'Resample the first numeric result series and estimate uncertainty for the selected statistic.'},
+  {id:'regression',name:'Linear regression diagnostics',description:'Fit and inspect an ordinary least-squares trend on the current numeric result series.'},
+  {id:'robust-regression',name:'Robust Huber regression',description:'Fit a Huber robust trend that reduces the leverage of large residuals.'},
+  {id:'convergence-diagnostics',name:'Convergence diagnostics',description:'Estimate a bounded convergence trend from the current numeric series; use explicit refinement tools when available.'}
+]);
+
 const NATIVE_TOOL_SPECS = Object.freeze({
   'kerr-geodesics':[
     {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'}
@@ -380,7 +388,7 @@ function renderNativeExperimentControls(spec){
   uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
   uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
-  const tools=NATIVE_TOOL_SPECS[spec.id]||[];
+  const tools=[...(NATIVE_TOOL_SPECS[spec.id]||[]),...NATIVE_GLOBAL_TOOL_SPECS];
   const fullCard='<article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign Research Workbench and its registry-backed All Workspaces catalog. Use this whenever a function has not yet been migrated into the new native layout.</p><button class="primary" data-open-full-original="'+uEsc(spec.id)+'">Open full original workspace</button></article>';
   const toolCards=tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join('');
   uEl('nativeExperimentTools').innerHTML=fullCard+toolCards;
@@ -465,6 +473,7 @@ async function runNativeExperimentTool(tool){
     status.textContent='Running '+tool+'…';
     const parameters=collectNativeExperimentParameters();
     parameters.__tool=tool;
+    if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeExperimentResult(payload);

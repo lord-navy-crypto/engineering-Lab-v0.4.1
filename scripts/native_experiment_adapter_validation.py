@@ -77,3 +77,23 @@ for experiment_id, tool, params in TOOL_CASES:
 
 print(f"Native deep-tool smoke suite: PASS {len(TOOL_CASES)}/{len(TOOL_CASES)}")
 
+
+
+base_context = runner.HANDLERS["numerical-methods"]({"xMax": 1.5, "order": 7, "points": 101}, "safe")
+GLOBAL_TOOL_CASES = [
+    ("result-inspector", {}),
+    ("bootstrap", {"bootstrapResamples": 200, "bootstrapConfidence": 0.95, "analysisSeed": 7}),
+    ("regression", {}),
+    ("robust-regression", {"huberDelta": 1.345}),
+    ("convergence-diagnostics", {}),
+]
+for tool, extra in GLOBAL_TOOL_CASES:
+    params = {"contextResult": base_context, **extra}
+    payload = runner.run_global_analysis_tool("numerical-methods", tool, params)
+    assert payload["schema"] == runner.SCHEMA
+    assert payload["experimentId"] == "numerical-methods"
+    assert isinstance(payload.get("metrics"), dict) and payload["metrics"], tool
+    assert isinstance(payload.get("series"), list)
+    assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip()
+    print(f"PASS GLOBAL TOOL {tool}: {payload['backend']}")
+print(f"Native global analysis smoke suite: PASS {len(GLOBAL_TOOL_CASES)}/{len(GLOBAL_TOOL_CASES)}")

@@ -1,0 +1,326 @@
+{
+  "schema": "engineering-lab-capability-parity-v1",
+  "canonical_registry": "src-tauri/resources/ui/physical_lab_surface_registry.py::SURFACES",
+  "policy": "UI redesign may reorder, group, fold, or restyle capabilities, but may not remove capability access. Full Original Workspace remains mandatory until native parity is proven per surface.",
+  "surface_count": 53,
+  "capabilities": [
+    {
+      "surface_id": "utube-studio",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "utube-physical",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "utube-uncertainty",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "utube-advanced",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "data-bridge",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "measurement-registry",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "betterboard-discovery",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "betterboard-inbox",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "labbridge",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "research-notebook",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "result-inspector",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "research-orchestrator",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "visualization-studio",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "visual-analytics",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "applied-analysis",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "advanced-applied-analysis",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "deep-applied-math",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "sweep-design-bridge",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "science-analysis",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "science-protocol",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "modelspec-diy",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "run-comparison",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "model-coupling",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "pipeline-dag",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "digital-twin",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "engineering-decisions",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "operations-planning",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "quality-reliability",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "risk-economics",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "requirements-verification",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "evidence-center",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "reproducibility-pack",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "local-ai",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "run-vault",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "openguin-advisory",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "engineering-vvuq",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "kerr-geodesics",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "kerr-platform",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "kerr-shadow",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "solar-system",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "lattice-dynamics",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "deep-science",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "remaining-science",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "frequency-response",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "new-model-refinement",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "model-depth",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "undulator-spectrum",
+      "migration_state": "native-primary",
+      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radiation-stokes",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radiation-quality",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radiation-seed-compare",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radia-forward",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radia-tolerance",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    },
+    {
+      "surface_id": "radia-radiation-propagation",
+      "migration_state": "compatibility-preserved",
+      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "zero_loss_required": true
+    }
+  ]
+}

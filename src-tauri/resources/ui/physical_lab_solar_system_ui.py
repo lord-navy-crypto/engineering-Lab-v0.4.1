@@ -253,38 +253,58 @@ def _render_platform(st: Any, config: SolarSystemConfig) -> None:
 def render_solar_system_workspace(st: Any, profile: str) -> None:
     if profile != "nonlinear-chaos":
         return
-    st.markdown("---")
-    st.markdown(f"## Physical Lab · {MODEL_TITLE}")
-    st.caption(
-        "Barycentric Sun–Jupiter–Saturn nonlinear orbital dynamics rebuilt from the standalone long-duration study. "
-        "Newtonian point-mass gravity is the authoritative baseline; optional 1PN and legacy toy perturbations are separated by provenance."
+
+    from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
+
+    render_workbench_header(
+        st,
+        MODEL_TITLE,
+        "Barycentric Sun–Jupiter–Saturn orbital dynamics with a Newtonian point-mass baseline. Model setup, physical results, finite-time sensitivity and platform tools are separated into distinct tasks.",
+        kicker="Computational astrophysics",
     )
-    config = _config_from_ui(st)
+    render_stage_rail(st, [
+        ("Configure", "initial conditions + model"),
+        ("Integrate", "orbital trajectory"),
+        ("Review", "physical diagnostics"),
+        ("Verify", "finite-time sensitivity"),
+    ])
 
-    b1, b2 = st.columns([2, 1])
-    if b1.button("Run interactive orbital model", type="primary", width="stretch", key="pl_solar_run"):
-        with st.spinner("Integrating barycentric orbital dynamics..."):
-            result = integrate_case(config)
-        st.session_state["pl_solar_system_result"] = result
-        st.session_state["pl_solar_system_result_summary"] = result_summary(result)
-        st.success("Orbital integration completed.")
+    setup_tab, result_tab, verify_tab, platform_tab = st.tabs([
+        "Setup & run", "Results", "Sensitivity audit", "Advanced tools"
+    ])
 
-    if b2.button("Finite-time divergence audit", width="stretch", key="pl_solar_ftle"):
-        with st.spinner("Running renormalized finite-time sensitivity audit..."):
-            ftle = finite_time_lyapunov_indicator(config, max_years=min(config.duration_years, 30.0))
-        st.session_state["pl_solar_system_ftle"] = ftle
-        st.success("Finite-time divergence audit completed.")
+    with setup_tab:
+        config = _config_from_ui(st)
+        if st.button("Run interactive orbital model", type="primary", width="stretch", key="pl_solar_run"):
+            with st.spinner("Integrating barycentric orbital dynamics..."):
+                result = integrate_case(config)
+            st.session_state["pl_solar_system_result"] = result
+            st.session_state["pl_solar_system_result_summary"] = result_summary(result)
+            st.success("Orbital integration completed. Open Results.")
 
     result = st.session_state.get("pl_solar_system_result")
-    if isinstance(result, Mapping):
-        _render_result(st, result)
-    ftle = st.session_state.get("pl_solar_system_ftle")
-    if isinstance(ftle, Mapping):
-        st.write({
-            "finite_time_divergence_rate_per_year": ftle.get("finite_time_rate_per_year"),
-            "elapsed_years": ftle.get("elapsed_years"),
-            "renormalizations": ftle.get("renormalizations"),
-            "interpretation": ftle.get("boundary"),
-        })
+    with result_tab:
+        if isinstance(result, Mapping):
+            _render_result(st, result)
+        else:
+            st.info("Run the orbital model in Setup & run to populate this view.")
 
-    _render_platform(st, config)
+    with verify_tab:
+        config = _config_from_ui(st)
+        if st.button("Run finite-time divergence audit", type="primary", width="stretch", key="pl_solar_ftle"):
+            with st.spinner("Running renormalized finite-time sensitivity audit..."):
+                ftle = finite_time_lyapunov_indicator(config, max_years=min(config.duration_years, 30.0))
+            st.session_state["pl_solar_system_ftle"] = ftle
+            st.success("Finite-time divergence audit completed.")
+        ftle = st.session_state.get("pl_solar_system_ftle")
+        if isinstance(ftle, Mapping):
+            st.write({
+                "finite_time_divergence_rate_per_year": ftle.get("finite_time_rate_per_year"),
+                "elapsed_years": ftle.get("elapsed_years"),
+                "renormalizations": ftle.get("renormalizations"),
+            })
+            render_boundary(st, str(ftle.get("boundary") or "Finite-time divergence is a bounded numerical diagnostic."))
+
+    with platform_tab:
+        config = _config_from_ui(st)
+        _render_platform(st, config)

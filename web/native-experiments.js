@@ -20,8 +20,7 @@ let activeNativeExperimentId = null;
 function nativeExperimentSpec(id){return NATIVE_EXPERIMENT_MAP.get(id)||null}
 function nativeExperimentModuleIds(){return new Set(NATIVE_EXPERIMENTS.filter(x=>x.id!=='utube-studio'&&x.id!=='kerr-shadow'&&x.id!=='undulator-spectrum'&&x.id!=='frequency-response').map(x=>x.id))}
 function nativeExperimentCardFor(spec){
-  const status=spec.stage==='native'?'Native':'Native shell';
-  return '<article class="module-card native-lab-card" data-search="'+uEsc((spec.name+' '+spec.category+' '+spec.focus).toLowerCase())+'"><div class="card-top"><div class="module-icon">'+uEsc(spec.icon)+'</div><span class="status-pill ready">'+status+'</span></div><div class="category">'+uEsc(spec.category)+'</div><h4>'+uEsc(spec.name)+'</h4><p class="desc">'+uEsc(spec.focus)+'.</p><div class="tags"><span class="tag">in-app workspace</span><span class="tag">no iframe</span><span class="tag">native visualization</span></div><div class="card-actions"><button class="primary" data-open-native-experiment="'+uEsc(spec.id)+'">Open experiment</button></div></article>';
+  return '<article class="module-card native-lab-card" data-search="'+uEsc((spec.name+' '+spec.category+' '+spec.focus).toLowerCase())+'"><div class="card-top"><div class="module-icon">'+uEsc(spec.icon)+'</div><span class="status-pill ready">Ready</span></div><div class="category">'+uEsc(spec.category)+'</div><h4>'+uEsc(spec.name)+'</h4><p class="desc">'+uEsc(spec.focus)+'.</p><div class="card-actions"><button class="primary" data-open-native-experiment="'+uEsc(spec.id)+'">Open experiment</button></div></article>';
 }
 function nativeExtraExperimentCards(){
   return ['utube-studio','kerr-shadow','undulator-spectrum','frequency-response'].map(id=>nativeExperimentCardFor(nativeExperimentSpec(id))).join('');
@@ -29,8 +28,9 @@ function nativeExtraExperimentCards(){
 function nativeModuleCard(m){
   const spec=nativeExperimentSpec(m.id);
   if(!spec)return null;
-  const s=statusFor(m), state=s.ready?'Ready':(s.installed?'Installed':'Native shell');
-  return '<article class="module-card native-lab-card" data-search="'+uEsc((spec.name+' '+spec.category+' '+spec.focus).toLowerCase())+'"><div class="card-top"><div class="module-icon">'+uEsc(spec.icon)+'</div><span class="status-pill '+(s.ready?'ready':'')+'">'+uEsc(state)+'</span></div><div class="category">'+uEsc(spec.category)+'</div><h4>'+uEsc(spec.name)+'</h4><p class="desc">'+uEsc(spec.focus)+'.</p><div class="tags"><span class="tag">native shell</span><span class="tag">solver-preserving migration</span></div><div class="card-actions"><button class="primary" data-open-native-experiment="'+uEsc(spec.id)+'">Open experiment</button></div></article>';
+  const state=statusFor(m);
+  const label=state.ready?'Ready':(state.installed?'Installed':'Setup needed');
+  return '<article class="module-card native-lab-card" data-search="'+uEsc((spec.name+' '+spec.category+' '+spec.focus).toLowerCase())+'"><div class="card-top"><div class="module-icon">'+uEsc(spec.icon)+'</div><span class="status-pill '+(state.ready?'ready':'')+'">'+uEsc(label)+'</span></div><div class="category">'+uEsc(spec.category)+'</div><h4>'+uEsc(spec.name)+'</h4><p class="desc">'+uEsc(spec.focus)+'.</p><div class="card-actions"><button class="primary" data-open-native-experiment="'+uEsc(spec.id)+'">Open experiment</button></div></article>';
 }
 function openNativeExperiment(id){
   if(id==='utube-studio'){openNativeUtube();return}
@@ -43,20 +43,9 @@ function renderNativeExperimentShell(spec){
   uEl('nativeExperimentEyebrow').textContent=spec.category.toUpperCase();
   uEl('nativeExperimentTitle').textContent=spec.name;
   uEl('nativeExperimentSubtitle').textContent=spec.focus+'.';
-  uEl('nativeExperimentBadge').textContent='Application workspace · no iframe';
-  const cards=[
-    ['Model','Scientific parameters and solver state belong to this experiment only.'],
-    ['Visualization','Figures render in the Engineering Lab application surface rather than a nested web page.'],
-    ['Analysis','Experiment-specific analysis stays scoped to this experiment; shared evidence is linked explicitly.'],
-    ['Verification','Convergence, references, uncertainty and validation evidence stay separate from model truth claims.']
-  ];
-  uEl('nativeExperimentOverview').innerHTML=cards.map((x,i)=>'<article class="native-exp-cap"><span>0'+(i+1)+'</span><h3>'+uEsc(x[0])+'</h3><p>'+uEsc(x[1])+'</p></article>').join('');
-  renderNativeMigrationViz(spec);
-  renderNativeExperimentPreview(spec);
   renderNativeExperimentControls(spec);
-  uEl('nativeExperimentStatus').textContent=spec.stage==='native'
-    ? 'Native experiment implementation active.'
-    : 'Native application shell active. Legacy Streamlit/localhost presentation is not used by this entry; solver adapters are migrated behind this surface.';
+  document.querySelector('[data-native-exp-tab="setup"]')?.click();
+  uEl('nativeExperimentStatus').textContent='Ready.';
 }
 function renderNativeMigrationViz(spec){
   const nodes=[
@@ -270,10 +259,11 @@ function renderNativeExperimentControls(spec){
   uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;
-  uEl('nativeExperimentMetrics').innerHTML='<div class="empty-state compact-empty">Run the experiment to generate metrics.</div>';
+  uEl('nativeExperimentMetrics').innerHTML='';
   uEl('nativeExperimentResultCharts').innerHTML='';
   uEl('nativeExperimentResultTables').innerHTML='';
-  uEl('nativeExperimentResultBoundary').textContent='';
+  uEl('nativeExperimentResultBoundary').textContent='Run the experiment to view its model assumptions and scientific boundary.';
+  if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=false;
 }
 function collectNativeExperimentParameters(){
   const values={};
@@ -314,25 +304,26 @@ function renderNativeExperimentResult(payload){
     return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
   }).join('');
   uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'';
-  uEl('nativeExperimentBackend').textContent=payload.backend||'native adapter';
+  if(uEl('nativeExperimentBackend'))uEl('nativeExperimentBackend').textContent=payload.backend||'scientific adapter';
+  if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=true;
 }
 async function runNativeExperiment(){
   if(!activeNativeExperimentId||activeNativeExperimentId==='utube-studio')return;
-  if(!invoke){toast('Native experiment execution is available in the desktop build.',true);return}
+  if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
   const button=uEl('nativeExperimentRun');
   try{
     button.disabled=true;button.textContent='Running…';
-    uEl('nativeExperimentRunStatus').textContent='Executing scientific adapter without a local web server…';
+    uEl('nativeExperimentRunStatus').textContent='Running calculation…';
     const parameters=collectNativeExperimentParameters();
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeExperimentResult(payload);
-    uEl('nativeExperimentRunStatus').textContent='Completed · structured result returned directly to Engineering Lab.';
-    document.querySelector('[data-native-exp-tab="visualization"]')?.click();
+    uEl('nativeExperimentRunStatus').textContent='Completed.';
+    document.querySelector('[data-native-exp-tab="results"]')?.click();
   }catch(e){
     uEl('nativeExperimentRunStatus').textContent=String(e);
     toast(String(e),true);
   }finally{
-    button.disabled=false;button.textContent='Run experiment';
+    button.disabled=false;button.textContent='Run Experiment';
   }
 }

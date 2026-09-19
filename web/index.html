@@ -167,76 +167,106 @@
 
 
       <section id="nativeExperimentView" class="view native-experiment-view">
-        <div class="native-experiment-head">
+        <div class="native-experiment-head simplified-head">
           <button id="backFromNativeExperiment" class="secondary small">← Experiments</button>
           <div>
             <div id="nativeExperimentEyebrow" class="eyebrow">EXPERIMENT</div>
             <h2 id="nativeExperimentTitle">Experiment</h2>
-            <p id="nativeExperimentSubtitle">Native Engineering Lab workspace.</p>
+            <p id="nativeExperimentSubtitle">Configure, run, and review this experiment.</p>
           </div>
-          <span id="nativeExperimentBadge" class="native-badge">Application workspace · no iframe</span>
         </div>
-        <div class="utube-tabs">
-          <button class="filter active" data-native-exp-tab="overview">Workspace</button>
-          <button class="filter" data-native-exp-tab="visualization">Visualization</button>
-          <button class="filter" data-native-exp-tab="boundary">Scientific boundary</button>
+        <div class="experiment-tabs">
+          <button class="filter active" data-native-exp-tab="setup">Setup</button>
+          <button class="filter" data-native-exp-tab="results">Results</button>
+          <button class="filter" data-native-exp-tab="verification">Verification</button>
         </div>
-        <div class="native-exp-tab-panel" data-native-exp-panel="overview">
-          <div id="nativeExperimentOverview" class="native-exp-cap-grid"></div>
-          <article class="native-run-panel">
-            <div class="native-viz-title"><span>Experiment controls</span><small>serverless native execution</small></div>
+
+        <div class="native-exp-tab-panel" data-native-exp-panel="setup">
+          <article class="experiment-panel primary-panel">
+            <div class="panel-heading">
+              <div><h3>Parameters</h3><p>Adjust the values you want to test.</p></div>
+            </div>
             <div id="nativeExperimentControls" class="native-parameter-grid"></div>
-            <div class="native-run-actions">
-              <label>Engine mode<select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select></label>
-              <button id="nativeExperimentRun" class="primary">Run experiment</button>
+            <details class="advanced-disclosure">
+              <summary>Advanced</summary>
+              <div class="advanced-body">
+                <label>Engine mode
+                  <select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select>
+                </label>
+                <p>Safe is the recommended default. Use Full only when the experiment requires optional native scientific dependencies.</p>
+              </div>
+            </details>
+            <div class="primary-run-row">
+              <button id="nativeExperimentRun" class="primary prominent-run">Run Experiment</button>
               <span id="nativeExperimentRunStatus">Ready.</span>
             </div>
           </article>
         </div>
-        <div class="native-exp-tab-panel" data-native-exp-panel="visualization" hidden>
-          <article class="native-viz-panel">
-            <div class="native-viz-title"><span>Native experiment data flow</span><small>parameters → solver → results → visualization</small></div>
-            <div id="nativeExperimentFlow" class="native-flow"></div>
-          </article>
-          <article class="native-viz-panel">
-            <div class="native-viz-title"><span id="nativeExperimentPreviewTitle">Native visualization preview</span><small>in-app SVG/DOM</small></div>
-            <div id="nativeExperimentPreview"></div>
-            <p id="nativeExperimentPreviewBoundary" class="hint"></p>
-          </article>
-          <div class="native-result-head"><div><span>Backend</span><strong id="nativeExperimentBackend">not run</strong></div></div>
+
+        <div class="native-exp-tab-panel" data-native-exp-panel="results" hidden>
           <div id="nativeExperimentMetrics" class="native-result-metrics"></div>
           <div id="nativeExperimentResultCharts" class="native-result-charts"></div>
           <div id="nativeExperimentResultTables"></div>
-          <p id="nativeExperimentResultBoundary" class="boundary-inline"></p>
+          <div id="nativeExperimentEmptyResults" class="empty-state compact-empty">Run the experiment to generate results.</div>
         </div>
-        <div class="native-exp-tab-panel" data-native-exp-panel="boundary" hidden>
-          <div class="boundary-card">
-            <h3>Migration boundary</h3>
-            <p>The application shell, navigation, experiment isolation and visualization surface are native to Engineering Lab. Scientific solvers remain authoritative and are migrated behind typed adapters rather than rewritten merely to match the UI.</p>
-            <p>A native shell does not by itself establish scientific validation. Solver-specific convergence, references, uncertainty and measurement evidence remain experiment-specific.</p>
-          </div>
+
+        <div class="native-exp-tab-panel" data-native-exp-panel="verification" hidden>
+          <article class="verification-panel">
+            <h3>Verification & assumptions</h3>
+            <p id="nativeExperimentResultBoundary">Run the experiment to view its model assumptions and scientific boundary.</p>
+            <details class="advanced-disclosure">
+              <summary>Execution details</summary>
+              <div class="advanced-body">
+                <p>Computation runs through the experiment's scientific adapter and returns structured results directly to Engineering Lab.</p>
+                <p>Execution backend: <strong id="nativeExperimentBackend">not run</strong></p>
+              </div>
+            </details>
+          </article>
         </div>
-        <div id="nativeExperimentStatus" class="native-status">Ready.</div>
+        <div id="nativeExperimentStatus" class="native-status subtle-status">Ready.</div>
       </section>
-\n      <section id="utubeView" class="view native-experiment-view">
-        <div class="native-experiment-head">
+
+      <section id="utubeView" class="view native-experiment-view">
+        <div class="native-experiment-head simplified-head">
           <button id="backFromUtube" class="secondary small">← Experiments</button>
-          <div><div class="eyebrow">ENGINEERING CLUB · NATIVE WORKSPACE</div><h2>Rotating U-Tube</h2><p>Threshold physics, capacity decomposition, effective-potential structure and reduced-order hysteresis rendered directly by Engineering Lab.</p></div>
-          <span class="native-badge">No iframe · No localhost</span>
-        </div>
-        <div class="utube-tabs">
-          <button class="filter active" data-utube-tab="model">Model & threshold</button>
-          <button class="filter" data-utube-tab="hysteresis">Dynamic hysteresis</button>
-          <button class="filter" data-utube-tab="boundary">Scientific boundary</button>
-        </div>
-        <div class="utube-panel" data-utube-panel="model">
-          <div class="native-control-grid">
-            <label>Liquid volume (mL)<input id="utVolume" type="number" min="0.05" step="0.05" value="3"></label>
-            <label>Operating speed (rpm)<input id="utRpm" type="number" min="1" step="1" value="260"></label>
-            <label>Inner radius R_in (mm)<input id="utRin" type="number" min="1" step="0.01" value="15.12"></label>
-            <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" step="0.01" value="7.48"></label>
-            <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
+          <div>
+            <div class="eyebrow">ENGINEERING CLUB · FLUID EXPERIMENT</div>
+            <h2>Rotating U-Tube</h2>
+            <p>Configure the apparatus, run the model, then inspect threshold and hysteresis results.</p>
           </div>
+        </div>
+        <div class="experiment-tabs">
+          <button class="filter active" data-utube-tab="setup">Setup</button>
+          <button class="filter" data-utube-tab="results">Results</button>
+          <button class="filter" data-utube-tab="verification">Verification</button>
+        </div>
+
+        <div class="utube-panel" data-utube-panel="setup">
+          <article class="experiment-panel primary-panel">
+            <div class="panel-heading"><div><h3>Parameters</h3><p>Set the fluid volume, rotation speed, and tube geometry.</p></div></div>
+            <div class="native-control-grid">
+              <label>Liquid volume (mL)<input id="utVolume" type="number" min="0.05" step="0.05" value="3"></label>
+              <label>Operating speed (rpm)<input id="utRpm" type="number" min="1" step="1" value="260"></label>
+              <label>Inner radius R_in (mm)<input id="utRin" type="number" min="1" step="0.01" value="15.12"></label>
+              <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" step="0.01" value="7.48"></label>
+              <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
+            </div>
+            <details class="advanced-disclosure">
+              <summary>Advanced hysteresis controls</summary>
+              <div class="advanced-body native-control-grid three">
+                <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
+                <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
+                <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
+              </div>
+            </details>
+            <div class="primary-run-row">
+              <button id="utRun" class="primary prominent-run">Run Experiment</button>
+              <span id="utNativeStatus">Ready.</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="utube-panel" data-utube-panel="results" hidden>
           <div class="ut-metrics">
             <div><span>Angular bifurcation n_c</span><strong id="utMetricCritical">—</strong></div>
             <div><span>Volume threshold n_g</span><strong id="utMetricThreshold">—</strong></div>
@@ -244,30 +274,24 @@
             <div><span>Low-potential capacity</span><strong id="utMetricCapacity">—</strong></div>
           </div>
           <div class="native-viz-grid">
-            <article class="native-viz-panel"><div class="native-viz-title"><span>Threshold map</span><small>n_g(V)</small></div><div id="utThresholdChart"></div></article>
-            <article class="native-viz-panel"><div class="native-viz-title"><span>Effective potential</span><small>current RPM</small></div><div id="utPotentialChart"></div></article>
+            <article class="native-viz-panel"><div class="native-viz-title"><span>Threshold vs volume</span></div><div id="utThresholdChart"></div></article>
+            <article class="native-viz-panel"><div class="native-viz-title"><span>Effective potential</span></div><div id="utPotentialChart"></div></article>
           </div>
-          <article class="native-viz-panel"><div class="native-viz-title"><span>Capacity decomposition</span><small>curved bend + two legs</small></div><div id="utCapacityBars" class="ut-capacity"></div></article>
+          <article class="native-viz-panel"><div class="native-viz-title"><span>Capacity decomposition</span></div><div id="utCapacityBars" class="ut-capacity"></div></article>
+          <div class="ut-metrics compact"><div><span>Dynamic loop width</span><strong id="utLoopWidth">—</strong></div></div>
+          <article class="native-viz-panel"><div class="native-viz-title"><span>Dynamic threshold envelope</span></div><div id="utHysteresisChart"></div></article>
         </div>
-        <div class="utube-panel" data-utube-panel="hysteresis" hidden>
-          <div class="native-control-grid three">
-            <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
-            <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
-            <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
-          </div>
-          <div class="ut-metrics compact"><div><span>Loop width at selected ramp rate</span><strong id="utLoopWidth">—</strong></div></div>
-          <article class="native-viz-panel"><div class="native-viz-title"><span>Dynamic threshold envelope</span><small>n_up/down = n_g ± H ± |dn/dt|τ</small></div><div id="utHysteresisChart"></div></article>
-        </div>
-        <div class="utube-panel" data-utube-panel="boundary" hidden>
-          <div class="boundary-card">
-            <h3>Scientific boundary</h3>
-            <p>The native workspace preserves the existing U-Tube model distinction between angular bifurcation <b>n_c</b> and volume-dependent threshold <b>n_g(V)</b>. Numerical convergence does not establish physical validity, and agreement with measurements is validation evidence rather than proof of model truth.</p>
-            <p>The hysteresis view is a reduced-order apparatus-level description. Its fitted or entered H and τ must not be relabeled as contact-angle hysteresis, viscosity, pinning energy, or a hardware safety limit without an independently validated physical model.</p>
+
+        <div class="utube-panel" data-utube-panel="verification" hidden>
+          <div class="verification-panel">
+            <h3>Verification & assumptions</h3>
+            <p>The model distinguishes the angular bifurcation <b>n_c</b> from the volume-dependent threshold <b>n_g(V)</b>. Numerical convergence does not establish physical validity, and agreement with measurements is validation evidence rather than proof of model truth.</p>
+            <p>The hysteresis view is a reduced-order apparatus-level description. H and τ must not be relabeled as contact-angle hysteresis, viscosity, pinning energy, or a hardware safety limit without an independently validated physical model.</p>
           </div>
         </div>
-        <div id="utNativeStatus" class="native-status">Ready.</div>
       </section>
-\n      <section id="labView" class="view lab-frame-view">
+
+      <section id="labView" class="view lab-frame-view">
         <div class="lab-toolbar">
           <button id="backFromLab" class="secondary small">← Back to Labs</button>
           <div class="lab-title-wrap"><strong id="openLabTitle">Lab</strong><span id="openLabUrl"></span></div>

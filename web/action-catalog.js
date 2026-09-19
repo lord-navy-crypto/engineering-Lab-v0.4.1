@@ -1,0 +1,10 @@
+window.ENGINEERING_ACTION_CATALOG=Object.freeze([]);
+window.ENGINEERING_ACTION_PARITY=Object.freeze({
+  schema:"engineering-lab-action-catalog-v1",
+  baseline_available:false,
+  baseline_action_count:0,
+  current_action_count:0,
+  catalog_action_count:0,
+  missing_from_current:[],
+  unmapped_modules:[]
+});

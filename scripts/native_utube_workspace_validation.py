@@ -224,3 +224,36 @@ assert 'st.query_params.get("pl_surface")' in project_patch
 assert '_apply_surface_deeplink' in engineering_ui
 assert 'workbench_routes' in advanced_ui
 print("Direct visible capability catalog validation: PASS main UI + deep-link routing")
+
+
+from action_catalog import build_action_catalog
+
+action_catalog = build_action_catalog(Path("."))
+assert action_catalog["baseline_available"], "pre-redesign action baseline is unavailable; CI must use full git history"
+assert action_catalog["baseline_action_count"] >= 250, action_catalog["baseline_action_count"]
+assert action_catalog["catalog_action_count"] >= action_catalog["baseline_action_count"]
+assert not action_catalog["missing_from_current"], (
+    "pre-redesign actions missing from current source: " +
+    ", ".join(
+        f"{row['module']}::{row['control_type']}::{row['label']}"
+        for row in action_catalog["missing_from_current"][:20]
+    )
+)
+assert not action_catalog["unmapped_modules"], action_catalog["unmapped_modules"]
+assert Path("dist/action-catalog.js").is_file()
+action_js = Path("dist/action-catalog.js").read_text(encoding="utf-8")
+assert "ENGINEERING_ACTION_CATALOG" in action_js
+assert "ENGINEERING_ACTION_PARITY" in action_js
+assert 'data-view="actions"' in html
+assert 'id="actionsView"' in html
+assert 'id="actionGrid"' in html
+assert "renderActionCatalog" in native
+assert "pl_action=" in native
+assert 'st.query_params.get("pl_action")' in project_patch
+print(
+    "Action-level zero-loss validation: PASS "
+    f"baseline={action_catalog['baseline_action_count']} "
+    f"current={action_catalog['current_action_count']} "
+    f"catalog={action_catalog['catalog_action_count']} "
+    "missing=0"
+)

@@ -124,6 +124,7 @@ def _render_all_workspaces(st, profile: str) -> None:
 
     options = {f"{row.label} · {row.category}": row.surface_id for row in filtered}
     target_surface = str(st.query_params.get("pl_surface") or "").strip()
+    target_action = str(st.query_params.get("pl_action") or "").strip()
     option_labels = list(options)
     target_label = next((label for label, sid in options.items() if sid == target_surface), None)
     if target_label and st.session_state.get(f"pl_surface_deeplink_seen_{profile}") != target_surface:
@@ -140,6 +141,8 @@ def _render_all_workspaces(st, profile: str) -> None:
 
     st.markdown(f"#### {chosen.label}")
     st.caption(chosen.description)
+    if target_action and target_surface == chosen.surface_id:
+        st.info(f"Target tool/action: **{target_action}** — this is the preserved pre-redesign control to use in the workspace below.")
     ok, reason = registry.launchability(chosen, profile, project_path)
 
     if chosen.launch_mode == "profile":

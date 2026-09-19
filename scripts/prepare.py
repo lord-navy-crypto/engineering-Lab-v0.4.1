@@ -9,8 +9,17 @@ ICONS = ROOT / "src-tauri" / "icons"
 DIST.mkdir(parents=True, exist_ok=True)
 ICONS.mkdir(parents=True, exist_ok=True)
 
-for name in ("index.html", "styles.css", "app.js", "utube-native.js", "native-experiments.js"):
+for name in ("index.html", "styles.css", "app.js", "utube-native.js", "native-experiments.js", "action-catalog.js"):
     copy2(WEB / name, DIST / name)
+
+from action_catalog import write_action_catalog_js
+action_catalog = write_action_catalog_js(ROOT, DIST / "action-catalog.js")
+print(
+    "Prepared action-level catalog: "
+    f"{action_catalog['catalog_action_count']} actions "
+    f"({action_catalog['baseline_action_count']} baseline, "
+    f"{action_catalog['current_action_count']} current)."
+)
 
 # Icons are committed with the source package. Regenerate only when missing.
 if not (ICONS / "icon.icns").exists():

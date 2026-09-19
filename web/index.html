@@ -17,6 +17,7 @@
         <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
         <button class="nav-item" data-view="labs"><span>◌</span>Physics Labs</button>
         <button class="nav-item" data-view="capabilities"><span>▤</span>All Capabilities</button>
+        <button class="nav-item" data-view="actions"><span>⌕</span>All Tools & Actions</button>
         <button class="nav-item" data-view="modelbuilder"><span>＋</span>Model Builder</button>
         <button class="nav-item" data-view="runtime"><span>⬡</span>Runtime Center</button>
         <button class="nav-item" data-view="dependencies"><span>◇</span>Dependency Center</button>
@@ -85,6 +86,23 @@
           <input id="capabilitySearch" class="capability-search" placeholder="Search capability, analysis, U-Tube, RADIA, reliability…" />
         </div>
         <div id="capabilityGrid" class="card-grid capability-grid"></div>
+      </section>
+
+      <section id="actionsView" class="view">
+        <div class="capability-hero">
+          <div>
+            <div class="eyebrow">ACTION-LEVEL ZERO-LOSS CATALOG</div>
+            <h2>All legacy tools & actions</h2>
+            <p>Search the actual controls preserved from the pre-redesign Engineering Lab: audits, find/search, compare, validate, inspect, export, register, queue, diagnostics, analysis, and every other indexed user action.</p>
+          </div>
+          <div class="capability-count"><strong id="actionCount">—</strong><span>indexed actions</span></div>
+        </div>
+        <div class="capability-toolbar">
+          <div id="actionFilters" class="filters"></div>
+          <input id="actionSearch" class="capability-search" placeholder="Search audit, find, compare, validate, inspect, export, reliability…" />
+        </div>
+        <div id="actionParityStatus" class="native-status subtle-status">Loading action-level parity catalog…</div>
+        <div id="actionGrid" class="card-grid capability-grid"></div>
       </section>
 
 
@@ -375,6 +393,6 @@
   </div>
 
   <div id="toastHost" class="toast-host"></div>
-  <script src="utube-native.js"></script>\n  <script src="native-experiments.js"></script>\n  <script src="app.js"></script>
+  <script src="utube-native.js"></script>\n  <script src="action-catalog.js"></script>\n  <script src="native-experiments.js"></script>\n  <script src="app.js"></script>
 </body>
 </html>

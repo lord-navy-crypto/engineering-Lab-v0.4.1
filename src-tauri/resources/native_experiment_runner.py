@@ -785,8 +785,15 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
                           [xy_series("elasticity","elasticity sensitivity",out["parameter_center"],out["elasticity"],x_label=parameter,y_label="elasticity")],
                           "Elasticity is a local normalized sensitivity and is undefined where the output center is zero.",
                           [{"id":"elasticity","label":"Elasticity sensitivity","rows":rows}])
-        parameter_candidates = usable[:-1]
-        output = usable[-1]
+        varying = []
+        for col in usable:
+            values = pd.to_numeric(frame[col], errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+            if len(values) >= 3 and int(values.nunique()) >= 2:
+                varying.append(col)
+        if len(varying) < 2:
+            raise ValueError("Standardized sensitivity needs at least two varying numeric result fields.")
+        parameter_candidates = varying[:-1]
+        output = varying[-1]
         out = standardized_sensitivity(frame, parameter_candidates, output)
         rows = out.to_dict(orient="records")
         if not rows:

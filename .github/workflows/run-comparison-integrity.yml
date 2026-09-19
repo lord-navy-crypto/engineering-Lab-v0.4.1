@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install scientific dependencies
-        run: python -m pip install --upgrade pip numpy scipy pandas streamlit matplotlib
+        run: python -m pip install --upgrade pip numpy scipy pandas streamlit matplotlib plotly
       - name: Compile comparison modules
         run: |
           python -m py_compile \
@@ -36,6 +36,25 @@ jobs:
             scripts/run_comparison_validation.py
       - name: Validate comparison and staleness semantics
         run: python scripts/run_comparison_validation.py
+      - name: Verify visual diff dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='src-tauri/resources/ui/physical_lab_run_comparison_ui.py'
+          grep -q 'Comparison view' "$file"
+          grep -q 'pl_compare_view_' "$file"
+          grep -q 'Overview' "$file"
+          grep -q 'Parameter Delta' "$file"
+          grep -q 'Metric Delta' "$file"
+          grep -q 'Quality + Provenance' "$file"
+          grep -q '_render_parameter_delta' "$file"
+          grep -q '_render_metric_delta' "$file"
+          grep -q 'relative_delta' "$file"
+          grep -q 'go.Figure' "$file"
+          if grep -q 'st.tabs' "$file"; then
+            echo '::error::Run Comparison must use staged single-view navigation, not eager st.tabs.'
+            exit 1
+          fi
       - name: Verify bundled comparison resources
         run: |
           python - <<'PY'

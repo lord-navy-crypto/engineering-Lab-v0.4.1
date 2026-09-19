@@ -1,0 +1,172 @@
+name: Engineering Lab Applied Analysis Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_sweep_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/applied_analysis_validation.py'
+      - 'scripts/applied_analysis_advanced_validation.py'
+      - 'scripts/applied_math_deep_validation.py'
+      - 'scripts/inverse_regularization_validation.py'
+      - 'scripts/sweep_design_metadata_validation.py'
+      - 'scripts/utube_experiment_validation.py'
+      - '.github/workflows/applied-analysis-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_math_deep.py'
+      - 'src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_experiment_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_utube_sweep_adapter.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_executor.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge.py'
+      - 'src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_builtin_requirements.txt'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/applied_analysis_validation.py'
+      - 'scripts/applied_analysis_advanced_validation.py'
+      - 'scripts/applied_math_deep_validation.py'
+      - 'scripts/inverse_regularization_validation.py'
+      - 'scripts/sweep_design_metadata_validation.py'
+      - 'scripts/utube_experiment_validation.py'
+      - '.github/workflows/applied-analysis-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific dependencies
+        run: python -m pip install numpy scipy pandas plotly
+      - name: Compile Applied Analysis modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_experiment_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_utube_sweep_adapter.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_executor.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile scripts/applied_analysis_validation.py
+          python -m py_compile scripts/applied_analysis_advanced_validation.py
+          python -m py_compile scripts/applied_math_deep_validation.py
+          python -m py_compile scripts/inverse_regularization_validation.py
+          python -m py_compile scripts/sweep_design_metadata_validation.py
+          python -m py_compile scripts/utube_experiment_validation.py
+      - name: Validate Tauri configuration
+        run: python -m json.tool src-tauri/tauri.conf.json >/dev/null
+      - name: Validate applied mathematics and statistics core
+        run: python scripts/applied_analysis_validation.py
+      - name: Validate advanced applied analysis and queue boundary
+        run: python scripts/applied_analysis_advanced_validation.py
+      - name: Validate deep applied mathematics and sweep feedback
+        run: python scripts/applied_math_deep_validation.py
+      - name: Validate inverse regularization and analysis handoff
+        run: python scripts/inverse_regularization_validation.py
+      - name: Validate sweep design metadata round trip
+        run: python scripts/sweep_design_metadata_validation.py
+      - name: Validate native U-tube experiment model and Sweep adapter
+        run: python scripts/utube_experiment_validation.py
+      - name: Verify application integration and boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          require_grep() {
+            local pattern="$1"
+            local file="$2"
+            local label="$3"
+            if ! grep -q -- "$pattern" "$file"; then
+              echo "::error file=$file::Missing integration marker [$label]: $pattern"
+              exit 1
+            fi
+          }
+          require_absent() {
+            local pattern="$1"
+            local file="$2"
+            local label="$3"
+            if grep -q -- "$pattern" "$file"; then
+              echo "::error file=$file::Forbidden integration marker present [$label]: $pattern"
+              exit 1
+            fi
+          }
+
+          require_grep '^scipy$' src-tauri/resources/ui/physical_lab_builtin_requirements.txt 'SciPy runtime dependency'
+          require_grep 'physical_lab_applied_analysis.py' src-tauri/tauri.conf.json 'Applied Analysis bundled core'
+          require_grep 'physical_lab_applied_analysis_ui.py' src-tauri/tauri.conf.json 'Applied Analysis bundled UI'
+          require_grep 'physical_lab_applied_analysis_advanced.py' src-tauri/tauri.conf.json 'Advanced Applied Analysis bundled core'
+          require_grep 'physical_lab_applied_analysis_advanced_ui.py' src-tauri/tauri.conf.json 'Advanced Applied Analysis bundled UI'
+          require_grep 'physical_lab_applied_math_deep.py' src-tauri/tauri.conf.json 'Deep Applied Math bundled core'
+          require_grep 'physical_lab_applied_math_deep_ui.py' src-tauri/tauri.conf.json 'Deep Applied Math bundled UI'
+          require_grep 'physical_lab_utube_experiment.py' src-tauri/tauri.conf.json 'U-Tube bundled core'
+          require_grep 'physical_lab_utube_experiment_ui.py' src-tauri/tauri.conf.json 'U-Tube bundled UI'
+          require_grep 'physical_lab_utube_sweep_adapter.py' src-tauri/tauri.conf.json 'U-Tube bundled sweep adapter'
+          require_grep '"utube-rotation"' src-tauri/resources/ui/physical_lab_sweep_executor.py 'U-Tube sweep allow-list'
+          require_grep 'U-Tube DOE → Sweep' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py 'U-Tube DOE workspace'
+          require_grep 'Queue U-Tube DOE as Sweep' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py 'U-Tube queue boundary'
+          require_grep 'Explicitly start U-Tube Sweep' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py 'U-Tube explicit execution'
+          require_grep 'physical_lab_sweep_design_bridge.py' src-tauri/tauri.conf.json 'Sweep design bridge bundled core'
+          require_grep 'physical_lab_sweep_design_bridge_ui.py' src-tauri/tauri.conf.json 'Sweep design bridge bundled UI'
+          require_grep 'Applied Math & Statistics' src-tauri/resources/ui/physical_lab_project_interop_ui.py 'Applied Math workspace integration'
+          require_grep 'render_utube_experiment' src-tauri/resources/ui/physical_lab_project_interop_ui.py 'U-Tube renderer integration'
+          require_grep 'Rotating U-Tube Experiment' src-tauri/resources/ui/physical_lab_utube_experiment_ui.py 'U-Tube workspace heading'
+          require_grep 'Signed and magnitude angle' src-tauri/resources/ui/physical_lab_utube_experiment.py 'Signed-angle evidence boundary'
+          require_grep 'render_applied_analysis_advanced' src-tauri/resources/ui/physical_lab_project_interop_ui.py 'Advanced Applied Analysis renderer'
+          require_grep 'render_applied_math_deep' src-tauri/resources/ui/physical_lab_project_interop_ui.py 'Deep Applied Math renderer'
+          require_grep 'render_sweep_design_bridge' src-tauri/resources/ui/physical_lab_project_interop_ui.py 'Sweep design renderer'
+          require_grep 'Regression + Diagnostics' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py 'Regression UI'
+          require_grep 'Bootstrap + Monte Carlo' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py 'Bootstrap UI'
+          require_grep 'Design of Experiments' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py 'DOE UI'
+          require_grep 'Parameter Estimation' src-tauri/resources/ui/physical_lab_applied_analysis_ui.py 'Parameter estimation UI'
+          require_grep 'Robust Regression' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py 'Robust regression UI'
+          require_grep 'Model Selection' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py 'Model selection UI'
+          require_grep 'Factorial + Morris' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py 'Factorial/Morris UI'
+          require_grep 'DOE → Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py 'DOE-to-Sweep UI'
+          require_grep 'PCA / SVD' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'PCA/SVD UI'
+          require_grep 'Regularized inverse' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'Regularized inverse UI'
+          require_grep 'TSVD / GCV / L-curve' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'Regularization selection UI'
+          require_grep 'Completed Sweep Feedback + Handoff' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'Sweep feedback UI'
+          require_grep 'pl_analysis_handoff_' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'Analysis handoff state'
+          require_absent 'start_sweep_job' src-tauri/resources/ui/physical_lab_applied_math_deep_ui.py 'Deep-analysis must remain view-only'
+          require_grep 'design_metadata' src-tauri/resources/ui/physical_lab_sweep_executor.py 'Sweep metadata round-trip'
+          require_grep '__changed_factor' src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py 'Morris changed-factor metadata'
+          require_grep 'Explicitly start Morris Sweep' src-tauri/resources/ui/physical_lab_sweep_design_bridge_ui.py 'Morris explicit execution'
+          require_grep 'execution_started.*False' src-tauri/resources/ui/physical_lab_sweep_design_bridge.py 'Sweep bridge queue-only core'
+          require_grep 'execution_started.*False' src-tauri/resources/ui/physical_lab_applied_analysis_advanced.py 'Applied analysis queue-only core'
+          require_grep 'Explicitly start queued Sweep' src-tauri/resources/ui/physical_lab_applied_analysis_advanced_ui.py 'Explicit queued sweep execution'
+          require_grep 'physical identifiability' src-tauri/resources/ui/physical_lab_applied_math_deep.py 'Inverse-problem evidence boundary'
+          require_grep 'arbitrary user code' src-tauri/resources/ui/physical_lab_applied_analysis.py 'No arbitrary-code boundary'
+          require_grep 'DOE proposals do not by themselves establish causality' src-tauri/resources/ui/physical_lab_applied_analysis.py 'DOE interpretation boundary'

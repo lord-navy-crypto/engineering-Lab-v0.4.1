@@ -15,6 +15,7 @@ sys.path.insert(0, str(UI))
 import physical_lab_advanced as advanced
 import physical_lab_evidence_center_patch as evidence_patch
 import physical_lab_evidence_center_ui as evidence_ui
+import physical_lab_project_interop_ui as project_interop_ui
 import physical_lab_project_kernel as project_kernel
 import physical_lab_project_surface_patch as surface_patch
 
@@ -49,6 +50,7 @@ def main() -> int:
         "resources/ui/physical_lab_evidence_center_patch.py",
         "resources/ui/physical_lab_evidence_center_ui.py",
         "resources/ui/physical_lab_project_surface_patch.py",
+        "resources/ui/physical_lab_surface_registry.py",
         "resources/ui/physical_lab_credibility.py",
         "resources/ui/physical_lab_claims.py",
         "resources/ui/physical_lab_cross_checks.py",
@@ -107,10 +109,13 @@ def main() -> int:
 
     surface_calls: list[tuple] = []
     original_advanced = advanced.render_advanced_experiments
+    original_interop_renderer = project_interop_ui.render_project_interop
+    original_all_workspaces = surface_patch._render_all_workspaces
     had_surface_flag = hasattr(advanced, "_physical_lab_project_surface_patched")
     old_surface_flag = getattr(advanced, "_physical_lab_project_surface_patched", None)
     old_profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE")
     old_streamlit = sys.modules.get("streamlit")
+    nav_choice = {"value": "All Workspaces"}
 
     def base_advanced(namespace):
         surface_calls.append(("advanced", namespace))
@@ -118,36 +123,60 @@ def main() -> int:
     def fake_project_surface(st, profile, namespace=None):
         surface_calls.append(("project", profile, namespace))
 
+    def fake_project_interop(st, profile):
+        surface_calls.append(("interop", profile))
+
+    def fake_all_workspaces(st, profile):
+        surface_calls.append(("catalog", profile))
+
+    def fake_radio(label, options, **kwargs):
+        surface_calls.append(("navigator", label, tuple(options)))
+        return nav_choice["value"]
+
     fake_streamlit = types.ModuleType("streamlit")
     fake_streamlit.warning = lambda message: surface_calls.append(("warning", str(message)))
+    fake_streamlit.markdown = lambda *args, **kwargs: None
+    fake_streamlit.radio = fake_radio
 
     try:
         advanced.render_advanced_experiments = base_advanced
         advanced._physical_lab_project_surface_patched = False
         project_kernel.render_project_workspace = fake_project_surface
+        project_interop_ui.render_project_interop = fake_project_interop
+        surface_patch._render_all_workspaces = fake_all_workspaces
         sys.modules["streamlit"] = fake_streamlit
         os.environ["PHYSICAL_LAB_UI_PROFILE"] = "numerical-methods"
 
         surface_patch.install()
         wrapped_advanced = advanced.render_advanced_experiments
         assert wrapped_advanced is not base_advanced
-
-        # Workbench profiles already expose Project & Evidence through
-        # Engineering → Research.  The compatibility patch must not append a
-        # duplicate project UI.
-        wrapped_advanced({"fixture": "workbench"})
+        fake_streamlit.session_state = {}
+        wrapped_advanced({"fixture": "surface"})
         assert surface_calls == [
-            ("advanced", {"fixture": "workbench"}),
-        ]
+            ("advanced", {"fixture": "surface"}),
+            ("navigator", "Engineering Lab navigator", ("Project Workspace", "All Workspaces")),
+            ("catalog", "numerical-methods"),
+        ], "Workbench profile must expose catalog without appending duplicate Project/Evidence"
 
-        # Bundled first-class Labs do not use the shared Research Workbench, so
-        # the compatibility patch must still expose Project & Evidence there.
+        surface_calls.clear()
+        nav_choice["value"] = "Project Workspace"
+        wrapped_advanced({"fixture": "project-route"})
+        assert surface_calls == [
+            ("advanced", {"fixture": "project-route"}),
+            ("navigator", "Engineering Lab navigator", ("Project Workspace", "All Workspaces")),
+            ("interop", "numerical-methods"),
+        ], "Project Workspace must remain explicitly reachable"
+
+        surface_calls.clear()
         os.environ["PHYSICAL_LAB_UI_PROFILE"] = "kerr-geodesics"
+        fake_streamlit.session_state = {}
         wrapped_advanced({"fixture": "standalone"})
-        assert surface_calls[-2:] == [
+        assert surface_calls == [
             ("advanced", {"fixture": "standalone"}),
             ("project", "kerr-geodesics", {"fixture": "standalone"}),
-        ]
+            ("navigator", "Engineering Lab navigator", ("Project Workspace", "All Workspaces")),
+            ("interop", "kerr-geodesics"),
+        ], "Standalone Lab must retain compatibility Project/Evidence mount"
 
         before_surface = advanced.render_advanced_experiments
         surface_patch.install()
@@ -161,6 +190,8 @@ def main() -> int:
     finally:
         advanced.render_advanced_experiments = original_advanced
         project_kernel.render_project_workspace = original_workspace
+        project_interop_ui.render_project_interop = original_interop_renderer
+        surface_patch._render_all_workspaces = original_all_workspaces
         if had_surface_flag:
             advanced._physical_lab_project_surface_patched = old_surface_flag
         elif hasattr(advanced, "_physical_lab_project_surface_patched"):
@@ -180,8 +211,8 @@ def main() -> int:
     print("- no-active-project guard: PASS")
     print("- active project -> Evidence Center render: PASS")
     print("- create-new-project stale-path guard: PASS")
-    print("- Workbench Project UI is not duplicated: PASS")
-    print("- Bundled first-class Labs retain Project/Evidence surface: PASS")
+    print("- Lab advanced renderer -> Project management -> Project Workspace: PASS")
+    print("- Lab advanced renderer -> Project management -> All Workspaces catalog: PASS")
     print("- unsupported-profile guard: PASS")
     print("- idempotent patch installation: PASS")
     print("Boundary: UI consumes the same project evidence APIs; it does not introduce a separate credibility/truth state.")

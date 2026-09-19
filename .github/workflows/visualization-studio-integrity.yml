@@ -1,0 +1,71 @@
+name: Engineering Lab Visualization Studio Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/expand-physics-simulation-scenarios
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/visualization_studio_validation.py'
+      - '.github/workflows/visualization-studio-integrity.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio.py'
+      - 'src-tauri/resources/ui/physical_lab_visualization_studio_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py'
+      - 'src-tauri/resources/ui/physical_lab_project_interop_ui.py'
+      - 'src-tauri/tauri.conf.json'
+      - 'scripts/visualization_studio_validation.py'
+      - '.github/workflows/visualization-studio-integrity.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install visualization dependencies
+        run: python -m pip install numpy pandas plotly
+      - name: Compile visualization modules
+        run: |
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
+          python -m py_compile src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          python -m py_compile scripts/visualization_studio_validation.py
+      - name: Validate generic visualization and DIY scans
+        run: python scripts/visualization_studio_validation.py
+      - name: Verify staged Visualization Studio workflow
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'Visualization workflow' "$FILE"
+          grep -q 'Choose Data' "$FILE"
+          grep -q 'Build View' "$FILE"
+          grep -q 'Inspect & Export' "$FILE"
+          grep -q 'Parameter Scan' "$FILE"
+          grep -q 'pl_vizstudio_selected_source_' "$FILE"
+          grep -q 'pl_vizstudio_built_view_' "$FILE"
+          grep -q '_render_plot_inspect_export' "$FILE"
+          grep -q 'Save reproducible View Recipe' "$FILE"
+          grep -q 'Create and start DIY scan' "$FILE"
+      - name: Verify UI and bundle integration
+        run: |
+          grep -q 'Visualization Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'ModelSpec DIY' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Research table' src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'pl_modelspec_guidance_' src-tauri/resources/ui/physical_lab_visualization_studio_ui.py
+          grep -q 'pl_modelspec_guidance_' src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
+          grep -q 'physical_lab_visualization_studio.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_visualization_studio_ui.py' src-tauri/tauri.conf.json
+          grep -q 'physical_lab_modelspec_diy_ui.py' src-tauri/tauri.conf.json
+          grep -q 'MAX_SCAN_POINTS = 500' src-tauri/resources/ui/physical_lab_visualization_studio.py
+          grep -q 'physical-lab-model-spec-v1' src-tauri/resources/ui/physical_lab_visualization_studio.py
+          grep -q 'never grants arbitrary execution authority' src-tauri/resources/ui/physical_lab_modelspec_diy_ui.py
+          grep -q 'Visualization changes representation, not evidence' src-tauri/resources/ui/physical_lab_visualization_studio.py

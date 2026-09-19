@@ -27,7 +27,34 @@ jobs:
           python -m py_compile scripts/project_interop_validation.py
       - name: Validate project datasets and reproducibility pack
         run: python scripts/project_interop_validation.py
-      - name: Verify DMG resource wiring
+      - name: Verify DMG resource wiring and project-selection guard
         run: |
           grep -q 'physical_lab_project_interop.py' src-tauri/tauri.conf.json
           grep -q 'physical_lab_project_interop_ui.py' src-tauri/tauri.conf.json
+          grep -q 'pl_project_select_' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'Create new project' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'U-Tube Research Studio' src-tauri/resources/ui/physical_lab_project_interop_ui.py
+      - name: Verify project home and top-level navigation
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'PROJECT_SURFACES' "$FILE"
+          grep -q 'Project Home' "$FILE"
+          grep -q 'Project workspace' "$FILE"
+          grep -q '_render_project_home' "$FILE"
+          grep -q 'Open U-Tube Studio' "$FILE"
+          grep -q 'Open Project Tools' "$FILE"
+          grep -q 'Open Reproducibility' "$FILE"
+          grep -q 'Datasets' "$FILE"
+          grep -q 'Counts describe indexed project records; they do not imply scientific validation.' "$FILE"
+      - name: Verify task-group project navigation
+        run: |
+          FILE=src-tauri/resources/ui/physical_lab_project_interop_ui.py
+          grep -q 'What do you want to do?' "$FILE"
+          grep -q 'Data & LabBridge' "$FILE"
+          grep -q 'Visualize & Analyze' "$FILE"
+          grep -q 'Model & Workflow' "$FILE"
+          grep -q 'Reproducibility' "$FILE"
+          grep -q '_render_data_group' "$FILE"
+          grep -q '_render_analysis_group' "$FILE"
+          grep -q '_render_model_group' "$FILE"
+          grep -q '_render_project_tools' "$FILE"

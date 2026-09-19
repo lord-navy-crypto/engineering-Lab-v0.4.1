@@ -8,6 +8,7 @@ on:
       - "src-tauri/resources/ui/physical_lab_engineering.py"
       - "src-tauri/tauri.conf.json"
       - "scripts/research_orchestrator_validation.py"
+      - "scripts/research_orchestrator_visual_validation.py"
       - ".github/workflows/research-orchestrator-integrity.yml"
   workflow_dispatch:
 
@@ -20,15 +21,18 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install runtime
-        run: python -m pip install --upgrade pip numpy
+        run: python -m pip install --upgrade pip numpy plotly
       - name: Compile orchestrator and facade
         run: |
           python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator.py
           python -m py_compile src-tauri/resources/ui/physical_lab_research_orchestrator_ui.py
           python -m py_compile src-tauri/resources/ui/physical_lab_engineering.py
           python -m py_compile scripts/research_orchestrator_validation.py
+          python -m py_compile scripts/research_orchestrator_visual_validation.py
       - name: Validate sweep, table, convergence, and comparison logic
         run: python scripts/research_orchestrator_validation.py
+      - name: Validate sweep visualization and explicit execution boundary
+        run: python scripts/research_orchestrator_visual_validation.py
       - name: Verify global wiring and DMG resources
         run: |
           grep -q 'render_research_orchestrator' src-tauri/resources/ui/physical_lab_engineering.py

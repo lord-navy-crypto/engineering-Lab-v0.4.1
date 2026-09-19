@@ -1,3 +1,38 @@
+
+const FULL_ORIGINAL_WORKSPACE_PROFILE = Object.freeze({
+  'numerical-methods':'numerical-methods',
+  'ising-monte-carlo':'ising-monte-carlo',
+  'random-walk-monte-carlo':'random-walk-monte-carlo',
+  'nonlinear-chaos':'nonlinear-chaos',
+  'oscillation-integration':'oscillation-integration',
+  'radia-magnet-studio':'radia-magnet-studio',
+  'radiation-platform':'radiation-platform',
+  'kerr-geodesics':'kerr-geodesics',
+  'solar-system-dynamics':'solar-system-dynamics',
+  'honeycomb-lattice':'honeycomb-lattice',
+  'utube-studio':'oscillation-integration',
+  'kerr-shadow':'kerr-geodesics',
+  'undulator-spectrum':'radiation-platform',
+  'frequency-response':'oscillation-integration'
+});
+async function openFullOriginalWorkspace(experimentId){
+  if(!invoke){toast('Full Original Workspace is available in the desktop build.',true);return}
+  const moduleId=FULL_ORIGINAL_WORKSPACE_PROFILE[experimentId];
+  if(!moduleId){toast('No compatibility profile is mapped for '+experimentId,true);return}
+  const m=modules.find(x=>x.id===moduleId);
+  if(!m){toast('Compatibility module is not registered: '+moduleId,true);return}
+  try{
+    const requested=selectedModes[moduleId]||'safe';
+    const info=await invoke('launch_module',{moduleId,mode:requested});
+    activeModule=moduleId;
+    activeMode=info.mode||requested;
+    el('openLabTitle').textContent=m.name+' · Full Original Workspace';
+    el('openLabUrl').textContent=info.url;
+    el('labFrame').src=info.url;
+    showView('lab');
+  }catch(e){toast(String(e),true)}
+}
+
 const NATIVE_EXPERIMENTS = Object.freeze([
   {id:'numerical-methods',name:'Numerical Error Analysis',category:'Numerical Physics',icon:'∑',focus:'floating-point error, cancellation, convergence and reliability',stage:'adapter'},
   {id:'ising-monte-carlo',name:'Ising Monte Carlo Lab',category:'Statistical Physics',icon:'▦',focus:'Ising states, Monte Carlo sampling, critical behavior and convergence',stage:'adapter'},
@@ -346,7 +381,10 @@ function renderNativeExperimentControls(spec){
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
   uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
   const tools=NATIVE_TOOL_SPECS[spec.id]||[];
-  uEl('nativeExperimentTools').innerHTML=tools.length?tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join(''):'<div class="empty-state compact-empty">This experiment keeps its analysis in the main Results workflow.</div>';
+  const fullCard='<article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign Research Workbench and its registry-backed All Workspaces catalog. Use this whenever a function has not yet been migrated into the new native layout.</p><button class="primary" data-open-full-original="'+uEsc(spec.id)+'">Open full original workspace</button></article>';
+  const toolCards=tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join('');
+  uEl('nativeExperimentTools').innerHTML=fullCard+toolCards;
+  document.querySelectorAll('[data-open-full-original]').forEach(b=>b.onclick=()=>openFullOriginalWorkspace(b.dataset.openFullOriginal));
   document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;

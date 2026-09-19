@@ -120,3 +120,69 @@ for tool_marker in ("refinement","ftle","phonon-dispersion","phonon-dos","beam-b
     assert tool_marker in native, f"missing restored native tool marker: {tool_marker}"
 for tool_marker in ("operating-state","elasticity","scan-plan","uncertainty"):
     assert tool_marker in html, f"missing restored U-Tube tool marker: {tool_marker}"
+
+registry = Path("src-tauri/resources/ui/physical_lab_surface_registry.py").read_text(encoding="utf-8")
+canonical_surface_ids = [
+    "utube-studio",
+    "utube-physical",
+    "utube-uncertainty",
+    "utube-advanced",
+    "data-bridge",
+    "measurement-registry",
+    "betterboard-discovery",
+    "betterboard-inbox",
+    "labbridge",
+    "research-notebook",
+    "result-inspector",
+    "research-orchestrator",
+    "visualization-studio",
+    "visual-analytics",
+    "applied-analysis",
+    "advanced-applied-analysis",
+    "deep-applied-math",
+    "sweep-design-bridge",
+    "science-analysis",
+    "science-protocol",
+    "modelspec-diy",
+    "run-comparison",
+    "model-coupling",
+    "pipeline-dag",
+    "digital-twin",
+    "engineering-decisions",
+    "operations-planning",
+    "quality-reliability",
+    "risk-economics",
+    "requirements-verification",
+    "evidence-center",
+    "reproducibility-pack",
+    "local-ai",
+    "run-vault",
+    "openguin-advisory",
+    "engineering-vvuq",
+    "kerr-geodesics",
+    "kerr-platform",
+    "kerr-shadow",
+    "solar-system",
+    "lattice-dynamics",
+    "deep-science",
+    "remaining-science",
+    "frequency-response",
+    "new-model-refinement",
+    "model-depth",
+    "undulator-spectrum",
+    "radiation-stokes",
+    "radiation-quality",
+    "radiation-seed-compare",
+    "radia-forward",
+    "radia-tolerance",
+    "radia-radiation-propagation",
+]
+surface_block = registry[registry.index("SURFACES:"):registry.index("EMBEDDED_UI_MODULES")]
+for surface_id in canonical_surface_ids:
+    assert f'"{surface_id}"' in surface_block, f"canonical surface disappeared from registry: {surface_id}"
+assert len(canonical_surface_ids) == 53
+assert "surfaces_for_catalog(profile)" in Path("src-tauri/resources/ui/physical_lab_project_surface_patch.py").read_text(encoding="utf-8")
+assert "Full Original Workspace" in native
+assert "openFullOriginalWorkspace(" in native
+assert 'id="utOpenFullOriginal"' in html
+print("Zero-loss full capability catalog validation: PASS 53/53 registry surfaces")

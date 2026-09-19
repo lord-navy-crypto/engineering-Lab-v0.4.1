@@ -177,6 +177,8 @@
         </div>
         <div class="experiment-tabs">
           <button class="filter active" data-native-exp-tab="setup">Setup</button>
+          <button class="filter" data-native-exp-tab="advanced">Advanced</button>
+          <button class="filter" data-native-exp-tab="tools">Tools & Analysis</button>
           <button class="filter" data-native-exp-tab="results">Results</button>
           <button class="filter" data-native-exp-tab="verification">Verification</button>
         </div>
@@ -187,20 +189,26 @@
               <div><h3>Parameters</h3><p>Adjust the values you want to test.</p></div>
             </div>
             <div id="nativeExperimentControls" class="native-parameter-grid"></div>
-            <details class="advanced-disclosure">
-              <summary>Advanced</summary>
-              <div class="advanced-body">
-                <label>Engine mode
-                  <select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select>
-                </label>
-                <p>Safe is the recommended default. Use Full only when the experiment requires optional native scientific dependencies.</p>
-              </div>
-            </details>
             <div class="primary-run-row">
               <button id="nativeExperimentRun" class="primary prominent-run">Run Experiment</button>
               <span id="nativeExperimentRunStatus">Ready.</span>
             </div>
           </article>
+        </div>
+
+        <div class="native-exp-tab-panel" data-native-exp-panel="advanced" hidden>
+          <article class="experiment-panel">
+            <div class="panel-heading"><div><h3>Advanced model & solver settings</h3><p>Full experiment controls are preserved here instead of being removed from the UI.</p></div></div>
+            <div id="nativeExperimentAdvancedControls" class="native-parameter-grid"></div>
+            <div class="advanced-runtime-row">
+              <label>Engine mode<select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select></label>
+            </div>
+          </article>
+        </div>
+
+        <div class="native-exp-tab-panel" data-native-exp-panel="tools" hidden>
+          <div id="nativeExperimentTools" class="experiment-tool-grid"></div>
+          <div id="nativeExperimentToolStatus" class="native-status">Choose a tool to run experiment-specific analysis.</div>
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="results" hidden>
@@ -237,6 +245,8 @@
         </div>
         <div class="experiment-tabs">
           <button class="filter active" data-utube-tab="setup">Setup</button>
+          <button class="filter" data-utube-tab="advanced">Advanced</button>
+          <button class="filter" data-utube-tab="tools">Tools & Analysis</button>
           <button class="filter" data-utube-tab="results">Results</button>
           <button class="filter" data-utube-tab="verification">Verification</button>
         </div>
@@ -251,19 +261,50 @@
               <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" step="0.01" value="7.48"></label>
               <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
             </div>
-            <details class="advanced-disclosure">
-              <summary>Advanced hysteresis controls</summary>
-              <div class="advanced-body native-control-grid three">
-                <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
-                <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
-                <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
-              </div>
-            </details>
             <div class="primary-run-row">
               <button id="utRun" class="primary prominent-run">Run Experiment</button>
               <span id="utNativeStatus">Ready.</span>
             </div>
           </article>
+        </div>
+
+        <div class="utube-panel" data-utube-panel="advanced" hidden>
+          <article class="experiment-panel">
+            <div class="panel-heading"><div><h3>Advanced U-Tube settings</h3><p>Dynamic, uncertainty, sensitivity, and experiment-planning inputs remain directly adjustable.</p></div></div>
+            <div class="native-control-grid">
+              <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
+              <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
+              <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
+              <label>Density ρ (kg/m³)<input id="utRho" type="number" min="100" step="0.1" value="997.8"></label>
+              <label>Surface tension γ (mN/m)<input id="utGamma" type="number" min="1" step="0.1" value="72"></label>
+              <label>Contact angle (deg)<input id="utThetaDeg" type="number" min="-180" max="180" step="0.5" value="0"></label>
+              <label>u(V) (mL)<input id="utUVolume" type="number" min="0" step="0.01" value="0.05"></label>
+              <label>u(n) (rpm)<input id="utURpm" type="number" min="0" step="0.1" value="1"></label>
+              <label>u(R_in) (mm)<input id="utURin" type="number" min="0" step="0.01" value="0.2"></label>
+              <label>u(a) (mm)<input id="utURadius" type="number" min="0" step="0.01" value="0.1"></label>
+              <label>Uncertainty samples<input id="utUncertaintySamples" type="number" min="50" max="5000" step="50" value="300"></label>
+              <label>Uncertainty seed<input id="utUncertaintySeed" type="number" min="0" step="1" value="0"></label>
+              <label>Elasticity step<input id="utElasticityStep" type="number" min="0.00001" max="0.1" step="0.0001" value="0.001"></label>
+              <label>Coarse span (rpm)<input id="utCoarseSpan" type="number" min="1" step="1" value="40"></label>
+              <label>Coarse step (rpm)<input id="utCoarseStep" type="number" min="0.1" step="0.5" value="10"></label>
+              <label>Fine span (rpm)<input id="utFineSpan" type="number" min="0.5" step="0.5" value="8"></label>
+              <label>Fine step (rpm)<input id="utFineStep" type="number" min="0.1" step="0.1" value="2"></label>
+            </div>
+          </article>
+        </div>
+
+        <div class="utube-panel" data-utube-panel="tools" hidden>
+          <div class="experiment-tool-grid">
+            <article class="experiment-tool-card"><h3>Operating state</h3><p>Classify the selected operating point relative to n_c and n_g(V), including capacity margins.</p><button class="secondary" data-utube-tool="operating-state">Run operating-state analysis</button></article>
+            <article class="experiment-tool-card"><h3>Threshold elasticity</h3><p>Compute local d ln(n_g) / d ln(x) sensitivity for volume and geometry.</p><button class="secondary" data-utube-tool="elasticity">Run elasticity</button></article>
+            <article class="experiment-tool-card"><h3>Experiment scan plan</h3><p>Generate coarse and fine RPM measurement points around the predicted threshold.</p><button class="secondary" data-utube-tool="scan-plan">Build scan plan</button></article>
+            <article class="experiment-tool-card"><h3>Uncertainty propagation</h3><p>Propagate declared measurement uncertainties through the threshold model.</p><button class="secondary" data-utube-tool="uncertainty">Run uncertainty</button></article>
+          </div>
+          <div id="utToolStatus" class="native-status">Choose an analysis tool.</div>
+          <div id="utToolMetrics" class="native-result-metrics"></div>
+          <div id="utToolCharts" class="native-result-charts"></div>
+          <div id="utToolTables"></div>
+          <p id="utToolBoundary" class="boundary-inline"></p>
         </div>
 
         <div class="utube-panel" data-utube-panel="results" hidden>

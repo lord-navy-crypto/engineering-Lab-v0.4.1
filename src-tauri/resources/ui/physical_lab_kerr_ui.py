@@ -4,8 +4,6 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
-
 import numpy as np
 
 from physical_lab_kerr_geodesics import (
@@ -395,6 +393,8 @@ def _verification_tab(st: Any) -> None:
 def render_kerr_geodesic_workspace(st: Any, profile: str) -> None:
     if profile != PROFILE:
         return
+
+    from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
 
     render_workbench_header(
         st,

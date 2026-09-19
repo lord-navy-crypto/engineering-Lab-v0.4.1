@@ -45,6 +45,13 @@ def _section_header(st, title: str, caption: str) -> None:
 
 
 def render_advanced_experiments(namespace: dict[str, Any]) -> None:
+    """Render the advanced layer as a small set of explicit workspaces.
+
+    The previous implementation appended every advanced surface to one long page.
+    That made controls, plots, V&V tools, AI and run-management visually compete
+    with each other.  The workbench keeps the same scientific modules but renders
+    only the workspace the user is actively using.
+    """
     profile = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
     supported = {
         "numerical-methods", "ising-monte-carlo", "random-walk-monte-carlo",
@@ -57,6 +64,7 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         import streamlit as st
     except Exception:
         return
+
     def _render_profile_suite() -> None:
         if profile == "numerical-methods":
             _numerical_suite(st, namespace)
@@ -73,51 +81,104 @@ def render_advanced_experiments(namespace: dict[str, Any]) -> None:
         elif profile == "radiation-platform":
             _radiation_suite(st, namespace)
 
-    try:
-        from physical_lab_visualization import visualization_context
-        from physical_lab_visualization_engineering import engineering_visualization_context
-        with visualization_context(st, profile):
-            with engineering_visualization_context(st, profile):
-                _render_profile_suite()
-                try:
-                    from physical_lab_engineering import render_engineering_vvuq
-                    render_engineering_vvuq(st, profile, namespace)
-                except Exception as _pl_engineering_error:
-                    st.warning(f"Physical Lab Engineering V&V/UQ could not load: {_pl_engineering_error}")
-    except Exception as _pl_visualization_error:
-        st.warning(f"Physical Lab Visualization Studio could not load: {_pl_visualization_error}")
-        _render_profile_suite()
+    def _with_visualization(renderer) -> None:
         try:
-            from physical_lab_engineering import render_engineering_vvuq
-            render_engineering_vvuq(st, profile, namespace)
-        except Exception as _pl_engineering_error:
-            st.warning(f"Physical Lab Engineering V&V/UQ could not load: {_pl_engineering_error}")
-    try:
-        from physical_lab_digital_twin_ui import render_digital_twin_workspace
-        render_digital_twin_workspace(st, profile)
-    except Exception as _pl_digital_twin_error:
-        st.warning(f"Physical Lab Measurement Digital Twin could not load: {_pl_digital_twin_error}")
-    if profile == "radia-magnet-studio":
+            from physical_lab_visualization import visualization_context
+            from physical_lab_visualization_engineering import engineering_visualization_context
+            with visualization_context(st, profile):
+                with engineering_visualization_context(st, profile):
+                    renderer()
+        except Exception as visualization_error:
+            st.warning(f"Physical Lab visualization controls could not load: {visualization_error}")
+            renderer()
+
+    st.markdown("---")
+    st.markdown("## Physical Lab · Research Workbench")
+    st.caption(
+        "The core experiment stays above. Choose one downstream task here instead of "
+        "loading every advanced analysis, validation, AI and run-management surface at once."
+    )
+
+    workspace = st.radio(
+        "Research workbench",
+        ["Science", "Engineering", "Validation", "Assistant", "Runs"],
+        horizontal=True,
+        key=f"pl_research_workbench_{profile}",
+        help=(
+            "Science: profile-specific advanced studies. Engineering: analysis, V&V and research tools. "
+            "Validation: measurement/digital-twin handoff. Assistant: local AI. Runs: reproducible snapshots."
+        ),
+    )
+    workspace_help = {
+        "Science": "Explore one profile-specific advanced physics/computation suite.",
+        "Engineering": "Choose a focused engineering analysis, V&V, research or diagnostics task.",
+        "Validation": "Compare model outputs with measurement-facing or nonlinear validation workflows.",
+        "Assistant": "Use the local assistant with the current experiment context.",
+        "Runs": "Save, restore and compare reproducible experiment snapshots.",
+    }
+    st.caption(workspace_help[workspace])
+
+    if workspace == "Science":
+        _with_visualization(_render_profile_suite)
+        return
+
+    if workspace == "Engineering":
+        def _render_engineering() -> None:
+            try:
+                from physical_lab_engineering import render_engineering_vvuq
+                render_engineering_vvuq(st, profile, namespace)
+            except Exception as exc:
+                st.warning(f"Physical Lab Engineering workspace could not load: {exc}")
+        _with_visualization(_render_engineering)
+        return
+
+    if workspace == "Validation":
+        validation_tools = ["Measurement Digital Twin"]
+        if profile == "radia-magnet-studio":
+            validation_tools += [
+                "RADIA measurement adapter",
+                "Nonlinear RADIA tolerance",
+                "RADIA → radiation propagation",
+            ]
+        selected = st.selectbox(
+            "Validation tool",
+            validation_tools,
+            key=f"pl_validation_tool_{profile}",
+        )
+        if selected == "Measurement Digital Twin":
+            try:
+                from physical_lab_digital_twin_ui import render_digital_twin_workspace
+                render_digital_twin_workspace(st, profile)
+            except Exception as exc:
+                st.warning(f"Physical Lab Measurement Digital Twin could not load: {exc}")
+        elif selected == "RADIA measurement adapter":
+            try:
+                from physical_lab_radia_adapter import render_radia_forward_workspace
+                render_radia_forward_workspace(st, namespace)
+            except Exception as exc:
+                st.warning(f"Physical Lab RADIA Measurement Adapter could not load: {exc}")
+        elif selected == "Nonlinear RADIA tolerance":
+            try:
+                from physical_lab_radia_tolerance import render_radia_tolerance_workspace
+                render_radia_tolerance_workspace(st, namespace)
+            except Exception as exc:
+                st.warning(f"Physical Lab nonlinear RADIA tolerance workspace could not load: {exc}")
+        else:
+            try:
+                from physical_lab_radia_radiation_propagation import render_radia_radiation_propagation
+                render_radia_radiation_propagation(st, namespace)
+            except Exception as exc:
+                st.warning(f"Physical Lab RADIA → Radiation tolerance propagation could not load: {exc}")
+        return
+
+    if workspace == "Assistant":
         try:
-            from physical_lab_radia_adapter import render_radia_forward_workspace
-            render_radia_forward_workspace(st, namespace)
-        except Exception as _pl_radia_adapter_error:
-            st.warning(f"Physical Lab RADIA Measurement Adapter could not load: {_pl_radia_adapter_error}")
-        try:
-            from physical_lab_radia_tolerance import render_radia_tolerance_workspace
-            render_radia_tolerance_workspace(st, namespace)
-        except Exception as _pl_radia_tolerance_error:
-            st.warning(f"Physical Lab nonlinear RADIA tolerance workspace could not load: {_pl_radia_tolerance_error}")
-        try:
-            from physical_lab_radia_radiation_propagation import render_radia_radiation_propagation
-            render_radia_radiation_propagation(st, namespace)
-        except Exception as _pl_radia_radiation_error:
-            st.warning(f"Physical Lab RADIA → Radiation tolerance propagation could not load: {_pl_radia_radiation_error}")
-    try:
-        from physical_lab_local_ai import render_local_ai_assistant
-        render_local_ai_assistant(st, profile, namespace)
-    except Exception as _pl_local_ai_error:
-        st.warning(f"Physical Lab Local AI Assistant could not load: {_pl_local_ai_error}")
+            from physical_lab_local_ai import render_local_ai_assistant
+            render_local_ai_assistant(st, profile, namespace)
+        except Exception as exc:
+            st.warning(f"Physical Lab Local AI Assistant could not load: {exc}")
+        return
+
     _render_run_vault(st, profile)
 
 

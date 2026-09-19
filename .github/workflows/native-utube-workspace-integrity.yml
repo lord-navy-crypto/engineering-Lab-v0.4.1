@@ -25,5 +25,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: node --check web/utube-native.js
+      - run: node --check web/native-experiments.js
       - run: node --check web/app.js
       - run: python scripts/native_utube_workspace_validation.py

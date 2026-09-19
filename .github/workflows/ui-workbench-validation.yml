@@ -47,5 +47,35 @@ jobs:
             src-tauri/resources/ui/physical_lab_lattice_ui.py \
             src-tauri/resources/ui/physical_lab_builtin_lab_entry.py
 
+      - name: Reference snapshot validation
+        run: python scripts/reference_validation.py --check
+
+      - name: Visualization behavior validation
+        run: python scripts/visualization_reference_validation.py
+
+      - name: Engineering visualization validation
+        run: python scripts/engineering_visualization_validation.py
+
+      - name: Digital twin validation
+        run: python scripts/digital_twin_reference_validation.py --check
+
+      - name: Engineering V&V validation
+        run: python scripts/engineering_reference_validation.py
+
+      - name: Bundled lab contract validation
+        run: python scripts/bundled_model_labs_validation.py
+
+      - name: Kerr UI/model validation
+        run: python scripts/kerr_geodesic_validation.py
+
+      - name: Solar UI/model validation
+        run: python scripts/solar_system_dynamics_validation.py
+
+      - name: Lattice UI/model validation
+        run: python scripts/honeycomb_lattice_validation.py
+
+      - name: Release-readiness source validation
+        run: python scripts/v010_release_readiness_validation.py
+
       - name: Run repository source self-check
         run: python scripts/self_check.py

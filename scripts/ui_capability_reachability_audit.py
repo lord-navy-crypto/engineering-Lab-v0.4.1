@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "src-tauri" / "resources" / "ui"
 
-files = sorted(UI.glob("physical_lab_*.py"))
+files = sorted(set(UI.glob("physical_lab_*.py")) | {UI / "sitecustomize.py"})
 texts = {p: p.read_text(encoding="utf-8") for p in files}
 
 public_renderers: list[tuple[Path, str]] = []

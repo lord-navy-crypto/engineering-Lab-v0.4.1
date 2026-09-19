@@ -257,3 +257,10 @@ print(
     f"catalog={action_catalog['catalog_action_count']} "
     "missing=0"
 )
+
+assert 'id="actionWorkspaceView"' in html
+assert "openActionWorkspace" in native
+assert "openSelectedActionExact" in native
+assert "ACTION_NATIVE_VIEW_ROUTES" in native
+assert "ACTION_NATIVE_UTUBE_SURFACES" in native
+print("Unified native action workspace validation: PASS")

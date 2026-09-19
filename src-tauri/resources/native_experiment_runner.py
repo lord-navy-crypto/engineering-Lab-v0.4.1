@@ -755,12 +755,14 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
             confidence=f(p, "bootstrapConfidence", 0.95, 0.5, 0.999),
             seed=i(p, "analysisSeed", 0, 0, 2147483647),
         )
+        interval = out.get("interval") or [None, None]
         metrics = {
             "estimate": out.get("estimate"),
-            "confidenceLow": out.get("confidence_interval", [None, None])[0],
-            "confidenceHigh": out.get("confidence_interval", [None, None])[1],
-            "standardError": out.get("standard_error"),
-            "sampleCount": len(y),
+            "confidenceLow": interval[0] if len(interval) > 0 else None,
+            "confidenceHigh": interval[1] if len(interval) > 1 else None,
+            "standardError": out.get("bootstrap_standard_error"),
+            "sampleCount": out.get("n", len(y)),
+            "resamples": out.get("resamples"),
         }
         return result(experiment_id, "physical_lab_applied_analysis.bootstrap_statistic", p, metrics, [],
                       "Bootstrap uncertainty here is conditional on the selected finite result series and resampling protocol; it does not include omitted model-form or measurement uncertainty.")
@@ -772,33 +774,48 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
         if tool == "regression":
             from physical_lab_applied_analysis import regression_diagnostics
             out = regression_diagnostics(frame, ["x"], "y", include_intercept=True)
-            coeff = out.get("coefficients") or {}
+            coeff_rows = out.get("coefficients") or []
+            coeff = {str(row.get("term")): row.get("estimate") for row in coeff_rows if isinstance(row, dict)}
             metrics = {
-                "rSquared": out.get("r_squared"),
-                "adjustedRSquared": out.get("adjusted_r_squared"),
+                "rSquared": out.get("r2"),
+                "adjustedRSquared": out.get("adjusted_r2"),
                 "rmse": out.get("rmse"),
+                "mae": out.get("mae"),
+                "conditionNumber": out.get("condition_number"),
                 "intercept": coeff.get("intercept"),
                 "slope": coeff.get("x"),
             }
             series_out = [xy_series("fit-data", str(series.get("label") or "data"), x, y, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y"), chart="scatter")]
-            fitted = out.get("fitted")
-            if fitted is not None:
-                series_out.append(xy_series("linear-fit", "linear fit", x, fitted, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y")))
+            diagnostics = out.get("diagnostics")
+            if diagnostics is not None and hasattr(diagnostics, "columns") and "predicted" in diagnostics.columns:
+                series_out.append(xy_series("linear-fit", "linear fit", x, diagnostics["predicted"].to_numpy(dtype=float), x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y")))
+            tables = [{"id":"coefficients","label":"Regression coefficients","rows":coeff_rows}]
+            if diagnostics is not None and hasattr(diagnostics, "to_dict"):
+                tables.append({"id":"diagnostics","label":"Regression diagnostics","rows":diagnostics.to_dict(orient="records")})
             return result(experiment_id, "physical_lab_applied_analysis.regression_diagnostics", p, metrics, series_out,
-                          "Ordinary least-squares diagnostics summarize the selected current result series; residual structure and model assumptions still require interpretation.")
+                          out.get("boundary") or "Ordinary least-squares diagnostics summarize the selected current result series; residual structure and model assumptions still require interpretation.", tables)
         from physical_lab_applied_analysis_advanced import robust_regression_huber
         out = robust_regression_huber(frame, ["x"], "y", delta=f(p, "huberDelta", 1.345, 0.1, 20.0))
-        coeff = out.get("coefficients") or {}
+        coeff_rows = out.get("coefficients") or []
+        coeff = {str(row.get("term")): row.get("estimate") for row in coeff_rows if isinstance(row, dict)}
         metrics = {
             "intercept": coeff.get("intercept"),
             "slope": coeff.get("x"),
-            "scale": out.get("scale"),
+            "rmse": out.get("rmse"),
+            "mae": out.get("mae"),
+            "downweightedFraction": out.get("downweighted_fraction"),
             "iterations": out.get("iterations"),
             "converged": out.get("converged"),
         }
+        diagnostics = out.get("diagnostics")
+        series_out = [xy_series("robust-data", str(series.get("label") or "data"), x, y, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y"), chart="scatter")]
+        if diagnostics is not None and hasattr(diagnostics, "columns") and "predicted" in diagnostics.columns:
+            series_out.append(xy_series("robust-fit", "Huber fit", x, diagnostics["predicted"].to_numpy(dtype=float), x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y")))
+        tables = [{"id":"coefficients","label":"Huber coefficients","rows":coeff_rows}]
+        if diagnostics is not None and hasattr(diagnostics, "to_dict"):
+            tables.append({"id":"diagnostics","label":"Huber diagnostics","rows":diagnostics.to_dict(orient="records")})
         return result(experiment_id, "physical_lab_applied_analysis_advanced.robust_regression_huber", p, metrics,
-                      [xy_series("robust-data", str(series.get("label") or "data"), x, y, x_label=str(series.get("xLabel") or "x"), y_label=str(series.get("yLabel") or "y"), chart="scatter")],
-                      "Huber regression is a robust descriptive fit for the selected result series; it does not establish the correct physical functional form.")
+                      series_out, out.get("boundary") or "Huber regression is a robust descriptive fit for the selected result series; it does not establish the correct physical functional form.", tables)
 
     if tool == "convergence-diagnostics":
         from physical_lab_research_orchestrator import convergence_diagnostics
@@ -814,9 +831,11 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
             error = np.maximum(error, 1e-15)
         out = convergence_diagnostics(resolution[usable], error[usable])
         metrics = {
-            "estimatedOrder": out.get("estimated_order"),
-            "rSquared": out.get("r_squared"),
-            "lastError": float(error[-2]) if len(error) >= 2 else None,
+            "observedOrder": out.get("observed_order"),
+            "loglogRSquared": out.get("loglog_r2"),
+            "errorModelPrefactor": out.get("error_model_prefactor"),
+            "finestResolution": out.get("finest_resolution"),
+            "finestError": out.get("finest_error"),
             "referenceValue": reference,
         }
         return result(experiment_id, "physical_lab_research_orchestrator.convergence_diagnostics", p, metrics,

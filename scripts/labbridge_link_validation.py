@@ -44,7 +44,7 @@ def main() -> int:
         "127.0.0.1:11435",
         "native-labbridge",
         "ollama-compat",
-        'packet["executed"] = False',
+        '"executed": False',
     ]
     missing_adapter = [token for token in adapter_required if token not in adapter]
     assert not missing_adapter, f"missing OpenPenguin adapter contract token(s): {missing_adapter}"

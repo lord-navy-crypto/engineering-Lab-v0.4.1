@@ -97,3 +97,22 @@ for tool, extra in GLOBAL_TOOL_CASES:
     assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip()
     print(f"PASS GLOBAL TOOL {tool}: {payload['backend']}")
 print(f"Native global analysis smoke suite: PASS {len(GLOBAL_TOOL_CASES)}/{len(GLOBAL_TOOL_CASES)}")
+
+
+WORKFLOW_TOOL_CASES = [
+    ("visualization-summary", {}),
+    ("visualization-transform", {"transformMode": "z-score"}),
+    ("local-sensitivity", {}),
+    ("elasticity-sensitivity", {}),
+    ("standardized-sensitivity", {}),
+]
+workflow_context = runner.HANDLERS["numerical-methods"]({"xMax": 1.5, "order": 7, "points": 101}, "safe")
+for tool, extra in WORKFLOW_TOOL_CASES:
+    payload = runner.run_global_analysis_tool("numerical-methods", tool, {"contextResult": workflow_context, **extra})
+    assert payload["schema"] == runner.SCHEMA
+    assert payload["experimentId"] == "numerical-methods"
+    assert isinstance(payload.get("metrics"), dict) and payload["metrics"], tool
+    assert isinstance(payload.get("series"), list)
+    assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip()
+    print(f"PASS WORKFLOW TOOL {tool}: {payload['backend']}")
+print(f"Native workflow analysis smoke suite: PASS {len(WORKFLOW_TOOL_CASES)}/{len(WORKFLOW_TOOL_CASES)}")

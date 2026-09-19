@@ -165,7 +165,41 @@
       </section>
 
 
-      <section id="utubeView" class="view native-experiment-view">
+
+      <section id="nativeExperimentView" class="view native-experiment-view">
+        <div class="native-experiment-head">
+          <button id="backFromNativeExperiment" class="secondary small">← Experiments</button>
+          <div>
+            <div id="nativeExperimentEyebrow" class="eyebrow">EXPERIMENT</div>
+            <h2 id="nativeExperimentTitle">Experiment</h2>
+            <p id="nativeExperimentSubtitle">Native Engineering Lab workspace.</p>
+          </div>
+          <span id="nativeExperimentBadge" class="native-badge">Application workspace · no iframe</span>
+        </div>
+        <div class="utube-tabs">
+          <button class="filter active" data-native-exp-tab="overview">Workspace</button>
+          <button class="filter" data-native-exp-tab="visualization">Visualization</button>
+          <button class="filter" data-native-exp-tab="boundary">Scientific boundary</button>
+        </div>
+        <div class="native-exp-tab-panel" data-native-exp-panel="overview">
+          <div id="nativeExperimentOverview" class="native-exp-cap-grid"></div>
+        </div>
+        <div class="native-exp-tab-panel" data-native-exp-panel="visualization" hidden>
+          <article class="native-viz-panel">
+            <div class="native-viz-title"><span>Native experiment data flow</span><small>parameters → solver → results → visualization</small></div>
+            <div id="nativeExperimentFlow" class="native-flow"></div>
+          </article>
+        </div>
+        <div class="native-exp-tab-panel" data-native-exp-panel="boundary" hidden>
+          <div class="boundary-card">
+            <h3>Migration boundary</h3>
+            <p>The application shell, navigation, experiment isolation and visualization surface are native to Engineering Lab. Scientific solvers remain authoritative and are migrated behind typed adapters rather than rewritten merely to match the UI.</p>
+            <p>A native shell does not by itself establish scientific validation. Solver-specific convergence, references, uncertainty and measurement evidence remain experiment-specific.</p>
+          </div>
+        </div>
+        <div id="nativeExperimentStatus" class="native-status">Ready.</div>
+      </section>
+\n      <section id="utubeView" class="view native-experiment-view">
         <div class="native-experiment-head">
           <button id="backFromUtube" class="secondary small">← Experiments</button>
           <div><div class="eyebrow">ENGINEERING CLUB · NATIVE WORKSPACE</div><h2>Rotating U-Tube</h2><p>Threshold physics, capacity decomposition, effective-potential structure and reduced-order hysteresis rendered directly by Engineering Lab.</p></div>
@@ -226,6 +260,6 @@
   </div>
 
   <div id="toastHost" class="toast-host"></div>
-  <script src="utube-native.js"></script>\n  <script src="app.js"></script>
+  <script src="utube-native.js"></script>\n  <script src="native-experiments.js"></script>\n  <script src="app.js"></script>
 </body>
 </html>

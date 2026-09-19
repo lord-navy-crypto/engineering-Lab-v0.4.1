@@ -210,12 +210,21 @@ def _metric_grid(st, rows: list[tuple[str, str, str]]) -> None:
 def render_digital_twin_workspace(st, profile: str) -> None:
     if profile not in SUPPORTED_PROFILES:
         return
-    st.markdown("---")
-    st.markdown("## Physical Lab · Measurement Digital Twin")
-    st.caption(
-        "Project-level measurement → calibration → model comparison → inverse discrepancy → beam statistics. "
-        "All calculations use Physical Lab's shared validated scientific core and write provenance back to the selected `.physlab` workspace."
+
+    from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header
+
+    render_workbench_header(
+        st,
+        "Measurement Digital Twin",
+        "A project-level path from measurement evidence to calibration, model comparison, discrepancy fitting, beam statistics and remeasurement priorities. Each analysis writes provenance back to the selected .physlab workspace.",
+        kicker="Measurement & validation",
     )
+    render_stage_rail(st, [
+        ("Select evidence", "project + dataset"),
+        ("Analyze", "one bounded method"),
+        ("Review", "metrics + visualization"),
+        ("Persist", "provenance + derived data"),
+    ])
 
     workspaces = _workspaces()
     if not workspaces:
@@ -248,7 +257,7 @@ def render_digital_twin_workspace(st, profile: str) -> None:
     ])
 
     tab_cal, tab_field, tab_inverse, tab_phase, tab_sample = st.tabs([
-        "Sensor calibration", "Measured ↔ model field", "Inverse discrepancy", "Beam phase space", "Remeasurement priorities"
+        "Calibration", "Measured ↔ model", "Model discrepancy", "Beam phase space", "Remeasurement"
     ])
 
     with tab_cal:
@@ -310,14 +319,38 @@ def render_digital_twin_workspace(st, profile: str) -> None:
             ])
             try:
                 import pandas as pd
-                frame = pd.DataFrame({"position": _numeric(rows, zz), "measured": _numeric(rows, mm), "model": _numeric(rows, pp)})
+                import plotly.graph_objects as go
+                frame = pd.DataFrame({
+                    "position": _numeric(rows, zz),
+                    "measured": _numeric(rows, mm),
+                    "model": _numeric(rows, pp),
+                })
                 frame = frame.replace([float("inf"), float("-inf")], float("nan")).dropna()
-                st.line_chart(frame.set_index("position")[["measured", "model"]])
+                comparison = go.Figure()
+                comparison.add_scatter(x=frame["position"], y=frame["measured"], mode="lines+markers", name="Measured")
+                comparison.add_scatter(x=frame["position"], y=frame["model"], mode="lines", name="Model")
+                comparison.update_layout(
+                    title="Measured and model field",
+                    xaxis_title=zz,
+                    yaxis_title="Field (inherited dataset unit)",
+                    height=470,
+                )
                 frame["residual"] = frame["measured"] - frame["model"]
-                st.line_chart(frame.set_index("position")[["residual"]])
+                residual = go.Figure()
+                residual.add_scatter(x=frame["position"], y=frame["residual"], mode="lines+markers", name="Residual")
+                residual.add_hline(y=0.0, line_dash="dash")
+                residual.update_layout(
+                    title="Field residual",
+                    xaxis_title=zz,
+                    yaxis_title="Measured − model",
+                    height=470,
+                )
+                p1, p2 = st.columns(2)
+                p1.plotly_chart(comparison, width="stretch")
+                p2.plotly_chart(residual, width="stretch")
             except Exception:
                 pass
-            st.caption(payload["caveat"])
+            render_boundary(st, str(payload["caveat"]))
             st.code(provenance_path)
 
     with tab_inverse:
@@ -344,7 +377,7 @@ def render_digital_twin_workspace(st, profile: str) -> None:
                 ("RMSE before", f"{payload['rmse_before']:.4g}", "Uncorrected model discrepancy"),
                 ("RMSE after", f"{payload['rmse_after']:.4g}", f"Improvement {100*improvement:.2f}%" if improvement is not None else "No finite baseline improvement fraction"),
             ])
-            st.warning(payload["caveat"])
+            render_boundary(st, str(payload["caveat"]))
             st.code(provenance_path)
 
     with tab_phase:
@@ -380,7 +413,7 @@ def render_digital_twin_workspace(st, profile: str) -> None:
                 ])
                 if payload.get("normalized_x_emittance") is not None:
                     st.caption(f"Normalized εx={payload['normalized_x_emittance']:.6g}, εy={payload['normalized_y_emittance']:.6g} using explicitly supplied βγ={payload['beta_gamma']:.6g}.")
-                st.warning(payload["caveat"])
+                render_boundary(st, str(payload["caveat"]))
                 st.code(provenance_path)
 
     with tab_sample:

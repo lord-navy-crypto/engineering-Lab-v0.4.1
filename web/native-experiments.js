@@ -357,7 +357,21 @@ const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
   {id:'visualization-transform',name:'Normalize / transform results',description:'Apply z-score normalization to a copy of current numeric result fields for analysis and visualization.'},
   {id:'local-sensitivity',name:'Local sensitivity',description:'Compute finite-difference local sensitivity between varying result fields.'},
   {id:'elasticity-sensitivity',name:'Elasticity sensitivity',description:'Compute normalized local elasticity from the current finite result table.'},
-  {id:'standardized-sensitivity',name:'Standardized sensitivity',description:'Rank standardized associations across varying numeric fields using the original Visual Analytics core.'}
+  {id:'standardized-sensitivity',name:'Standardized sensitivity',description:'Rank standardized associations across varying numeric fields using the original Visual Analytics core.'},
+  {id:'polynomial-regression',name:'Polynomial regression',description:'Fit the original bounded polynomial-regression core to varying fields in the current result.'},
+  {id:'monte-carlo-propagation',name:'Monte Carlo propagation',description:'Run the original linear uncertainty-propagation core with explicit sampling assumptions.'},
+  {id:'doe-design',name:'DOE design',description:'Generate a bounded Latin-hypercube design with the original Applied Analysis core.'},
+  {id:'parameter-estimation',name:'Parameter estimation',description:'Fit the original bounded parameter-estimation core to current result fields.'},
+  {id:'polynomial-cv',name:'Polynomial model selection',description:'Cross-validate polynomial families with the original Advanced Applied Analysis core.'},
+  {id:'pca-svd',name:'PCA / SVD',description:'Run standardized PCA/SVD on varying current-result fields.'},
+  {id:'conditioning-diagnostics',name:'Conditioning diagnostics',description:'Inspect rank, singular values and condition number of current-result variables.'},
+  {id:'tikhonov',name:'Tikhonov inverse solve',description:'Run the original regularized linear inverse solver on current-result fields.'},
+  {id:'tsvd',name:'Truncated-SVD inverse solve',description:'Run the original TSVD regularized inverse solver on current-result fields.'},
+  {id:'correlation-matrix',name:'Correlation matrix',description:'Compute a Pearson correlation matrix across varying current-result fields.'},
+  {id:'pareto-frontier',name:'Pareto frontier',description:'Compute a two-objective Pareto frontier without inventing a master score.'},
+  {id:'robust-sensitivity',name:'Robust sensitivity summary',description:'Combine complementary sensitivity diagnostics without a synthetic ranking score.'},
+  {id:'run-comparison',name:'Run comparison',description:'Compare finite numeric rows against a baseline using the original Research Orchestrator core.'},
+  {id:'morris-design',name:'Morris screening design',description:'Generate a prospective Morris screening design with explicit bounds and no automatic execution.'}
 ]);
 
 const NATIVE_TOOL_SPECS = Object.freeze({

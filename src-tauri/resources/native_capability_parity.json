@@ -73,7 +73,7 @@
     {
       "surface_id": "research-orchestrator",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "native current-result analysis tools plus exact original workspace for project-persistent and source-selection workflows",
       "zero_loss_required": true
     },
     {
@@ -91,19 +91,19 @@
     {
       "surface_id": "applied-analysis",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "native current-result analysis tools plus exact original workspace for project-persistent and source-selection workflows",
       "zero_loss_required": true
     },
     {
       "surface_id": "advanced-applied-analysis",
       "migration_state": "native-partial",
-      "guaranteed_access": "native UI plus Full Original Workspace fallback",
+      "guaranteed_access": "native current-result analysis tools plus exact original workspace for project-persistent and source-selection workflows",
       "zero_loss_required": true
     },
     {
       "surface_id": "deep-applied-math",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native current-result analysis tools plus exact original workspace for project-persistent and source-selection workflows",
       "zero_loss_required": true
     },
     {
@@ -114,8 +114,8 @@
     },
     {
       "surface_id": "science-analysis",
-      "migration_state": "compatibility-preserved",
-      "guaranteed_access": "Full Original Workspace → All Workspaces",
+      "migration_state": "native-partial",
+      "guaranteed_access": "native current-result analysis tools plus exact original workspace for project-persistent and source-selection workflows",
       "zero_loss_required": true
     },
     {
@@ -365,5 +365,24 @@
       "beam-phase-space"
     ],
     "policy": "Capabilities with existing Tauri-native project/data/results/pipeline workflows route directly to those views. Specialized legacy-only subtools remain visible through the original workspace until separately proven equivalent."
+  },
+  "native_audit_analysis_batch": {
+    "tools": [
+      "polynomial-regression",
+      "monte-carlo-propagation",
+      "doe-design",
+      "parameter-estimation",
+      "polynomial-cv",
+      "pca-svd",
+      "conditioning-diagnostics",
+      "tikhonov",
+      "tsvd",
+      "correlation-matrix",
+      "pareto-frontier",
+      "robust-sensitivity",
+      "run-comparison",
+      "morris-design"
+    ],
+    "policy": "Pure computational cores are native. Project writes, source selection, saved artifacts, uploads and campaign mutation stay on their exact original workflows until equivalent project context is carried into the Tauri shell."
   }
 }

@@ -137,3 +137,41 @@ for tool in FINAL_RESTORATION_UTUBE_TOOLS:
     assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip(), tool
     print(f"PASS FINAL RESTORATION TOOL {tool}: {payload['backend']}")
 print(f"Final restoration U-Tube smoke suite: PASS {len(FINAL_RESTORATION_UTUBE_TOOLS)}/{len(FINAL_RESTORATION_UTUBE_TOOLS)}")
+
+
+NATIVE_ANALYSIS_BATCH_TOOLS = [
+    "polynomial-regression",
+    "monte-carlo-propagation",
+    "doe-design",
+    "parameter-estimation",
+    "polynomial-cv",
+    "pca-svd",
+    "conditioning-diagnostics",
+    "tikhonov",
+    "tsvd",
+    "correlation-matrix",
+    "pareto-frontier",
+    "robust-sensitivity",
+    "run-comparison",
+    "morris-design",
+]
+analysis_context = runner.HANDLERS["numerical-methods"]({"xMax": 2.0, "order": 7, "points": 121}, "safe")
+for tool in NATIVE_ANALYSIS_BATCH_TOOLS:
+    payload = runner.run_global_analysis_tool("numerical-methods", tool, {
+        "contextResult": analysis_context,
+        "analysisSeed": 11,
+        "monteCarloSamples": 1200,
+        "doeSamples": 16,
+        "morrisTrajectories": 4,
+        "morrisLevels": 6,
+        "polynomialDegree": 2,
+        "regularization": 1e-3,
+        "tsvdRank": 1,
+    })
+    assert payload["schema"] == runner.SCHEMA, tool
+    assert payload["experimentId"] == "numerical-methods", tool
+    assert isinstance(payload.get("metrics"), dict), tool
+    assert isinstance(payload.get("series"), list), tool
+    assert isinstance(payload.get("boundary"), str) and payload["boundary"].strip(), tool
+    print(f"PASS NATIVE ANALYSIS TOOL {tool}: {payload['backend']}")
+print(f"Native audit/deep-analysis smoke suite: PASS {len(NATIVE_ANALYSIS_BATCH_TOOLS)}/{len(NATIVE_ANALYSIS_BATCH_TOOLS)}")

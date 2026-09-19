@@ -294,17 +294,19 @@ def nonlinear_chaos(p: dict[str, Any], mode: str) -> dict[str, Any]:
         idx = np.where((sep > delta0 * 2) & (sep < 0.2))[0]
         coeff = np.polyfit(t[idx], np.log(sep[idx] / delta0), 1)
         lyap = float(coeff[0])
+    series = [
+        xy_series("theta", "angle", t, theta, x_label="time", y_label="θ (rad)"),
+        xy_series("phase", "phase portrait", theta, velocity, x_label="θ (rad)", y_label="ω (rad/time)", chart="scatter"),
+        xy_series("separation", "paired-trajectory separation", t, sep, x_label="time", y_label="phase-space separation"),
+    ]
+    if len(poincare_x) >= 2:
+        series.append(xy_series("poincare", "Poincaré section", poincare_x, poincare_y, x_label="θ mod 2π", y_label="ω", chart="scatter"))
     return result(
         "nonlinear-chaos",
         "native-rk4-driven-pendulum",
         {"duration": duration, "dt": dt, "damping": damping, "drive": drive, "driveOmega": omega, "theta0": theta0, "perturbation": delta0},
         {"maxAbsTheta": float(np.max(np.abs(theta))), "maxAbsVelocity": float(np.max(np.abs(velocity))), "finiteWindowDivergenceRate": lyap, "poincareSamples": len(poincare_x)},
-        [
-            xy_series("theta", "angle", t, theta, x_label="time", y_label="θ (rad)"),
-            xy_series("phase", "phase portrait", theta, velocity, x_label="θ (rad)", y_label="ω (rad/time)", chart="scatter"),
-            xy_series("separation", "paired-trajectory separation", t, sep, x_label="time", y_label="phase-space separation"),
-            xy_series("poincare", "Poincaré section", poincare_x, poincare_y, x_label="θ mod 2π", y_label="ω", chart="scatter"),
-        ],
+        series,
         "Driven damped pendulum integrated with fixed-step RK4. The finite-window divergence estimate is diagnostic only and is not an asymptotic Lyapunov proof without convergence and renormalization checks.",
     )
 

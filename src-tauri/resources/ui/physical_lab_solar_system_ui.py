@@ -269,8 +269,9 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
         ("Verify", "finite-time sensitivity"),
     ])
 
+    st.caption("Workspace order: Setup → Run → Results → Analysis → Verification / Export.")
     setup_tab, result_tab, verify_tab, platform_tab = st.tabs([
-        "Setup & run", "Results", "Sensitivity audit", "Advanced tools"
+        "1 · Setup & run", "2 · Results", "3 · Verification — Sensitivity audit", "4 · Analysis — Advanced tools"
     ])
 
     with setup_tab:

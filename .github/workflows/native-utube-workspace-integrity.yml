@@ -64,8 +64,9 @@ jobs:
       - run: node --check dist/native-experiments.js
       - run: node --check dist/utube-native.js
       - run: node --check dist/action-catalog.js
-      - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py scripts/action_catalog.py
+      - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py scripts/action_catalog.py scripts/native_all_experiment_parity_validation.py
       - run: python scripts/native_utube_workspace_validation.py
       - run: python scripts/native_original_setup_parity_validation.py
+      - run: python scripts/native_all_experiment_parity_validation.py
       - run: python scripts/native_experiment_adapter_validation.py
       - run: rustfmt --edition 2021 --emit stdout src-tauri/src/lib.rs >/dev/null

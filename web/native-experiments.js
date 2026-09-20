@@ -189,24 +189,24 @@ function renderNativeExperimentPreview(spec){
 
 const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
   'numerical-methods':[
-    {name:'method',label:'Method',type:'select',value:'range_reduced',options:['range_reduced','direct','fixed_terms']},
+    {name:'method',label:'Method',type:'select',value:'range_reduced',options:['range_reduced','raw']},
     {name:'dtype',label:'Floating-point precision',type:'select',value:'float64',options:['float32','float64']},
     {name:'referenceBackend',label:'Reference engine',type:'select',value:'mpmath',options:['mpmath','numpy']},
-    {name:'referencePrecisionDigits',label:'mpmath decimal precision',type:'number',value:80,min:20,max:200,step:5},
-    {name:'toleranceMultiplier',label:'Tolerance multiplier × machine epsilon',type:'number',value:8,min:.1,max:1000,step:.1},
-    {name:'maxTerms',label:'Maximum Taylor terms',type:'number',value:120,min:1,max:500,step:1},
-    {name:'xMin',label:'x minimum (radians)',type:'number',value:-8,min:-100,max:100,step:.1},
-    {name:'xMax',label:'x maximum (radians)',type:'number',value:8,min:-100,max:100,step:.1},
+    {name:'referencePrecisionDigits',label:'mpmath decimal precision',type:'number',value:80,min:20,max:200,step:10},
+    {name:'toleranceMultiplier',label:'Tolerance multiplier × machine epsilon',type:'number',value:8,min:1,max:1000,step:1},
+    {name:'maxTerms',label:'Maximum Taylor terms',type:'number',value:120,min:10,max:200,step:1},
+    {name:'xMin',label:'x minimum (radians)',type:'number',value:-8,min:-80,max:80,step:.1},
+    {name:'xMax',label:'x maximum (radians)',type:'number',value:8,min:-80,max:80,step:.1},
     {name:'points',label:'Number of scan points',type:'number',value:401,min:21,max:5001,step:20},
-    {name:'singleX',label:'Single x value (radians)',type:'number',value:1.5,min:-100,max:100,step:.01},
-    {name:'convergenceTerms',label:'Terms in convergence study',type:'number',value:60,min:2,max:300,step:1}
+    {name:'singleX',label:'Single x value (radians)',type:'number',value:1.5,min:-80,max:80,step:.01},
+    {name:'convergenceTerms',label:'Terms in convergence study',type:'number',value:60,min:5,max:150,step:1}
   ],
   'ising-monte-carlo':[
     {name:'dimension',label:'Dimension',type:'select',value:'2',options:['1','2']},
     {name:'size',label:'Linear size N',type:'number',value:24,min:4,max:256,step:1},
     {name:'coupling',label:'Coupling J',type:'number',value:1,min:-10,max:10,step:.05},
     {name:'field',label:'Magnetic field h',type:'number',value:0,min:-10,max:10,step:.05},
-    {name:'temperature',label:'Temperature T (J/kB)',type:'number',value:2.269,min:.01,max:20,step:.01},
+    {name:'temperature',label:'Temperature T',type:'number',value:2.269,min:.01,max:20,step:.01},
     {name:'seed',label:'Random seed',type:'number',value:2026,min:0,max:2147483647,step:1},
     {name:'equilibrationSweeps',label:'Equilibration update cycles',type:'number',value:400,min:0,max:100000,step:10},
     {name:'measurementSweeps',label:'Measurement update cycles',type:'number',value:800,min:1,max:100000,step:10},
@@ -214,12 +214,12 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'scanMethod',label:'Default scan method',type:'select',value:'wolff',options:['metropolis','checkerboard','heat_bath','wolff']},
     {name:'comparisonEquilibration',label:'Comparison equilibration cycles',type:'number',value:300,min:0,max:100000,step:10},
     {name:'comparisonMeasurement',label:'Comparison measurement cycles',type:'number',value:600,min:1,max:100000,step:10},
-    {name:'diagnosticCycles',label:'Diagnostic update cycles',type:'number',value:1000,min:10,max:100000,step:10},
-    {name:'recordEvery',label:'Record every n update cycles',type:'number',value:10,min:1,max:1000,step:1},
+    {name:'diagnosticCycles',label:'Diagnostic update cycles',type:'number',value:1000,min:50,max:200000,step:50},
+    {name:'recordEvery',label:'Record every n update cycles',type:'number',value:10,min:1,max:200,step:1},
     {name:'tMin',label:'Minimum T',type:'number',value:1,min:.01,max:20,step:.05},
     {name:'tMax',label:'Maximum T',type:'number',value:4,min:.02,max:20,step:.05},
     {name:'scanPoints',label:'Scan points',type:'number',value:21,min:3,max:201,step:2},
-    {name:'useNotebookMesh',label:'Use original notebook temperature mesh',type:'checkbox',value:false},
+    {name:'useNotebookMesh',label:'Use notebook temperature grid',type:'checkbox',value:false},
     {name:'latticeSizes',label:'Lattice sizes',type:'text',value:'8,12,16,24,32'},
     {name:'initialCondition',label:'Initial condition',type:'select',value:'random',options:['random','plus','minus']},
     {name:'snapshotSweeps',label:'Snapshot sweeps',type:'number',value:200,min:0,max:100000,step:10}
@@ -232,7 +232,7 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'stepModel',label:'Step-length model',type:'select',value:'fixed',options:['fixed','uniform']},
     {name:'trajectorySteps',label:'Trajectory steps',type:'number',value:500,min:1,max:100000,step:10},
     {name:'baseStepModel',label:'Base step model',type:'select',value:'fixed',options:['fixed','uniform']},
-    {name:'scanVariable',label:'Scan variable',type:'select',value:'n_steps',options:['n_steps','dimension','n_walkers','step_size']},
+    {name:'scanVariable',label:'Scan variable',type:'select',value:'n_steps',options:['n_steps','dimension','n_walkers','fixed_step_size','uniform_lower','uniform_upper']},
     {name:'scanValues',label:'Comma-separated scan values',type:'text',value:'100,300,1000,3000'},
     {name:'baseDimension',label:'Base dimension d',type:'number',value:2,min:1,max:50,step:1},
     {name:'baseSteps',label:'Base steps N',type:'number',value:1000,min:1,max:1000000,step:10},
@@ -261,7 +261,7 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'fixedStep',label:'Fixed step s',type:'number',value:1,min:.0001,max:100,step:.01},
     {name:'uniformA',label:'Uniform lower bound a',type:'number',value:.5,min:0,max:100,step:.01},
     {name:'uniformB',label:'Uniform upper bound b',type:'number',value:1.5,min:.0001,max:100,step:.01},
-    {name:'presetJson',label:'Preset JSON',type:'text',value:'{}'}
+    {name:'presetJson',label:'Preset JSON',type:'text',value:'{"schema_version":3,"random_walk":{"dimension":2,"steps":1000,"walkers":10000,"step_model":"fixed","p1":1.0}}'}
   ],
   'nonlinear-chaos':[
     {name:'mass1',label:'m₁ (kg)',type:'number',value:1,min:.01,max:100,step:.01},
@@ -281,11 +281,11 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'rk4StepsPerPeriod',label:'RK4 steps per period',type:'number',value:120,min:20,max:1000,step:10},
     {name:'kapitzaMaxAmplitude',label:'Maximum pivot amplitude (m)',type:'number',value:.3,min:0,max:10,step:.01},
     {name:'driveFrequency',label:'Drive frequency Ω (rad/s)',type:'number',value:.65,min:.01,max:100,step:.01},
-    {name:'damping',label:'Damping β (s⁻¹)',type:'number',value:.05,min:0,max:20,step:.01},
-    {name:'kapitzaTotalPeriods',label:'Total periods',type:'number',value:240,min:10,max:5000,step:10},
-    {name:'kapitzaDiscardedPeriods',label:'Discarded periods',type:'number',value:160,min:0,max:4000,step:10},
-    {name:'duration',label:'Duration (s)',type:'number',value:40,min:.1,max:1000,step:.5},
-    {name:'dt',label:'Timestep dt (s)',type:'number',value:.005,min:.00001,max:1,step:.001},
+    {name:'damping',label:'Damping',type:'number',value:.05,min:0,max:20,step:.01},
+    {name:'kapitzaTotalPeriods',label:'Kapitza total periods',type:'number',value:240,min:10,max:5000,step:10},
+    {name:'kapitzaDiscardedPeriods',label:'Kapitza discarded periods',type:'number',value:160,min:0,max:4000,step:10},
+    {name:'duration',label:'Double-pendulum duration (s)',type:'number',value:40,min:.1,max:1000,step:.5},
+    {name:'dt',label:'Double-pendulum timestep dt (s)',type:'number',value:.005,min:.00001,max:1,step:.001},
     {name:'mass1Min',label:'Minimum m₁ (kg)',type:'number',value:.5,min:.01,max:100,step:.01},
     {name:'mass1Max',label:'Maximum m₁ (kg)',type:'number',value:2,min:.01,max:100,step:.01},
     {name:'massScanPoints',label:'Mass scan points',type:'number',value:21,min:3,max:201,step:2},
@@ -294,7 +294,7 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'lyapunovDuration',label:'Lyapunov duration (s)',type:'number',value:40,min:.1,max:1000,step:.5},
     {name:'lyapunovDt',label:'Lyapunov dt (s)',type:'number',value:.005,min:.00001,max:1,step:.001},
     {name:'flipGrid',label:'Grid resolution per angle',type:'number',value:25,min:5,max:101,step:2},
-    {name:'flipMaxTime',label:'Maximum time',type:'number',value:60,min:.1,max:1000,step:1},
+    {name:'flipMaxTime',label:'Maximum flip-map time',type:'number',value:60,min:.1,max:1000,step:1},
     {name:'flipDt',label:'Flip-map dt',type:'number',value:.02,min:.0001,max:1,step:.001}
   ],
   'oscillation-integration':[
@@ -310,14 +310,14 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'method',label:'Method',type:'select',value:'rk4',options:['euler','symplectic_euler','rk2','rk4']},
     {name:'dtMin',label:'Minimum dt',type:'number',value:.001,min:.000001,max:10,step:.001},
     {name:'dtMax',label:'Maximum dt',type:'number',value:.1,min:.000001,max:10,step:.001},
-    {name:'scanPoints',label:'Scan points',type:'number',value:9,min:3,max:101,step:2},
-    {name:'resonanceGamma',label:'Resonance damping γ',type:'number',value:.1,min:0,max:100,step:.01},
-    {name:'resonanceForce',label:'Driving force F₀',type:'number',value:1,min:0,max:1000,step:.01},
-    {name:'frequencyScanPoints',label:'Frequency scan points',type:'number',value:61,min:5,max:501,step:2},
-    {name:'omegaRatioMin',label:'Minimum Ω/ω₀',type:'number',value:.2,min:.01,max:10,step:.01},
-    {name:'omegaRatioMax',label:'Maximum Ω/ω₀',type:'number',value:2,min:.02,max:10,step:.01},
-    {name:'maxInitialAngle',label:'Maximum initial angle (rad)',type:'number',value:2.5,min:.01,max:3.13,step:.01},
-    {name:'amplitudeScanPoints',label:'Amplitude scan points',type:'number',value:31,min:5,max:301,step:2},
+    {name:'scanPoints',label:'Scan points',type:'number',value:9,min:4,max:12,step:1},
+    {name:'resonanceGamma',label:'Resonance damping γ',type:'number',value:.1,min:.001,max:100,step:.01},
+    {name:'resonanceForce',label:'Driving force F₀',type:'number',value:1,min:.001,max:1000,step:.01},
+    {name:'frequencyScanPoints',label:'Frequency scan points',type:'number',value:61,min:20,max:250,step:1},
+    {name:'omegaRatioMin',label:'Minimum Ω/ω₀',type:'number',value:.2,min:.05,max:3,step:.01},
+    {name:'omegaRatioMax',label:'Maximum Ω/ω₀',type:'number',value:2,min:.1,max:5,step:.01},
+    {name:'maxInitialAngle',label:'Maximum initial angle (rad)',type:'number',value:2.5,min:.05,max:3.1,step:.01},
+    {name:'amplitudeScanPoints',label:'Amplitude scan points',type:'number',value:31,min:8,max:80,step:1},
     {name:'singleNonlinearTheta0',label:'Single nonlinear θ₀ (rad)',type:'number',value:1,min:.001,max:3.13,step:.01}
   ],
   'radia-magnet-studio':[
@@ -368,9 +368,6 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'harmonic',label:'Harmonic',type:'number',value:1,min:1,max:99,step:2},
     {name:'periods',label:'Periods',type:'number',value:20,min:2,max:500,step:1}
   ],
-  'kerr-shadow':[
-    {id:'morphology-sweep',name:'Run Kerr shadow morphology sweep',description:'Sweep the configured observer inclinations with the original shadow-morphology core.'}
-  ],
   'kerr-geodesics':[
     {name:'spin',label:'Spin a/M',type:'number',value:.7,min:0,max:.995,step:.01},
     {name:'inclinationDeg',label:'Inclination (deg)',type:'number',value:25,min:0,max:89,step:1},
@@ -420,6 +417,23 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'linearStartRatio',label:'Start frequency ratio ω/ωₙ',type:'number',value:.3,min:.1,max:3,step:.05},
     {name:'linearStopRatio',label:'Stop frequency ratio ω/ωₙ',type:'number',value:1.6,min:.2,max:5,step:.05},
     {name:'linearSweepQuality',label:'Sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']}
+  ]
+});
+
+const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
+  'radia-magnet-studio':[
+    {name:'manufacturingMembers',label:'Manufacturing realizations',type:'select',value:'3',options:['2','3','4','6','8']},
+    {name:'transversePoints',label:'3-D transverse grid',type:'select',value:'5',options:['3','5','7']},
+    {name:'propagationHalfWidthMm',label:'Propagation transverse half-width (mm)',type:'number',value:2,min:.1,max:20,step:.25},
+    {name:'zSamplesPerPeriod',label:'RADIA z samples / period',type:'select',value:'8',options:['6','8','12','16']},
+    {name:'radiationGamma',label:'Propagation electron γ',type:'number',value:100,min:1.01,max:100000,step:1},
+    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:10000,step:10},
+    {name:'thetaXMrad',label:'Observer θx (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'thetaYMrad',label:'Observer θy (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'trackingPointsPerPeriod',label:'Trajectory samples / period',type:'select',value:'48',options:['24','32','48','64','96']},
+    {name:'angularGridPoints',label:'Angular grid',type:'select',value:'7',options:['5','7','9','11','13']},
+    {name:'angularExtentGammaTheta',label:'Angular extent (γθ)',type:'number',value:2.5,min:.5,max:5,step:.25},
+    {name:'angularObserverSamples',label:'Observer samples / pixel',type:'select',value:'900',options:['400','600','900','1200','1800']}
   ],
 
   'radiation-platform':[
@@ -573,6 +587,58 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'settleCycles',label:'Settle cycles',type:'number',value:16,min:4,max:120,step:1},
     {name:'observeCycles',label:'Observe cycles',type:'number',value:5,min:3,max:40,step:1},
     {name:'pointsPerCycle',label:'Points per cycle',type:'number',value:48,min:32,max:240,step:8}
+  ]
+});
+
+const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
+  {id:'result-inspector',name:'Result Inspector',description:'Inspect the current structured result, schema inventory, and numerical sanity checks.'},
+  {id:'bootstrap',name:'Bootstrap uncertainty',description:'Resample the first numeric result series and estimate uncertainty for the selected statistic.'},
+  {id:'regression',name:'Linear regression diagnostics',description:'Fit and inspect an ordinary least-squares trend on the current numeric result series.'},
+  {id:'robust-regression',name:'Robust Huber regression',description:'Fit a Huber robust trend that reduces the leverage of large residuals.'},
+  {id:'convergence-diagnostics',name:'Convergence diagnostics',description:'Estimate a bounded convergence trend from the current numeric series; use explicit refinement tools when available.'},
+  {id:'visualization-summary',name:'Visualization summary',description:'Build the original Visualization Studio numeric field summary from the current structured result.'},
+  {id:'visualization-transform',name:'Normalize / transform results',description:'Apply z-score normalization to a copy of current numeric result fields for analysis and visualization.'},
+  {id:'local-sensitivity',name:'Local sensitivity',description:'Compute finite-difference local sensitivity between varying result fields.'},
+  {id:'elasticity-sensitivity',name:'Elasticity sensitivity',description:'Compute normalized local elasticity from the current finite result table.'},
+  {id:'standardized-sensitivity',name:'Standardized sensitivity',description:'Rank standardized associations across varying numeric fields using the original Visual Analytics core.'},
+  {id:'polynomial-regression',name:'Polynomial regression',description:'Fit the original bounded polynomial-regression core to varying fields in the current result.'},
+  {id:'monte-carlo-propagation',name:'Monte Carlo propagation',description:'Run the original linear uncertainty-propagation core with explicit sampling assumptions.'},
+  {id:'doe-design',name:'DOE design',description:'Generate a bounded Latin-hypercube design with the original Applied Analysis core.'},
+  {id:'parameter-estimation',name:'Parameter estimation',description:'Fit the original bounded parameter-estimation core to current result fields.'},
+  {id:'polynomial-cv',name:'Polynomial model selection',description:'Cross-validate polynomial families with the original Advanced Applied Analysis core.'},
+  {id:'pca-svd',name:'PCA / SVD',description:'Run standardized PCA/SVD on varying current-result fields.'},
+  {id:'conditioning-diagnostics',name:'Conditioning diagnostics',description:'Inspect rank, singular values and condition number of current-result variables.'},
+  {id:'tikhonov',name:'Tikhonov inverse solve',description:'Run the original regularized linear inverse solver on current-result fields.'},
+  {id:'tsvd',name:'Truncated-SVD inverse solve',description:'Run the original TSVD regularized inverse solver on current-result fields.'},
+  {id:'correlation-matrix',name:'Correlation matrix',description:'Compute a Pearson correlation matrix across varying current-result fields.'},
+  {id:'pareto-frontier',name:'Pareto frontier',description:'Compute a two-objective Pareto frontier without inventing a master score.'},
+  {id:'robust-sensitivity',name:'Robust sensitivity summary',description:'Combine complementary sensitivity diagnostics without a synthetic ranking score.'},
+  {id:'run-comparison',name:'Run comparison',description:'Compare finite numeric rows against a baseline using the original Research Orchestrator core.'},
+  {id:'morris-design',name:'Morris screening design',description:'Generate a prospective Morris screening design with explicit bounds and no automatic execution.'}
+]);
+
+const NATIVE_VERIFICATION_TOOL_MAP = Object.freeze({
+  'numerical-methods':[['compliance','Built-in numerical validation'],['single-point-convergence','Single-point convergence'],['method-comparison','Method comparison']],
+  'ising-monte-carlo':[['multi-chain','Multi-chain convergence'],['equilibration','Equilibration diagnostic'],['compliance','Exact / compliance checks']],
+  'random-walk-monte-carlo':[['convergence-scan','Monte Carlo convergence'],['reproducibility','Reproducibility audit'],['validate-preset','Preset/schema validation']],
+  'nonlinear-chaos':[['lyapunov-convergence','Lyapunov timestep sensitivity'],['compliance','Step / energy compliance'],['lyapunov','Finite-time Lyapunov analysis']],
+  'oscillation-integration':[['timestep-scan','Timestep convergence'],['compliance','Energy-balance compliance'],['method-comparison','Method/reference comparison']],
+  'radia-magnet-studio':[['result-inspector','Structured result inspection'],['convergence-diagnostics','Field-result convergence diagnostics']],
+  'radiation-platform':[['result-inspector','Structured radiation inspection'],['convergence-diagnostics','Radiation convergence diagnostics']],
+  'kerr-geodesics':[['refinement','Numerical refinement audit'],['comparison','Massive ↔ photon cross-check']],
+  'solar-system-dynamics':[['refinement','Orbital refinement audit'],['ftle','Finite-time divergence audit']],
+  'honeycomb-lattice':[['normal-modes','Normal-mode audit'],['phonon-dispersion','Bloch dispersion check'],['phonon-dos','Phonon DOS normalization check']],
+  'kerr-shadow':[['morphology-sweep','Shadow morphology sweep']],
+  'undulator-spectrum':[['angular-map','Off-axis resonance check'],['beam-broadening','Beam-broadening uncertainty check']],
+  'frequency-response':[['convergence-diagnostics','Response convergence diagnostics'],['duffing','Forward/reverse branch check']]
+});
+
+const NATIVE_TOOL_SPECS = Object.freeze({
+  'numerical-methods':[
+    {id:'parameter-scan',name:'Run parameter scan',description:'Run the pinned numerical_lab.scan_sine core across the configured interval.'},
+    {id:'single-point-convergence',name:'Single-point convergence',description:'Run the pinned convergence_scan at the configured single x value.'},
+    {id:'method-comparison',name:'Run method comparison',description:'Compare pinned numerical methods under the same precision/reference settings.'},
+    {id:'compliance',name:'Built-in numerical validation',description:'Run internal accuracy/reference checks against the pinned numerical core.'}
   ],
   'ising-monte-carlo':[
     {id:'method-comparison',name:'Run method comparison',description:'Compare Metropolis, checkerboard, heat-bath and Wolff updates with the pinned core.'},
@@ -617,6 +683,9 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {id:'beat-analysis',name:'Run beat analysis',description:'Integrate a near-resonant driven oscillator and expose the beat envelope.'},
     {id:'nonlinear-amplitude',name:'Run nonlinear amplitude scan',description:'Run the pinned nonlinear-pendulum period scan.'},
     {id:'compliance',name:'Run compliance suite',description:'Run energy-balance and convergence/reference diagnostics.'}
+  ],
+  'kerr-shadow':[
+    {id:'morphology-sweep',name:'Run Kerr shadow morphology sweep',description:'Sweep the configured observer inclinations with the original shadow-morphology core.'}
   ],
   'kerr-geodesics':[
     {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'},
@@ -772,12 +841,15 @@ function renderNativeExperimentControls(spec){
     ['Compare & transform',tools.filter(t=>['visualization-transform','correlation-matrix','pareto-frontier','run-comparison'].includes(t.id))]
   ].filter(([,items])=>items.length);
   const toolHtml=toolGroups.map(([name,items],index)=>'<details class="native-tool-group" '+(index===0?'open':'')+'><summary><strong>'+uEsc(name)+'</strong><span>'+items.length+' tools</span></summary><div class="native-tool-list">'+items.map(t=>'<button type="button" class="native-tool-row" data-native-tool="'+uEsc(t.id)+'"><span><strong>'+uEsc(t.name)+'</strong><small>'+uEsc(t.description)+'</small></span><b>Run →</b></button>').join('')+'</div></details>').join('');
-  const original='<div class="full-original-strip"><div><strong>Full Original Workspace</strong><span>Complete pre-redesign workbench remains available without removing any function.</span></div><button class="secondary" data-open-full-original="'+uEsc(spec.id)+'">Open original workspace</button></div>';
-  uEl('nativeExperimentTools').innerHTML=toolHtml+original;
-  document.querySelectorAll('[data-open-full-original]').forEach(b=>b.onclick=()=>openFullOriginalWorkspace(b.dataset.openFullOriginal));
+  uEl('nativeExperimentTools').innerHTML=toolHtml;
   document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
+  const verificationRows=[['result-inspector','Result Inspector'],['convergence-diagnostics','General convergence diagnostics'],...(NATIVE_VERIFICATION_TOOL_MAP[spec.id]||[])];
+  const seenVerification=new Set();
+  const verificationHost=uEl('nativeExperimentVerificationActions');
+  if(verificationHost){
+    verificationHost.innerHTML=verificationRows.filter(([id])=>{if(seenVerification.has(id))return false;seenVerification.add(id);return true;}).map(([id,label])=>'<button class="secondary" data-native-verification-tool="'+uEsc(id)+'">'+uEsc(label)+'</button>').join('');
+  }
   document.querySelectorAll('[data-native-verification-tool]').forEach(b=>b.onclick=()=>runNativeVerificationTool(b.dataset.nativeVerificationTool));
-  if(uEl('nativeExperimentOpenOriginalVerification'))uEl('nativeExperimentOpenOriginalVerification').onclick=()=>activeNativeExperimentId&&openFullOriginalWorkspace(activeNativeExperimentId);
 
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;

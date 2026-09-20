@@ -18,6 +18,7 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "scripts/action_catalog.py"
       - "scripts/native_utube_workspace_validation.py"
       - "scripts/native_experiment_adapter_validation.py"
       - "src-tauri/resources/native_experiment_runner.py"

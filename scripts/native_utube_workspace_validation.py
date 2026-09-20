@@ -56,8 +56,9 @@ for view_id in ("nativeExperimentView", "utubeView"):
     start = html.index(f'id="{view_id}"')
     end = html.find('<section id=', start + 10)
     segment = html[start:] if end < 0 else html[start:end]
-    for label in ("Setup", "Advanced", "Tools & Analysis", "Results", "Verification"):
-        assert label in segment, f"{view_id} missing simplified {label} navigation"
+    for label in ("Setup", "Tools & Analysis", "Results", "Verification"):
+        assert label in segment, f"{view_id} missing professional {label} navigation"
+    assert ">Advanced<" not in segment, f"{view_id} still exposes a separate Advanced tab"
 
 shared_start = html.index('id="nativeExperimentView"')
 shared_end = html.find('<section id=', shared_start + 10)

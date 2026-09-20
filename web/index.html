@@ -386,31 +386,67 @@
         </div>
 
         <div class="utube-panel" data-utube-panel="tools" hidden>
-          <div class="experiment-tool-grid">
-            <article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign U-Tube / Engineering Lab workbench, including the registry-backed All Workspaces catalog and any capability not yet migrated into the new layout.</p><button class="primary" id="utOpenFullOriginal">Open full original workspace</button></article>
-            <article class="experiment-tool-card"><h3>Operating state</h3><p>Classify the selected operating point relative to n_c and n_g(V), including capacity margins.</p><button class="secondary" data-utube-tool="operating-state">Run operating-state analysis</button></article>
-            <article class="experiment-tool-card"><h3>Threshold elasticity</h3><p>Compute local d ln(n_g) / d ln(x) sensitivity for volume and geometry.</p><button class="secondary" data-utube-tool="elasticity">Run elasticity</button></article>
-            <article class="experiment-tool-card"><h3>Experiment scan plan</h3><p>Generate coarse and fine RPM measurement points around the predicted threshold.</p><button class="secondary" data-utube-tool="scan-plan">Build scan plan</button></article>
-            <article class="experiment-tool-card"><h3>Uncertainty propagation</h3><p>Propagate declared measurement uncertainties through the threshold model.</p><button class="secondary" data-utube-tool="uncertainty">Run uncertainty</button></article>
-            <article class="experiment-tool-card"><h3>Dimensionless groups</h3><p>Compute dimensionless operating diagnostics from speed, geometry, density, and surface tension.</p><button class="secondary" data-utube-tool="dimensionless-groups">Compute groups</button></article>
-            <article class="experiment-tool-card"><h3>Inverse geometry design</h3><p>Solve a bounded geometry variable against a target threshold.</p><button class="secondary" data-utube-tool="inverse-geometry">Solve inverse design</button></article>
-            <article class="experiment-tool-card"><h3>Design space</h3><p>Explore bounded volume and geometry combinations around the current apparatus.</p><button class="secondary" data-utube-tool="design-space">Explore design space</button></article>
-            <article class="experiment-tool-card"><h3>Robust + Pareto design</h3><p>Evaluate tolerance-aware designs and retain Pareto-efficient candidates.</p><button class="secondary" data-utube-tool="robust-design">Run robust design</button></article>
-            <article class="experiment-tool-card"><h3>Adaptive threshold plan</h3><p>Generate the next bounded measurement plan around a threshold bracket.</p><button class="secondary" data-utube-tool="adaptive-plan">Build adaptive plan</button></article>
-            <article class="experiment-tool-card"><h3>Verification requirements</h3><p>Generate explicit U-Tube verification criteria without turning them into certification claims.</p><button class="secondary" data-utube-tool="verification-requirements">Build requirements</button></article>
-            <article class="experiment-tool-card"><h3>Research questions</h3><p>Restore the mature U-Tube research-question set.</p><button class="secondary" data-utube-tool="research-questions">Show research questions</button></article>
-            <article class="experiment-tool-card"><h3>Local uncertainty budget</h3><p>Break local threshold uncertainty into declared input contributions.</p><button class="secondary" data-utube-tool="uncertainty-budget">Run uncertainty budget</button></article>
-            <article class="experiment-tool-card"><h3>Hysteresis sweep analysis</h3><p>Analyze up/down threshold sweeps with the reduced-order apparatus model.</p><button class="secondary" data-utube-tool="hysteresis-analysis">Analyze hysteresis</button></article>
-            <article class="experiment-tool-card"><h3>Rate-sweep prediction</h3><p>Predict branch thresholds across a bounded set of ramp rates.</p><button class="secondary" data-utube-tool="rate-sweep">Run rate sweep</button></article>
-            <article class="experiment-tool-card"><h3>Digital twin calibration</h3><p>Fit and apply the original linear calibration core.</p><button class="secondary" data-utube-tool="digital-twin-calibration">Run calibration</button></article>
-            <article class="experiment-tool-card"><h3>Digital twin field comparison</h3><p>Compare measured/model field series and suggest residual measurement locations.</p><button class="secondary" data-utube-tool="digital-twin-field">Compare fields</button></article>
-            <article class="experiment-tool-card"><h3>Beam phase-space statistics</h3><p>Restore the digital-twin beam phase-space analysis core.</p><button class="secondary" data-utube-tool="beam-phase-space">Analyze phase space</button></article>
+          <div class="tools-workbench-head">
+            <div><div class="eyebrow">POST-PROCESSING WORKBENCH</div><h3>Tools & Analysis</h3><p>Choose one analysis family at a time. Tool outputs stay here and never replace the primary U-Tube result.</p></div>
+            <div id="utToolStatus" class="native-status">Choose an analysis tool.</div>
           </div>
-          <div id="utToolStatus" class="native-status">Choose an analysis tool.</div>
-          <div id="utToolMetrics" class="native-result-metrics"></div>
-          <div id="utToolCharts" class="native-result-charts"></div>
-          <div id="utToolTables"></div>
-          <p id="utToolBoundary" class="boundary-inline"></p>
+          <article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign U-Tube / Engineering Lab workbench, including the registry-backed All Workspaces catalog and any capability not yet migrated into the new layout.</p><button class="primary" id="utOpenFullOriginal">Open full original workspace</button></article>
+          <div class="professional-tool-groups">
+            <details class="native-tool-group" open>
+              <summary><strong>Operating point & threshold</strong><span>4 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="operating-state"><span><strong>Operating state</strong><small>Classify n relative to n_c and n_g(V), including capacity margins.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="elasticity"><span><strong>Threshold elasticity</strong><small>Compute local d ln(n_g) / d ln(x) sensitivity.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="dimensionless-groups"><span><strong>Dimensionless groups</strong><small>Compute operating diagnostics from speed, geometry, density and surface tension.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="inverse-geometry"><span><strong>Inverse geometry design</strong><small>Solve a bounded geometry variable against a target threshold.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Experiment planning & uncertainty</strong><span>4 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="scan-plan"><span><strong>Experiment scan plan</strong><small>Generate coarse and fine RPM measurement points around the threshold.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="uncertainty"><span><strong>Uncertainty propagation</strong><small>Propagate declared measurement uncertainties through the threshold model.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="uncertainty-budget"><span><strong>Local uncertainty budget</strong><small>Break local threshold uncertainty into declared input contributions.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="adaptive-plan"><span><strong>Adaptive threshold plan</strong><small>Generate the next bounded measurement plan around a threshold bracket.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Design & robustness</strong><span>3 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="design-space"><span><strong>Design space</strong><small>Explore bounded volume and geometry combinations around the current apparatus.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="robust-design"><span><strong>Robust + Pareto design</strong><small>Evaluate tolerance-aware designs and retain Pareto-efficient candidates.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="rate-sweep"><span><strong>Rate-sweep prediction</strong><small>Predict branch thresholds across a bounded set of ramp rates.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Dynamics & hysteresis</strong><span>1 tool</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="hysteresis-analysis"><span><strong>Hysteresis sweep analysis</strong><small>Analyze up/down threshold sweeps with the reduced-order apparatus model.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Digital twin</strong><span>3 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="digital-twin-calibration"><span><strong>Digital twin calibration</strong><small>Fit and apply the original linear calibration core.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="digital-twin-field"><span><strong>Field comparison</strong><small>Compare measured/model field series and suggest residual measurement locations.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="beam-phase-space"><span><strong>Beam phase-space</strong><small>Analyze the digital-twin beam phase-space statistics.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Verification & research</strong><span>2 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="verification-requirements"><span><strong>Verification requirements</strong><small>Generate explicit U-Tube verification criteria without certification claims.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="research-questions"><span><strong>Research questions</strong><small>Restore the mature U-Tube research-question set.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+          </div>
+          <section class="tool-output-workbench">
+            <div class="panel-heading"><div><h3>Analysis output</h3><p>Tool metrics, plots, tables and scientific boundary stay here.</p></div></div>
+            <div id="utToolMetrics" class="native-result-metrics"></div>
+            <div id="utToolCharts" class="native-result-charts"></div>
+            <div id="utToolTables"></div>
+            <p id="utToolBoundary" class="boundary-inline"></p>
+          </section>
         </div>
 
         <div class="utube-panel" data-utube-panel="results" hidden>

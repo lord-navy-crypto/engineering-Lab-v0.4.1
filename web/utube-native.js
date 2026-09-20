@@ -417,8 +417,6 @@ function bindNativeUtube(){
   });
   document.querySelectorAll('[data-utube-tool]').forEach(b=>b.onclick=()=>runUtubeTool(b.dataset.utubeTool));
   document.querySelectorAll('[data-utube-verification-tool]').forEach(b=>b.onclick=()=>runUtubeVerificationTool(b.dataset.utubeVerificationTool));
-  if(uEl('utOpenFullOriginal'))uEl('utOpenFullOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
-  if(uEl('utVerificationOpenOriginal'))uEl('utVerificationOpenOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
   renderUtubeExtendedSetup();
   bindUtubeProfessionalSliders();
   if(uEl('utRun'))uEl('utRun').onclick=()=>renderNativeUtube();

@@ -421,7 +421,9 @@ const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
 
 const NATIVE_TOOL_SPECS = Object.freeze({
   'kerr-geodesics':[
-    {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'}
+    {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'},
+    {id:'comparison',name:'Massive ↔ photon comparison',description:'Restore the original same-spacetime comparison using the configured comparison spin and inclination.'},
+    {id:'spin-sweep',name:'Kerr spin sweep',description:'Restore the original bounded a/M sweep using the configured particle, spin list and inclination.'}
   ],
   'solar-system-dynamics':[
     {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight orbital integrations.'},
@@ -571,6 +573,8 @@ function renderNativeExperimentControls(spec){
   uEl('nativeExperimentVerificationOutputs').textContent='—';
   uEl('nativeExperimentToolBackend').textContent='not run';
   uEl('nativeExperimentVerificationBackend').textContent='not run';
+  if(uEl('nativeExperimentResultsStatus'))uEl('nativeExperimentResultsStatus').textContent='No primary run yet.';
+  if(uEl('nativeExperimentVerificationStatus'))uEl('nativeExperimentVerificationStatus').textContent='Run the primary experiment first, then launch a verification check.';
   if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=false;
   if(uEl('nativeExperimentToolEmpty'))uEl('nativeExperimentToolEmpty').hidden=false;
   if(uEl('nativeExperimentVerificationEmpty'))uEl('nativeExperimentVerificationEmpty').hidden=false;
@@ -653,10 +657,15 @@ async function runNativeExperiment(){
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeExperimentResult(payload,parameters,mode);
     uEl('nativeExperimentRunStatus').textContent='Completed. Primary result saved in Results; analysis tools are ready.';
+    if(uEl('nativeExperimentResultsStatus'))uEl('nativeExperimentResultsStatus').textContent='Completed · '+(payload.backend||'scientific adapter')+' · '+Object.keys(payload.metrics||{}).length+' metrics · '+(payload.series||[]).length+' series · '+(payload.tables||[]).length+' tables';
+    if(uEl('nativeExperimentVerificationStatus'))uEl('nativeExperimentVerificationStatus').textContent='Primary result ready. Verification tools can now inspect this exact result.';
     document.querySelector('[data-native-exp-tab="results"]')?.click();
   }catch(e){
-    uEl('nativeExperimentRunStatus').textContent=String(e);
-    toast(String(e),true);
+    const message=String(e);
+    uEl('nativeExperimentRunStatus').textContent=message;
+    if(uEl('nativeExperimentResultsStatus'))uEl('nativeExperimentResultsStatus').textContent='Run failed: '+message;
+    if(uEl('nativeExperimentEmptyResults')){uEl('nativeExperimentEmptyResults').hidden=false;uEl('nativeExperimentEmptyResults').textContent='Run failed: '+message}
+    toast(message,true);
   }finally{
     button.disabled=false;button.textContent='Run Experiment';
   }
@@ -675,26 +684,44 @@ async function runNativeExperimentTool(tool){
     renderNativeToolResult(payload);
     status.textContent='Completed '+tool+'. Analysis output remains in Tools & Analysis.';
   }catch(e){
-    status.textContent=String(e);
-    toast(String(e),true);
+    const message=String(e);
+    status.textContent='Analysis failed: '+message;
+    uEl('nativeExperimentToolBoundary').textContent='Analysis failed: '+message;
+    if(uEl('nativeExperimentToolEmpty')){uEl('nativeExperimentToolEmpty').hidden=false;uEl('nativeExperimentToolEmpty').textContent='Analysis failed: '+message}
+    toast(message,true);
   }
 }
 
 async function runNativeVerificationTool(tool){
   if(!activeNativeExperimentId||!invoke)return;
-  const status=uEl('nativeExperimentStatus');
+  const globalStatus=uEl('nativeExperimentStatus');
+  const visibleStatus=uEl('nativeExperimentVerificationStatus');
   try{
-    status.textContent='Running verification tool '+tool+'…';
+    if(!nativeExperimentResult){
+      const message='Run Experiment first. Verification is defined against the current primary structured result.';
+      globalStatus.textContent=message;
+      if(visibleStatus)visibleStatus.textContent=message;
+      uEl('nativeExperimentVerificationBoundary').textContent=message;
+      if(uEl('nativeExperimentVerificationEmpty')){uEl('nativeExperimentVerificationEmpty').hidden=false;uEl('nativeExperimentVerificationEmpty').textContent=message}
+      return;
+    }
+    globalStatus.textContent='Running verification tool '+tool+'…';
+    if(visibleStatus)visibleStatus.textContent='Running '+tool+' against the current primary result…';
     const parameters=collectNativeExperimentParameters();
     parameters.__tool=tool;
-    if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
+    parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeVerificationResult(payload);
-    status.textContent='Completed verification tool '+tool+'.';
+    globalStatus.textContent='Completed verification tool '+tool+'.';
+    if(visibleStatus)visibleStatus.textContent='Completed '+tool+'. Output is shown below.';
   }catch(e){
-    status.textContent=String(e);
-    toast(String(e),true);
+    const message=String(e);
+    globalStatus.textContent=message;
+    if(visibleStatus)visibleStatus.textContent='Verification failed: '+message;
+    uEl('nativeExperimentVerificationBoundary').textContent='Verification failed: '+message;
+    if(uEl('nativeExperimentVerificationEmpty')){uEl('nativeExperimentVerificationEmpty').hidden=false;uEl('nativeExperimentVerificationEmpty').textContent='Verification failed: '+message}
+    toast(message,true);
   }
 }
 

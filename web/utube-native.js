@@ -99,6 +99,150 @@ function nativeUtubeCard(){
   return '<article class="module-card native-lab-card" data-search="rotating u-tube engineering club fluid threshold hysteresis"><div class="card-top"><div class="module-icon">∪</div><span class="status-pill ready">Ready</span></div><div class="category">Engineering Club · Fluid experiment</div><h4>Rotating U-Tube</h4><p class="desc">Threshold model, capacity decomposition, effective potential, and dynamic hysteresis.</p><div class="card-actions"><button class="primary" data-open-native-utube>Open experiment</button></div></article>';
 }
 function openNativeUtube(){showView('utube');document.querySelector('[data-utube-tab="setup"]')?.click()}
+const UTUBE_ORIGINAL_SETUP_GROUPS = Object.freeze([
+  {
+    title:'Experiment scan & DOE',
+    fields:[
+      {name:'dataRole',label:'U-tube data role',type:'select',value:'theory',options:['theory','experiment','comparison']},
+      {name:'volumeMinMl',label:'Volume min / mL',type:'number',value:.5,min:.05,max:30,step:.05},
+      {name:'volumeMaxMl',label:'Volume max / mL',type:'number',value:6,min:.05,max:30,step:.05},
+      {name:'volumeSamples',label:'Volume samples',type:'number',value:21,min:3,max:301,step:2},
+      {name:'speedMinRpm',label:'Speed min / rpm',type:'number',value:50,min:0,max:2000,step:1},
+      {name:'speedMaxRpm',label:'Speed max / rpm',type:'number',value:500,min:1,max:2000,step:1},
+      {name:'speedSamples',label:'Speed samples',type:'number',value:31,min:3,max:301,step:2},
+      {name:'convergenceVolumesMl',label:'Volumes for convergence study / mL',type:'text',value:'1,2,3,4,5'},
+      {name:'scanNRpm',label:'n / rpm',type:'number',value:260,min:0,max:2000,step:1},
+      {name:'scanGammaMnM',label:'γ / mN m⁻¹',type:'number',value:72,min:1,max:500,step:.1},
+      {name:'scanThetaDeg',label:'θ / deg',type:'number',value:0,min:-180,max:180,step:.5},
+      {name:'doeFactors',label:'Factors · name,low,high',type:'textarea',value:'volume_ml,1,5\nrpm,150,350'},
+      {name:'doeMethod',label:'DOE',type:'select',value:'latin-hypercube',options:['latin-hypercube','full-factorial','random']},
+      {name:'doeSamples',label:'Samples',type:'number',value:24,min:2,max:500,step:1},
+      {name:'doeSeed',label:'Seed',type:'number',value:0,min:0,max:2147483647,step:1},
+      {name:'projectSource',label:'Project source',type:'select',value:'Current native result',options:['Current native result','Project dataset','Imported dataset']},
+      {name:'utubeTask',label:'U-Tube task',type:'select',value:'Threshold map',options:['Threshold map','Capacity map','Convergence study','DOE sweep']}
+    ]
+  },
+  {
+    title:'Research physics & inverse design',
+    fields:[
+      {name:'researchDataset',label:'Research dataset',type:'select',value:'Current native result',options:['Current native result','Imported dataset','Project dataset']},
+      {name:'xColumn',label:'X column',type:'text',value:'volume_ml'},
+      {name:'yColumn',label:'Y column',type:'text',value:'n_g_rpm'},
+      {name:'secondYColumn',label:'Second Y',type:'text',value:''},
+      {name:'plotKind',label:'Plot',type:'select',value:'Line',options:['Line','Scatter','Step']},
+      {name:'groupSeries',label:'Group / series',type:'text',value:''},
+      {name:'sortByX',label:'Sort by X',type:'checkbox',value:true},
+      {name:'maxPlottedRows',label:'Max plotted rows',type:'number',value:500,min:10,max:100000,step:10},
+      {name:'visibleXRange',label:'Visible X range',type:'text',value:''},
+      {name:'overlayTheory',label:'Overlay deterministic U-tube n_g(V) model',type:'checkbox',value:true},
+      {name:'modelRinM',label:'Model R_in / m',type:'number',value:.01512,min:.001,max:.1,step:.0001},
+      {name:'modelAM',label:'Model a / m',type:'number',value:.00748,min:.0001,max:.05,step:.0001},
+      {name:'modelNq',label:'Model quadrature order',type:'number',value:48,min:12,max:128,step:4},
+      {name:'advancedNRpm',label:'n / rpm',type:'number',value:260,min:0,max:2000,step:1},
+      {name:'rinTextM',label:'R_in / m',type:'text',value:'0.01512'},
+      {name:'aTextM',label:'a / m',type:'text',value:'0.00748'},
+      {name:'rhoKgM3Original',label:'ρ / kg m⁻³',type:'number',value:997.8,min:100,max:5000,step:.1},
+      {name:'gammaMnMOriginal',label:'γ / mN m⁻¹',type:'number',value:72,min:1,max:500,step:.1},
+      {name:'volumeOriginalMl',label:'V / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'nearThresholdBandRpm',label:'Near-threshold band / rpm',type:'number',value:3,min:.1,max:50,step:.1},
+      {name:'targetThresholdRpm',label:'Target n_g / rpm',type:'number',value:250,min:1,max:1000,step:1},
+      {name:'inverseVolumeMl',label:'Volume / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'solveFor',label:'Solve geometry',type:'select',value:'rin_m',options:['rin_m','a_m']},
+      {name:'geometryLowerM',label:'Lower bound / m',type:'number',value:.001,min:.0001,max:.1,step:.0001},
+      {name:'geometryUpperM',label:'Upper bound / m',type:'number',value:.05,min:.0002,max:.2,step:.0001},
+      {name:'elasticityVolumeMl',label:'Elasticity volume / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'designVolumesMl',label:'Volumes / mL',type:'text',value:'1,2,3,4,5'},
+      {name:'optionalTargetRpm',label:'Optional target n_g / rpm',type:'number',value:250,min:1,max:1000,step:1},
+      {name:'planningVolumeMl',label:'Planning volume / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'planningNq',label:'Planning quadrature order',type:'number',value:48,min:12,max:128,step:4}
+    ]
+  },
+  {
+    title:'Uncertainty & theory ↔ experiment',
+    fields:[
+      {name:'uGeneric',label:'u({label})',type:'number',value:.1,min:0,max:100,step:.01},
+      {name:'mcSamplesOriginal',label:'Monte Carlo samples',type:'number',value:300,min:50,max:100000,step:50},
+      {name:'mcSeedOriginal',label:'Seed',type:'number',value:0,min:0,max:2147483647,step:1},
+      {name:'predictiveOutput',label:'Predictive output',type:'select',value:'n_g_rpm',options:['n_g_rpm','n_c_rpm','capacity_ml']},
+      {name:'budgetOutput',label:'Output for local budget',type:'select',value:'n_g_rpm',options:['n_g_rpm','n_c_rpm','capacity_ml']},
+      {name:'experimentalDataset',label:'Experimental dataset',type:'select',value:'Current native result',options:['Current native result','Project dataset','Imported dataset']},
+      {name:'compareVolumeMl',label:'Compare volume / mL',type:'select',value:'3',options:['1','2','3','4','5']}
+    ]
+  },
+  {
+    title:'Robust design & adaptive experiment',
+    fields:[
+      {name:'nominalVText',label:'Nominal V / mL',type:'text',value:'3'},
+      {name:'nominalRinText',label:'Nominal R_in / m',type:'text',value:'0.01512'},
+      {name:'nominalAText',label:'Nominal a / m',type:'text',value:'0.00748'},
+      {name:'tolVMl',label:'±V tolerance / mL',type:'number',value:.05,min:0,max:10,step:.01},
+      {name:'tolRinM',label:'±R_in tolerance / m',type:'number',value:.0002,min:0,max:.01,step:.00001},
+      {name:'tolAM',label:'±a tolerance / m',type:'number',value:.0001,min:0,max:.01,step:.00001},
+      {name:'robustTargetRpm',label:'Target n_g / rpm',type:'number',value:250,min:1,max:1000,step:1},
+      {name:'robustPlanningVMl',label:'Planning V / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'robustNq',label:'Quadrature order',type:'number',value:48,min:12,max:128,step:4},
+      {name:'empiricalBracketRpm',label:'Target empirical bracket / rpm',type:'number',value:10,min:.1,max:200,step:.5},
+      {name:'observedClassifications',label:'Observed classifications · rpm,below / rpm,above',type:'textarea',value:'245,below\n255,above'},
+      {name:'thresholdToleranceRpm',label:'Threshold tolerance / rpm',type:'number',value:2,min:.01,max:100,step:.1},
+      {name:'minGapRpm',label:'Minimum n_g−n_c / rpm',type:'number',value:5,min:-100,max:500,step:.1},
+      {name:'maxNumericalDeltaRpm',label:'Max numerical Δn_g / rpm',type:'number',value:1,min:0,max:100,step:.1}
+    ]
+  },
+  {
+    title:'Digital twin',
+    fields:[
+      {name:'twinDataset',label:'Twin dataset',type:'select',value:'Current native result',options:['Current native result','Project dataset','Imported dataset']},
+      {name:'twinVolumeColumn',label:'V / mL',type:'text',value:'volume_ml'},
+      {name:'twinObservedNgColumn',label:'Observed n_g / rpm',type:'text',value:'observed_n_g_rpm'},
+      {name:'twinRinM',label:'R_in / m',type:'number',value:.01512,min:.001,max:.1,step:.0001},
+      {name:'twinAM',label:'a / m',type:'number',value:.00748,min:.0001,max:.05,step:.0001},
+      {name:'twinNq',label:'nq',type:'number',value:48,min:12,max:128,step:4},
+      {name:'timeColumn',label:'Time / s',type:'text',value:'time_s'},
+      {name:'commandRpmColumn',label:'Command RPM',type:'text',value:'command_rpm'},
+      {name:'measuredRpmColumn',label:'Measured RPM',type:'text',value:'measured_rpm'},
+      {name:'tauMinS',label:'τ min / s',type:'number',value:.01,min:0,max:100,step:.01},
+      {name:'tauMaxS',label:'τ max / s',type:'number',value:5,min:.01,max:100,step:.01}
+    ]
+  },
+  {
+    title:'Hysteresis & rate envelope',
+    fields:[
+      {name:'rampDataset',label:'Ramp dataset',type:'select',value:'Current native result',options:['Current native result','Project dataset','Imported dataset']},
+      {name:'hystVolumeColumn',label:'Volume / mL',type:'text',value:'volume_ml'},
+      {name:'hystRateColumn',label:'|dn/dt| / rpm s⁻¹',type:'text',value:'ramp_rate_rpm_s'},
+      {name:'spinUpColumn',label:'Spin-up threshold / rpm',type:'text',value:'spin_up_rpm'},
+      {name:'spinDownColumn',label:'Spin-down threshold / rpm',type:'text',value:'spin_down_rpm'},
+      {name:'hystRinM',label:'R_in / m',type:'number',value:.01512,min:.001,max:.1,step:.0001},
+      {name:'hystAM',label:'a / m',type:'number',value:.00748,min:.0001,max:.05,step:.0001},
+      {name:'hystNq',label:'Quadrature order',type:'number',value:48,min:12,max:128,step:4},
+      {name:'predictionVMl',label:'Prediction V / mL',type:'number',value:3,min:.05,max:30,step:.05},
+      {name:'empiricalHRpm',label:'Empirical H / rpm',type:'number',value:2,min:0,max:100,step:.1},
+      {name:'rateLagTauS',label:'Rate-lag τ / s',type:'number',value:.35,min:0,max:100,step:.01},
+      {name:'rampRatesText',label:'Ramp rates / rpm s⁻¹',type:'text',value:'0.5,1,2,4,8'},
+      {name:'predictionRinM',label:'Prediction R_in / m',type:'number',value:.01512,min:.001,max:.1,step:.0001},
+      {name:'predictionAM',label:'Prediction a / m',type:'number',value:.00748,min:.0001,max:.05,step:.0001},
+      {name:'predictionNq',label:'Prediction nq',type:'number',value:48,min:12,max:128,step:4}
+    ]
+  }
+]);
+
+function utubeExtendedFieldHtml(field){
+  const id='utx_'+field.name;
+  const label=uEsc(field.label);
+  if(field.type==='checkbox') return '<label class="native-check professional-check"><input id="'+id+'" data-utube-extra="'+uEsc(field.name)+'" type="checkbox" '+(field.value?'checked':'')+'><span>'+label+'</span></label>';
+  if(field.type==='select') return '<label>'+label+'<select id="'+id+'" data-utube-extra="'+uEsc(field.name)+'">'+field.options.map(v=>'<option '+(String(v)===String(field.value)?'selected':'')+'>'+uEsc(v)+'</option>').join('')+'</select></label>';
+  if(field.type==='textarea') return '<label>'+label+'<textarea id="'+id+'" data-utube-extra="'+uEsc(field.name)+'" rows="3">'+uEsc(field.value||'')+'</textarea></label>';
+  if(field.type==='text') return '<label>'+label+'<input id="'+id+'" data-utube-extra="'+uEsc(field.name)+'" type="text" value="'+uEsc(field.value||'')+'"></label>';
+  return '<label>'+label+'<input id="'+id+'" data-utube-extra="'+uEsc(field.name)+'" type="number" value="'+uEsc(field.value)+'" min="'+uEsc(field.min??'')+'" max="'+uEsc(field.max??'')+'" step="'+uEsc(field.step??'any')+'"></label>';
+}
+
+function renderUtubeExtendedSetup(){
+  const host=uEl('utubeExtendedSetup'); if(!host)return;
+  host.innerHTML=UTUBE_ORIGINAL_SETUP_GROUPS.map((group,index)=>'<section class="parameter-section"><div class="parameter-section-heading"><span>'+String(index+5).padStart(2,'0')+'</span><div><strong>'+uEsc(group.title)+'</strong><small>'+group.fields.length+' Original Workspace controls</small></div></div><div class="native-control-grid professional-control-grid">'+group.fields.map(utubeExtendedFieldHtml).join('')+'</div></section>').join('');
+  const extraCount=UTUBE_ORIGINAL_SETUP_GROUPS.reduce((sum,g)=>sum+g.fields.length,0);
+  if(uEl('utubeSetupCount'))uEl('utubeSetupCount').textContent=String(22+extraCount);
+}
+
 function readUtubeInputs(){
   const volume=Number(uEl('utVolume').value),rpm=Number(uEl('utRpm').value),rin=Number(uEl('utRin').value)/1000,a=Number(uEl('utRadius').value)/1000,nq=Number(uEl('utNq').value);
   if(!(volume>0&&rpm>0&&rin>0&&a>0&&nq>=12))throw new Error('Use positive geometry/operating values and quadrature ≥ 12.');
@@ -135,7 +279,7 @@ function renderNativeUtubeHysteresis(staticThreshold){
 
 function collectUtubeToolParameters(){
   const base=readUtubeInputs();
-  return {
+  const out={
     volumeMl:base.volume,rpm:base.rpm,rinMm:base.rin*1000,radiusMm:base.a*1000,nq:base.nq,
     rhoKgM3:Number(uEl('utRho').value),gammaMnM:Number(uEl('utGamma').value),thetaDeg:Number(uEl('utThetaDeg').value),
     uVolumeMl:Number(uEl('utUVolume').value),uRpm:Number(uEl('utURpm').value),uRinMm:Number(uEl('utURin').value),uRadiusMm:Number(uEl('utURadius').value),
@@ -145,6 +289,13 @@ function collectUtubeToolParameters(){
     fineSpanRpm:Number(uEl('utFineSpan').value),fineStepRpm:Number(uEl('utFineStep').value),
     responseTau:Number(uEl('utTau').value),quasiStaticHalfwidth:Number(uEl('utHalfwidth').value)
   };
+  document.querySelectorAll('#utubeExtendedSetup [data-utube-extra]').forEach(node=>{
+    const key=node.dataset.utubeExtra;
+    if(node.type==='checkbox')out[key]=node.checked;
+    else if(node.type==='number'){const value=Number(node.value);out[key]=Number.isFinite(value)?value:null}
+    else out[key]=node.value;
+  });
+  return out;
 }
 
 function renderUtubePayload(payload,targets){
@@ -252,6 +403,7 @@ function bindNativeUtube(){
   document.querySelectorAll('[data-utube-verification-tool]').forEach(b=>b.onclick=()=>runUtubeVerificationTool(b.dataset.utubeVerificationTool));
   if(uEl('utOpenFullOriginal'))uEl('utOpenFullOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
   if(uEl('utVerificationOpenOriginal'))uEl('utVerificationOpenOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
+  renderUtubeExtendedSetup();
   bindUtubeProfessionalSliders();
   if(uEl('utRun'))uEl('utRun').onclick=()=>{
     renderNativeUtube();

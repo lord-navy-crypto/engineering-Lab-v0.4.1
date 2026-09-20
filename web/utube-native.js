@@ -159,6 +159,42 @@ function renderUtubeToolPayload(payload){
   }).join('');
   uEl('utToolBoundary').textContent=payload.boundary||'';
 }
+function renderUtubeVerificationPayload(payload){
+  const metrics=payload.metrics||{};
+  const metricsHost=uEl('utVerificationMetrics');
+  if(metricsHost)metricsHost.innerHTML=Object.entries(metrics).slice(0,18).map(([k,val])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(val):String(val))+'</strong></div>').join('');
+  const chartHost=uEl('utVerificationCharts');
+  if(chartHost)chartHost.innerHTML=(payload.series||[]).map(row=>{
+    const points=(row.x||[]).map((x,i)=>({x:Number(x),y:Number((row.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(row.label||row.id)+'</span></div>'+utubeLineSvg([{label:row.label||row.id,points}],{xLabel:row.xLabel||'x',yLabel:row.yLabel||'y'})+'</article>';
+  }).join('');
+  const tableHost=uEl('utVerificationTables');
+  if(tableHost)tableHost.innerHTML=(payload.tables||[]).map(t=>{
+    const rows=Array.isArray(t.rows)?t.rows:[];if(!rows.length)return '';
+    const keys=Object.keys(rows[0]).slice(0,12);
+    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Verification table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(row[k]):String(row[k]??''))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
+  }).join('');
+  if(uEl('utVerificationBoundary'))uEl('utVerificationBoundary').textContent=payload.boundary||'';
+  if(uEl('utVerificationBackend'))uEl('utVerificationBackend').textContent=payload.backend||'scientific adapter';
+  if(uEl('utVerificationEmpty'))uEl('utVerificationEmpty').hidden=true;
+}
+async function runUtubeVerificationTool(tool){
+  if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
+  const status=uEl('utVerificationStatus');
+  try{
+    status.textContent='Running '+tool+'…';
+    const parameters=collectUtubeToolParameters();parameters.__tool=tool;
+    const payload=await invoke('native_experiment_run',{experimentId:'utube-studio',parameters,mode:'safe'});
+    renderUtubeVerificationPayload(payload);
+    status.textContent='Completed '+tool+'.';
+  }catch(e){
+    const message=String(e);
+    status.textContent='Verification failed: '+message;
+    if(uEl('utVerificationBoundary'))uEl('utVerificationBoundary').textContent='Verification failed: '+message;
+    if(typeof toast==='function')toast(message,true);
+  }
+}
+
 async function runUtubeTool(tool){
   if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
   const status=uEl('utToolStatus');
@@ -181,6 +217,7 @@ function bindNativeUtube(){
     document.querySelectorAll('.utube-panel').forEach(p=>p.hidden=p.dataset.utubePanel!==b.dataset.utubeTab);
   });
   document.querySelectorAll('[data-utube-tool]').forEach(b=>b.onclick=()=>runUtubeTool(b.dataset.utubeTool));
+  document.querySelectorAll('[data-utube-verification-tool]').forEach(b=>b.onclick=()=>runUtubeVerificationTool(b.dataset.utubeVerificationTool));
   if(uEl('utOpenFullOriginal'))uEl('utOpenFullOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
   if(uEl('utRun'))uEl('utRun').onclick=()=>{
     renderNativeUtube();

@@ -605,6 +605,24 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
 
     field_model = str(p.get("fieldModel", "radia_generated"))
     device_preset = str(p.get("devicePreset", "helical"))
+    stage1_result = p.get("stage1Result")
+    stage1_parameters = {}
+    if isinstance(stage1_result, dict) and stage1_result.get("experimentId") == "radia-magnet-studio":
+        candidate = stage1_result.get("parameters")
+        if isinstance(candidate, dict):
+            stage1_parameters = dict(candidate)
+            field_model = "radia_generated"
+            device_map = {
+                "Planar": "planar", "Helical": "helical", "Elliptical": "elliptical",
+                "APPLE-II": "apple2", "Wiggler": "wiggler",
+            }
+            mapped = device_map.get(str(stage1_parameters.get("device") or ""))
+            if mapped:
+                device_preset = mapped
+            period_mm = float(stage1_parameters.get("period_mm", stage1_parameters.get("periodMm", period_mm)))
+            period_m = period_mm / 1000.0
+            periods = int(stage1_parameters.get("periods", periods))
+
     if device_preset not in set(v11.list_device_presets()):
         raise ValueError(f"Unknown Radiation Platform device preset: {device_preset}")
     if field_model == "radia_csv":
@@ -664,6 +682,42 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
             "apple_phase_deg": f(p, "radiaApplePhaseDeg", 90.0, -180.0, 180.0),
             "apple_shift_mode": str(p.get("radiaAppleShiftMode", "Antiparallel")),
         }
+        if stage1_parameters:
+            radia_options.update({
+                "lambda_u_m": float(stage1_parameters.get("period_mm", period_mm)) * 1e-3,
+                "gap_m": float(stage1_parameters.get("gap_mm", radia_options["gap_m"] * 1e3)) * 1e-3,
+                "block_width_m": float(stage1_parameters.get("block_width_mm", radia_options["block_width_m"] * 1e3)) * 1e-3,
+                "block_height_m": float(stage1_parameters.get("block_height_mm", radia_options["block_height_m"] * 1e3)) * 1e-3,
+                "x_half_m": float(stage1_parameters.get("transverse_half_width_mm", radia_options["x_half_m"] * 1e3)) * 1e-3,
+                "y_half_m": float(stage1_parameters.get("transverse_half_width_mm", radia_options["y_half_m"] * 1e3)) * 1e-3,
+                "field_margin_periods": float(stage1_parameters.get("field_margin_periods", radia_options["field_margin_periods"])),
+                "error_seed": int(stage1_parameters.get("error_seed", radia_options["error_seed"])),
+                "material_mode": str(stage1_parameters.get("material_mode", radia_options["material_mode"])),
+                "mu_parallel": float(stage1_parameters.get("mu_parallel", radia_options["mu_parallel"])),
+                "mu_perpendicular": float(stage1_parameters.get("mu_perpendicular", radia_options["mu_perpendicular"])),
+                "segmentation": tuple(stage1_parameters.get("segmentation", radia_options["segmentation"])),
+                "ellipticity": float(stage1_parameters.get("ellipticity", radia_options["ellipticity"])),
+                "apple_phase_deg": float(stage1_parameters.get("apple_phase_deg", radia_options["apple_phase_deg"])),
+                "apple_shift_mode": str(stage1_parameters.get("apple_shift_mode", radia_options["apple_shift_mode"])),
+            })
+            switches = {
+                "field_amplitude": bool(stage1_parameters.get("errors_enabled", False)),
+                "longitudinal_position": bool(stage1_parameters.get("errors_enabled", False)),
+                "transverse_position": bool(stage1_parameters.get("errors_enabled", False)),
+                "magnetization_angle": bool(stage1_parameters.get("errors_enabled", False)),
+                "gap_asymmetry": bool(stage1_parameters.get("errors_enabled", False)),
+                "bank_strength_imbalance": bool(stage1_parameters.get("errors_enabled", False)),
+            }
+            radia_options["error_config"] = {
+                "field_amplitude": {"enabled": switches["field_amplitude"], "rms_fraction": float(stage1_parameters.get("field_error_pct", 0.0)) / 100.0},
+                "longitudinal_position": {"enabled": switches["longitudinal_position"], "rms_m": float(stage1_parameters.get("longitudinal_error_mm", 0.0)) * 1e-3},
+                "transverse_position": {"enabled": switches["transverse_position"], "rms_m": float(stage1_parameters.get("transverse_error_mm", 0.0)) * 1e-3},
+                "magnetization_angle": {"enabled": switches["magnetization_angle"], "rms_rad": math.radians(float(stage1_parameters.get("angle_error_deg", 0.0)))},
+                "gap_asymmetry": {"enabled": switches["gap_asymmetry"], "rms_m": abs(float(stage1_parameters.get("gap_asymmetry_mm", 0.0))) * 1e-3},
+                "bank_strength_imbalance": {"enabled": switches["bank_strength_imbalance"], "rms_fraction": abs(float(stage1_parameters.get("bank_imbalance_pct", 0.0))) / 100.0},
+            }
+            if stage1_parameters.get("target_b0_enabled"):
+                radia_options["target_B0_T"] = float(stage1_parameters.get("target_b0_t", radia_options["target_B0_T"]))
         und = v11.make_default_undulator(
             preset=device_preset,
             field_model="radia_generated",
@@ -732,9 +786,21 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
         "errorSwitches": switches,
         "errorConfig": error_config,
         "requestedMode": mode,
+        "stage1Source": "Latest native RADIA run" if stage1_parameters else "Current Radiation setup",
     }
     if field_model == "radia_generated":
         inputs["radiaOptions"] = radia_options
+
+    series = []
+    if b(p, "showSingleDevicePreview", False) and hasattr(und, "z_grid") and hasattr(und, "_by_arr"):
+        try:
+            ix = int(np.argmin(np.abs(np.asarray(und.x_grid, dtype=float))))
+            iy = int(np.argmin(np.abs(np.asarray(und.y_grid, dtype=float))))
+            z_axis = np.asarray(und.z_grid, dtype=float)
+            by_axis = np.asarray(und._by_arr[ix, iy, :], dtype=float)
+            series.append(xy_series("stage1-z-field", "single-device z-axis B_y preview", z_axis, by_axis, x_label="z (m)", y_label="B_y (T)"))
+        except Exception:
+            pass
 
     tables = [
         {
@@ -753,7 +819,7 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
         "pinned-radiation-platform-full-core",
         clean(inputs),
         metrics,
-        [],
+        series,
         "Full mode directly reuses the pinned Radiation Platform field-device builder, Lorentz trajectory integration, retarded Liénard-Wiechert observer signal, spectrum/Stokes analysis, trajectory/phase diagnostics, energy accounting and radiation observables. RADIA-generated mode additionally uses the pinned strict 3-D RADIA field-map backend with the configured manufacturing-error model.",
         tables,
     )

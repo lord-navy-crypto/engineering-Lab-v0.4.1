@@ -872,6 +872,74 @@ fn dependency_action(dependency_id: String) -> Result<String,String> {
 }
 
 
+
+fn install_managed_python_dependency_blocking(app:&AppHandle, dependency_id:&str) -> Result<String,String> {
+    let dep=dependency_specs()?.into_iter().find(|d|d.id==dependency_id).ok_or_else(||"Unknown dependency".to_string())?;
+    if dep.delivery!="module-managed" { return Err(format!("{} is not a managed Python dependency.",dep.name)); }
+
+    let modules=module_specs()?;
+    let mut installed_targets=Vec::new();
+    let mut repaired=Vec::new();
+    let mut failures=Vec::new();
+
+    for spec in modules.into_iter().filter(|m|m.kind=="lab") {
+        let vpy=venv_python(app,&spec.id)?;
+        if !vpy.is_file() { continue; }
+        installed_targets.push(spec.name.clone());
+
+        let status=Command::new(&vpy)
+            .args(["-m","pip","install","--upgrade",dependency_id])
+            .current_dir(module_root(app,&spec.id)?)
+            .status();
+
+        match status {
+            Ok(code) if code.success() => {
+                let check=Command::new(&vpy).args(["-m","pip","check"]).output();
+                if let Ok(out)=check {
+                    if !out.status.success() {
+                        failures.push(format!("{} (pip check failed: {})",spec.name,String::from_utf8_lossy(&out.stdout).trim()));
+                        continue;
+                    }
+                }
+                let lock=module_root(app,&spec.id)?.join("physical-lab-lock.txt");
+                if let Ok(out)=Command::new(&vpy).args(["-m","pip","freeze","--all"]).output() {
+                    if out.status.success() { let _=fs::write(lock,out.stdout); }
+                }
+                repaired.push(spec.name.clone());
+            }
+            Ok(code) => failures.push(format!("{} (pip exit {})",spec.name,code.code().unwrap_or(-1))),
+            Err(e) => failures.push(format!("{} ({e})",spec.name)),
+        }
+    }
+
+    if installed_targets.is_empty() {
+        return Err("No installed Lab virtual environments were found. Install a Lab first, then install or repair its managed dependencies.".into());
+    }
+    if !failures.is_empty() {
+        return Err(format!(
+            "{} installed successfully in {} Lab environment(s), but failed in: {}",
+            dep.name,repaired.len(),failures.join(" · ")
+        ));
+    }
+    append_log(app,&format!(
+        "DEPENDENCY INSTALL {} | installed/updated in {} managed Lab environment(s): {}",
+        dep.name,repaired.len(),repaired.join(", ")
+    ));
+    Ok(format!("{} installed / repaired in {} managed Lab environment(s).",dep.name,repaired.len()))
+}
+
+#[tauri::command]
+async fn install_dependency(app:AppHandle, dependency_id:String) -> Result<String,String> {
+    let dep=dependency_specs()?.into_iter().find(|d|d.id==dependency_id).ok_or_else(||"Unknown dependency".to_string())?;
+    if dep.delivery!="module-managed" {
+        return Err(format!("{} is not installed through the managed Python dependency workflow.",dep.name));
+    }
+    let app2=app.clone();
+    let id2=dependency_id.clone();
+    tokio::task::spawn_blocking(move||install_managed_python_dependency_blocking(&app2,&id2))
+        .await.map_err(|e|e.to_string())?
+}
+
 #[tauri::command]
 fn data_directory(app:AppHandle)->Result<String,String>{Ok(data_root(&app)?.to_string_lossy().to_string())}
 
@@ -1167,7 +1235,7 @@ fn stop_module(state: State<'_, PhysicalLabState>, module_id: String) -> Result<
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(PhysicalLabState::default())
-        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, launch_module, stop_module,
+        .invoke_handler(tauri::generate_handler![list_modules, list_dependencies, dependency_statuses, dependency_action, install_dependency, data_directory, open_data_directory, log_directory, open_log_directory, runtime_status, module_statuses, install_module, uninstall_module, launch_module, stop_module,
             research::create_workspace, research::list_workspaces, research::open_workspace, research::record_run_snapshot,
             research::import_measurement_dataset, research::list_datasets, research::list_serial_devices, research::capture_serial_measurement,
             research::analyze_dataset, research::validate_dataset_columns, research::lab_compatibility_matrix, research::repair_lab_environment,

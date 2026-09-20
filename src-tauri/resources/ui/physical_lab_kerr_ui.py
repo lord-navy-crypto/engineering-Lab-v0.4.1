@@ -420,8 +420,9 @@ def render_kerr_geodesic_workspace(st: Any, profile: str) -> None:
             "- Photon instability comes from local radial-potential curvature; it is not reported as a generic maximal Lyapunov exponent."
         )
 
+    st.caption("Workspace order: Setup → Run → Results → Analysis → Verification / Export.")
     tab_run, tab_compare, tab_sweep, tab_verify = st.tabs(
-        ["Single orbit", "Massive ↔ photon", "Spin sweep", "Numerical verification"]
+        ["1 · Run — Single orbit", "2 · Comparison — Massive ↔ photon", "3 · Analysis — Spin sweep", "4 · Verification — Numerical audit"]
     )
     with tab_run:
         _single_orbit_tab(st)

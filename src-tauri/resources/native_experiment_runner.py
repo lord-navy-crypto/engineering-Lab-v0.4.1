@@ -1870,28 +1870,58 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             return result(experiment_id,"physical_lab_utube_advanced.dimensionless_groups",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Dimensionless groups summarize the nominated operating point."),[{"id":"dimensionless","label":"Dimensionless groups","rows":[out]}])
         if tool=="inverse-geometry":
             from physical_lab_utube_advanced import inverse_geometry_design
-            out=inverse_geometry_design(f(p,"targetThresholdRpm",250.0,1.0,1000.0),volume,solve_for=str(p.get("solveFor","rin_m")))
+            out=inverse_geometry_design(
+                f(p,"targetThresholdRpm",250.0,1.0,1000.0),
+                f(p,"inverseVolumeMl",volume,.05,30.0),
+                solve_for=str(p.get("solveFor","rin_m")),
+                bounds=(f(p,"geometryLowerM",.005,.0001,.2),f(p,"geometryUpperM",.060,.0002,.2)))
             return result(experiment_id,"physical_lab_utube_advanced.inverse_geometry_design",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Inverse geometry design is model-based."),[{"id":"inverse-geometry","label":"Inverse geometry design","rows":[out]}])
         if tool=="design-space":
             from physical_lab_utube_advanced import design_space
-            vols=np.linspace(max(.05,volume-.5),volume+.5,3); rins=np.linspace(max(.001,rin-.001),rin+.001,3); radii=np.linspace(max(.0005,radius-.0005),radius+.0005,3)
-            frame=design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=nq,max_points=100)
+            vols=[float(x.strip()) for x in str(p.get("designVolumesMl","1,2,3,4,5")).split(",") if x.strip()]
+            center_rin=float(str(p.get("rinTextM",rin)).strip() or rin); center_a=float(str(p.get("aTextM",radius)).strip() or radius)
+            rins=np.linspace(max(.001,center_rin-.001),center_rin+.001,3); radii=np.linspace(max(.0005,center_a-.0005),center_a+.0005,3)
+            frame=design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"optionalTargetRpm",250.0,1.0,1000.0),nq=i(p,"planningNq",nq,12,128),max_points=400)
             return result(experiment_id,"physical_lab_utube_advanced.design_space",p,{"designPoints":len(frame)},[],"Design-space screening is a bounded model study, not manufacturing qualification.",[{"id":"design-space","label":"Design space","rows":frame.to_dict(orient="records")}])
         if tool=="robust-design":
             from physical_lab_utube_advanced import robust_design_space, pareto_robust_design
-            vols=np.linspace(max(.05,volume-.3),volume+.3,3); rins=np.linspace(max(.001,rin-.0005),rin+.0005,3); radii=np.linspace(max(.0005,radius-.00025),radius+.00025,3)
-            frame=robust_design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=max(12,min(nq,32)),max_points=80)
+            nominal_v=float(str(p.get("nominalVText",volume)).strip() or volume)
+            nominal_rin=float(str(p.get("nominalRinText",rin)).strip() or rin)
+            nominal_a=float(str(p.get("nominalAText",radius)).strip() or radius)
+            vols=[nominal_v]; rins=[nominal_rin]; radii=[nominal_a]
+            frame=robust_design_space(
+                volumes_ml=vols,rin_values_m=rins,a_values_m=radii,
+                volume_tolerance_ml=f(p,"tolVMl",.05,0.0,10.0),
+                rin_tolerance_m=f(p,"tolRinM",.0002,0.0,.01),
+                a_tolerance_m=f(p,"tolAM",.0001,0.0,.01),
+                target_threshold_rpm=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0),
+                nq=i(p,"robustNq",max(12,min(nq,48)),12,128),max_points=120)
             pareto=pareto_robust_design(frame)
             return result(experiment_id,"physical_lab_utube_advanced.robust_design_space",p,{"designPoints":len(frame),"paretoPoints":len(pareto)},[],"Robust/Pareto screening compares modeled tolerance sensitivity and does not certify a design.",[{"id":"robust-design","label":"Robust design space","rows":frame.to_dict(orient="records")},{"id":"pareto","label":"Pareto robust designs","rows":pareto.to_dict(orient="records")}])
         if tool=="adaptive-plan":
             from physical_lab_utube_advanced import adaptive_threshold_plan
-            target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
-            out=adaptive_threshold_plan([{"n_rpm":target-5,"state":"below"},{"n_rpm":target+5,"state":"above"}],target)
+            target=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0)
+            observations=[]
+            for line in str(p.get("observedClassifications","")).splitlines():
+                line=line.strip()
+                if not line: continue
+                parts=[x.strip() for x in line.split(",")]
+                if len(parts)!=2: raise ValueError("Observed classifications must use rpm,below or rpm,above")
+                state=parts[1].lower()
+                if state not in {"below","above"}: raise ValueError("Observed classification state must be below or above")
+                observations.append({"n_rpm":float(parts[0]),"state":state})
+            if not observations:
+                observations=[{"n_rpm":target-5,"state":"below"},{"n_rpm":target+5,"state":"above"}]
+            out=adaptive_threshold_plan(observations,target,target_bracket_rpm=f(p,"empiricalBracketRpm",2.0,.1,200.0),exploration_step_rpm=max(.1,f(p,"fineStepRpm",2.0,.1,50.0)))
             rows=out if isinstance(out,list) else [out]
             return result(experiment_id,"physical_lab_utube_advanced.adaptive_threshold_plan",p,{"planItems":len(rows)},[],"Adaptive planning proposes bounded next measurements; it does not execute hardware.",[{"id":"adaptive-plan","label":"Adaptive threshold plan","rows":rows}])
         if tool=="verification-requirements":
             from physical_lab_utube_advanced import verification_requirements
-            rows=verification_requirements(target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0))
+            rows=verification_requirements(
+                target_threshold_rpm=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0),
+                threshold_tolerance_rpm=f(p,"thresholdToleranceRpm",2.0,.01,100.0),
+                minimum_separation_rpm=f(p,"minGapRpm",5.0,-100.0,500.0),
+                maximum_numerical_change_rpm=f(p,"maxNumericalDeltaRpm",1.0,0.0,100.0))
             if isinstance(rows,dict): rows=[rows]
             return result(experiment_id,"physical_lab_utube_advanced.verification_requirements",p,{"requirements":len(rows)},[],"Verification requirements are explicit planning criteria, not certification.",[{"id":"verification-requirements","label":"Verification requirements","rows":rows}])
         if tool=="research-questions":
@@ -1903,18 +1933,22 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             from physical_lab_utube_uncertainty import local_uncertainty_budget
             means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
             std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0}
-            out=local_uncertainty_budget(means,std,nq=nq)
+            out=local_uncertainty_budget(means,std,output=str(p.get("budgetOutput","n_g_rpm")),nq=nq)
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_uncertainty.local_uncertainty_budget",p,{"budgetTerms":len(rows)},[],"Local uncertainty budgets linearize the model around the nominated operating point.",[{"id":"uncertainty-budget","label":"Local uncertainty budget","rows":rows}])
         if tool=="hysteresis-analysis":
             from physical_lab_utube_hysteresis import analyze_hysteresis_sweeps
+            rates=[float(x.strip()) for x in str(p.get("rampRatesText","0.5,1,2,4,8")).split(",") if x.strip()]
             target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
-            out=analyze_hysteresis_sweeps([volume]*3,[1.0,2.0,4.0],[target+1,target+2,target+4],[target-1,target-2,target-4],rin_m=rin,a_m=radius,nq=nq)
+            H=f(p,"empiricalHRpm",2.0,0.0,100.0); tau=f(p,"rateLagTauS",.35,0.0,100.0)
+            ups=[target+H+r*tau for r in rates]; downs=[target-H-r*tau for r in rates]
+            out=analyze_hysteresis_sweeps([f(p,"predictionVMl",volume,.05,30.0)]*len(rates),rates,ups,downs,rin_m=f(p,"hystRinM",rin,.001,.1),a_m=f(p,"hystAM",radius,.0001,.05),nq=i(p,"hystNq",nq,12,128))
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_hysteresis.analyze_hysteresis_sweeps",p,{"rows":len(rows)},[],"Hysteresis analysis is reduced-order and does not replace CFD or additional measurements.",[{"id":"hysteresis-analysis","label":"Hysteresis sweep analysis","rows":rows}])
         if tool=="rate-sweep":
             from physical_lab_utube_hysteresis import rate_sweep_prediction
-            out=rate_sweep_prediction(volume,[0.5,1.0,2.0,4.0],response_tau_s=f(p,"responseTau",.2,0.0,1000.0),quasi_static_halfwidth_rpm=f(p,"quasiStaticHalfwidth",1.0,0.0,1000.0),rin_m=rin,a_m=radius,nq=nq)
+            rates=[float(x.strip()) for x in str(p.get("rampRatesText","0.5,1,2,4,8")).split(",") if x.strip()]
+            out=rate_sweep_prediction(f(p,"predictionVMl",volume,.05,30.0),rates,response_tau_s=f(p,"rateLagTauS",f(p,"responseTau",.35,0.0,1000.0),0.0,100.0),quasi_static_halfwidth_rpm=f(p,"empiricalHRpm",f(p,"quasiStaticHalfwidth",2.0,0.0,1000.0),0.0,100.0),rin_m=f(p,"predictionRinM",rin,.001,.1),a_m=f(p,"predictionAM",radius,.0001,.05),nq=i(p,"predictionNq",nq,12,128))
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_hysteresis.rate_sweep_prediction",p,{"rows":len(rows)},[],"Rate-sweep predictions are reduced-order dynamic estimates.",[{"id":"rate-sweep","label":"Rate sweep prediction","rows":rows}])
         if tool=="digital-twin-calibration":
@@ -1953,7 +1987,7 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
         from physical_lab_utube_uncertainty import propagate_uncertainty
         means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
         std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0,"rho_kg_m3":f(p,"uRho",1.0,0.0,100.0),"gamma_mN_m":f(p,"uGamma",1.0,0.0,100.0),"theta_deg":f(p,"uThetaDeg",1.0,0.0,90.0)}
-        out=propagate_uncertainty(means,std,samples=i(p,"uncertaintySamples",300,50,5000),seed=i(p,"uncertaintySeed",0,0,2147483647),nq=nq); ng=out["outputs"]["n_g_rpm"]; rec=out["records"]
+        out=propagate_uncertainty(means,std,samples=i(p,"mcSamplesOriginal",i(p,"uncertaintySamples",300,50,100000),50,100000),seed=i(p,"mcSeedOriginal",i(p,"uncertaintySeed",0,0,2147483647),0,2147483647),nq=nq); ng=out["outputs"]["n_g_rpm"]; rec=out["records"]
         vals=[r.get("n_g_rpm") for r in rec if r.get("n_g_rpm") is not None]
         return result(experiment_id,"physical_lab_utube_uncertainty.propagate_uncertainty",p,{"samplesSucceeded":out["samples_succeeded"],"samplesFailed":out["samples_failed"],"thresholdMeanRpm":ng.get("mean"),"thresholdStdRpm":ng.get("std"),"thresholdP05Rpm":ng.get("p05"),"thresholdP95Rpm":ng.get("p95")},[xy_series("uncertainty","threshold samples",range(len(vals)),vals,x_label="sample",y_label="n_g (rpm)")],out["boundary"])
 

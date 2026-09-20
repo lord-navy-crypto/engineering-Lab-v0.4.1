@@ -128,127 +128,135 @@ def result(experiment_id: str, backend: str, parameters: dict[str, Any], metrics
 
 
 def numerical_methods(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    xmax = f(p, "xMax", 2.5, 0.2, 8.0)
-    order = i(p, "order", 9, 1, 19)
-    if order % 2 == 0:
-        order -= 1
-    points = i(p, "points", 401, 81, 2001)
-    x = np.linspace(-xmax, xmax, points)
-    approx = np.zeros_like(x)
-    for k in range((order + 1) // 2):
-        approx += ((-1.0) ** k) * x ** (2 * k + 1) / math.factorial(2 * k + 1)
-    exact = np.sin(x)
-    err = np.abs(exact - approx)
-    orders = list(range(1, order + 1, 2))
-    at_x = min(1.5, xmax)
-    conv = []
-    for n in orders:
-        val = sum(((-1.0) ** k) * at_x ** (2 * k + 1) / math.factorial(2 * k + 1) for k in range((n + 1) // 2))
-        conv.append(abs(math.sin(at_x) - val))
+    from numerical_lab.core import Method, ReferenceBackend, scan_sine, summarize_scan
+    method = Method(str(p.get("method", "range_reduced")))
+    dtype = str(p.get("dtype", "float64"))
+    backend = ReferenceBackend(str(p.get("referenceBackend", "mpmath")))
+    digits = i(p, "referencePrecisionDigits", 80, 20, 200)
+    tol = f(p, "toleranceMultiplier", 8.0, 0.1, 1000.0)
+    max_terms = i(p, "maxTerms", 120, 1, 500)
+    x_min = f(p, "xMin", -8.0, -100.0, 100.0)
+    x_max = f(p, "xMax", 8.0, -100.0, 100.0)
+    if x_max <= x_min:
+        raise ValueError("x maximum must exceed x minimum")
+    points = i(p, "points", 401, 21, 5001)
+    x_values = np.linspace(x_min, x_max, points)
+    out = scan_sine(
+        x_values, method=method, dtype=dtype, tolerance_multiplier=tol,
+        max_terms=max_terms, reference_backend=backend,
+        reference_precision_digits=digits,
+    )
+    summary = summarize_scan(out)
+    rows = []
+    keys = list(out)
+    for idx in range(points):
+        row = {}
+        for key in keys:
+            value = np.asarray(out[key], dtype=object)[idx]
+            row[key] = clean(value)
+        rows.append(row)
     return result(
         "numerical-methods",
-        "native-numpy-series",
-        {"xMax": xmax, "order": order, "points": points},
-        {"maxAbsoluteError": float(np.max(err)), "rmsAbsoluteError": float(np.sqrt(np.mean(err * err))), "referenceX": at_x},
+        "pinned-numerical_lab.scan_sine",
+        {
+            "method": method.value, "dtype": dtype, "referenceBackend": backend.value,
+            "referencePrecisionDigits": digits, "toleranceMultiplier": tol,
+            "maxTerms": max_terms, "xMin": x_min, "xMax": x_max, "points": points,
+        },
+        {k: clean(v) for k, v in summary.items()},
         [
-            xy_series("approx", f"T{order}(x)", x, approx, x_label="x", y_label="value"),
-            xy_series("exact", "sin(x)", x, exact, x_label="x", y_label="value"),
-            xy_series("error", "absolute error", x, err, x_label="x", y_label="|error|"),
-            xy_series("convergence", "error vs Taylor order", orders, conv, x_label="Taylor order", y_label="absolute error"),
+            xy_series("approximation", "Taylor approximation", out["x"], out["approximation"], x_label="x (rad)", y_label="sin(x)"),
+            xy_series("reference", "reference", out["x"], out["reference"], x_label="x (rad)", y_label="sin(x)"),
+            xy_series("absolute-error", "absolute error", out["x"], out["absolute_error"], x_label="x (rad)", y_label="absolute error"),
+            xy_series("normalized-error", "normalized error", out["x"], out["normalized_error"], x_label="x (rad)", y_label="error / allowed error"),
+            xy_series("terms-used", "terms used", out["x"], out["terms_used"], x_label="x (rad)", y_label="terms"),
+            xy_series("cancellation", "cancellation ratio", out["x"], out["cancellation_ratio"], x_label="x (rad)", y_label="cancellation ratio"),
         ],
-        "Maclaurin sine-series experiment. Error behavior is specific to the selected function, interval, arithmetic and truncation order; it is not a universal floating-point accuracy guarantee.",
+        "Pinned Numerical Error Analysis Studio core. Reliability combines stopping, reference accuracy and cancellation diagnostics; a converged Taylor term alone is not sufficient evidence of numerical accuracy.",
+        [{"id":"scan","label":"Complete parameter scan","rows":rows}],
     )
-
 
 def ising_monte_carlo(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    L = i(p, "size", 24, 6, 64)
-    temp = f(p, "temperature", 2.269, 0.05, 8.0)
-    sweeps = i(p, "sweeps", 160, 20, 1200)
-    seed = i(p, "seed", 12345, 0, 2_147_483_647)
-    rng = np.random.default_rng(seed)
-    spins = rng.choice(np.array([-1, 1], dtype=np.int8), size=(L, L))
-    beta = 1.0 / temp
-    mags, energies, accepts = [], [], []
-    accepted_total = 0
-    attempts_total = 0
-
-    def energy_per_spin() -> float:
-        return float(-np.sum(spins * (np.roll(spins, 1, 0) + np.roll(spins, 1, 1))) / (L * L))
-
-    for sweep in range(sweeps):
-        accepted = 0
-        for _ in range(L * L):
-            r = int(rng.integers(0, L)); c = int(rng.integers(0, L))
-            s = int(spins[r, c])
-            nn = int(spins[(r + 1) % L, c] + spins[(r - 1) % L, c] + spins[r, (c + 1) % L] + spins[r, (c - 1) % L])
-            dE = 2 * s * nn
-            if dE <= 0 or rng.random() < math.exp(-beta * dE):
-                spins[r, c] = -s
-                accepted += 1
-        accepted_total += accepted
-        attempts_total += L * L
-        mags.append(float(np.mean(spins)))
-        energies.append(energy_per_spin())
-        accepts.append(accepted / (L * L))
-    x = np.arange(1, sweeps + 1)
-    burn = max(1, sweeps // 3)
-    m = np.asarray(mags[burn:])
-    e = np.asarray(energies[burn:])
+    from ising_lab.core import IsingParams, simulate
+    params = IsingParams(
+        size=i(p, "size", 24, 4, 256),
+        coupling=f(p, "coupling", 1.0, -10.0, 10.0),
+        field=f(p, "field", 0.0, -10.0, 10.0),
+        temperature=f(p, "temperature", 2.269, 0.01, 20.0),
+        dimension=i(p, "dimension", 2, 1, 2),
+    )
+    method = str(p.get("scanMethod", "wolff"))
+    out = simulate(
+        params, method=method,
+        equilibration_sweeps=i(p, "equilibrationSweeps", 400, 0, 100000),
+        measurement_sweeps=i(p, "measurementSweeps", 800, 1, 100000),
+        measure_every=i(p, "measureEvery", 1, 1, 1000),
+        initial=str(p.get("initialCondition", "random")),
+        seed=i(p, "seed", 2026, 0, 2147483647),
+        record_every=i(p, "recordEvery", 10, 1, 1000),
+    )
+    scalar = {k: clean(v) for k,v in out.items() if isinstance(v,(str,int,float,bool,np.integer,np.floating))}
+    work = np.asarray(out["trajectory_work_units"],dtype=float)
+    energy = np.asarray(out["trajectory_energy"],dtype=float)
+    mag = np.asarray(out["trajectory_magnetization"],dtype=float)
+    final = np.asarray(out["final_config"])
     return result(
         "ising-monte-carlo",
-        "native-numpy-metropolis-2d",
-        {"size": L, "temperature": temp, "sweeps": sweeps, "seed": seed},
-        {
-            "meanMagnetization": float(np.mean(m)),
-            "meanAbsMagnetization": float(np.mean(np.abs(m))),
-            "meanEnergyPerSpin": float(np.mean(e)),
-            "acceptanceFraction": accepted_total / max(attempts_total, 1),
-            "finalMagnetization": mags[-1],
-        },
+        "pinned-ising_lab.simulate",
+        clean({
+            "dimension": params.dimension, "size": params.size, "coupling": params.coupling,
+            "field": params.field, "temperature": params.temperature, "method": method,
+            "equilibrationSweeps": p.get("equilibrationSweeps",400),
+            "measurementSweeps": p.get("measurementSweeps",800),
+            "measureEvery": p.get("measureEvery",1),
+            "initialCondition": p.get("initialCondition","random"),
+            "seed": p.get("seed",2026),
+        }),
+        scalar,
         [
-            xy_series("magnetization", "magnetization", x, mags, x_label="Monte Carlo sweep", y_label="m"),
-            xy_series("energy", "energy per spin", x, energies, x_label="Monte Carlo sweep", y_label="E/N"),
-            xy_series("acceptance", "acceptance fraction", x, accepts, x_label="Monte Carlo sweep", y_label="accepted / attempted"),
+            xy_series("energy","energy per site",work,energy,x_label="work units",y_label="E/N"),
+            xy_series("magnetization","magnetization per site",work,mag,x_label="work units",y_label="M/N"),
         ],
-        "Finite 2-D square-lattice nearest-neighbor Ising Metropolis run with seeded pseudorandom updates. Finite-size, burn-in and autocorrelation matter; one run is not a thermodynamic-limit criticality measurement.",
+        "Pinned Ising Monte Carlo Lab core. Finite-size, equilibration, autocorrelation, update-method compatibility and effective sample size must be considered before interpreting thermodynamic behavior.",
+        [{"id":"final-config","label":"Final lattice configuration","rows":[{"shape":list(final.shape),"meanSpin":float(np.mean(final)),"minSpin":int(np.min(final)),"maxSpin":int(np.max(final))}]}],
     )
-
 
 def random_walk(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    steps = i(p, "steps", 400, 20, 5000)
-    walkers = i(p, "walkers", 1500, 50, 12000)
-    seed = i(p, "seed", 20260919, 0, 2_147_483_647)
-    dimension = i(p, "dimension", 2, 1, 3)
-    rng = np.random.default_rng(seed)
-    pos = np.zeros((walkers, dimension), dtype=float)
-    msd = np.zeros(steps + 1, dtype=float)
-    mean_r = np.zeros(steps + 1, dtype=float)
-    sample_path = np.zeros((steps + 1, dimension), dtype=float)
-    for n in range(1, steps + 1):
-        axis = rng.integers(0, dimension, size=walkers)
-        sign = rng.choice(np.array([-1.0, 1.0]), size=walkers)
-        pos[np.arange(walkers), axis] += sign
-        sample_path[n] = pos[0]
-        r2 = np.sum(pos * pos, axis=1)
-        msd[n] = float(np.mean(r2))
-        mean_r[n] = float(np.mean(np.sqrt(r2)))
-    n = np.arange(steps + 1)
-    fit = np.polyfit(n[max(2, steps // 10):], msd[max(2, steps // 10):], 1)
-    series = [
-        xy_series("msd", "ensemble MSD", n, msd, x_label="steps", y_label="⟨r²⟩"),
-        xy_series("mean-radius", "mean radius", n, mean_r, x_label="steps", y_label="⟨r⟩"),
+    from rw_mc_studio.random_walk import simulate_endpoints, summarize_endpoints, simulate_trajectory, theoretical_msd, theoretical_mean_radius
+    dim = i(p, "dimension", 2, 1, 50)
+    steps = i(p, "steps", 1000, 1, 1000000)
+    walkers = i(p, "walkers", 10000, 1, 1000000)
+    seed = i(p, "seed", 12345, 0, 2147483647)
+    model = str(p.get("stepModel", "fixed"))
+    if model == "uniform":
+        p1 = f(p, "uniformA", 0.5, 0.0, 100.0)
+        p2 = f(p, "uniformB", 1.5, 0.0001, 100.0)
+        if p2 <= p1: raise ValueError("Uniform upper bound must exceed lower bound")
+    else:
+        p1 = f(p, "fixedStep", 1.0, 0.0001, 100.0); p2 = None
+    endpoints, meta = simulate_endpoints(dim,steps,walkers,model,p1,p2,seed=seed,return_metadata=True)
+    summary = summarize_endpoints(endpoints)
+    traj = simulate_trajectory(dim,min(steps,i(p,"trajectorySteps",500,1,100000)),model,p1,p2,seed=seed+1)
+    radii=np.linalg.norm(endpoints,axis=1)
+    series=[
+        xy_series("radius-samples","endpoint radius",range(len(radii)),radii,x_label="walker",y_label="radius"),
     ]
-    if dimension >= 2:
-        series.append(xy_series("sample-path", "sample walker path", sample_path[:, 0], sample_path[:, 1], x_label="x", y_label="y", chart="scatter"))
+    if dim>=2:
+        series.append(xy_series("trajectory","sample trajectory",traj[:,0],traj[:,1],x_label="x",y_label="y",chart="scatter"))
     return result(
         "random-walk-monte-carlo",
-        "native-numpy-random-walk",
-        {"steps": steps, "walkers": walkers, "dimension": dimension, "seed": seed},
-        {"finalMSD": float(msd[-1]), "expectedMSD": float(steps), "msdSlope": float(fit[0]), "relativeFinalError": float(abs(msd[-1] - steps) / max(steps, 1))},
+        "pinned-rw_mc_studio.simulate_endpoints",
+        {"dimension":dim,"steps":steps,"walkers":walkers,"seed":seed,"stepModel":model,"p1":p1,"p2":p2},
+        {
+            **{k:clean(v) for k,v in summary.items() if isinstance(v,(str,int,float,bool,np.integer,np.floating))},
+            "theoreticalMSD": theoretical_msd(steps,model,p1,p2),
+            "theoreticalMeanRadius": theoretical_mean_radius(dim,steps,model,p1,p2),
+            "engine": meta.get("engine"),
+        },
         series,
-        "Unbiased lattice random walk with unit steps and a finite seeded ensemble. Monte Carlo variation is expected; agreement of MSD with N is a statistical reference, not proof of RNG quality.",
+        "Pinned Random Walk and Monte Carlo Simulation Studio core. Ensemble confidence intervals describe finite Monte Carlo sampling; they do not validate the pseudorandom generator or asymptotic formulas outside their assumptions.",
+        [{"id":"endpoint-summary","label":"Endpoint summary","rows":[clean(summary)]}],
     )
-
 
 def _rk4(rhs, state: np.ndarray, t: float, dt: float) -> np.ndarray:
     k1 = np.asarray(rhs(t, state), float)
@@ -259,94 +267,64 @@ def _rk4(rhs, state: np.ndarray, t: float, dt: float) -> np.ndarray:
 
 
 def nonlinear_chaos(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    duration = f(p, "duration", 80.0, 5.0, 400.0)
-    dt = f(p, "dt", 0.02, 0.001, 0.1)
-    damping = f(p, "damping", 0.2, 0.0, 4.0)
-    drive = f(p, "drive", 1.2, 0.0, 5.0)
-    omega = f(p, "driveOmega", 2.0 / 3.0, 0.05, 5.0)
-    theta0 = f(p, "theta0", 0.2, -math.pi, math.pi)
-    delta0 = f(p, "perturbation", 1e-7, 1e-12, 1e-2)
-    count = min(40000, max(200, int(duration / dt) + 1))
-    t = np.linspace(0.0, dt * (count - 1), count)
-    a = np.array([theta0, 0.0], float)
-    c = np.array([theta0 + delta0, 0.0], float)
-    theta = np.zeros(count); velocity = np.zeros(count); sep = np.zeros(count)
-    poincare_x, poincare_y = [], []
-    period = 2 * math.pi / omega
-    next_sample = period
-
-    def rhs(tt: float, y: np.ndarray) -> np.ndarray:
-        return np.array([y[1], -damping * y[1] - math.sin(y[0]) + drive * math.cos(omega * tt)])
-
-    for k, tt in enumerate(t):
-        theta[k] = a[0]; velocity[k] = a[1]
-        sep[k] = float(np.linalg.norm(c - a))
-        if tt + 0.5 * dt >= next_sample:
-            poincare_x.append(((a[0] + math.pi) % (2 * math.pi)) - math.pi)
-            poincare_y.append(a[1])
-            next_sample += period
-        if k + 1 < count:
-            a = _rk4(rhs, a, tt, dt)
-            c = _rk4(rhs, c, tt, dt)
-    valid = sep[(sep > delta0 * 2) & (sep < 0.2)]
-    lyap = None
-    if len(valid) >= 5:
-        idx = np.where((sep > delta0 * 2) & (sep < 0.2))[0]
-        coeff = np.polyfit(t[idx], np.log(sep[idx] / delta0), 1)
-        lyap = float(coeff[0])
-    series = [
-        xy_series("theta", "angle", t, theta, x_label="time", y_label="θ (rad)"),
-        xy_series("phase", "phase portrait", theta, velocity, x_label="θ (rad)", y_label="ω (rad/time)", chart="scatter"),
-        xy_series("separation", "paired-trajectory separation", t, sep, x_label="time", y_label="phase-space separation"),
-    ]
-    if len(poincare_x) >= 2:
-        series.append(xy_series("poincare", "Poincaré section", poincare_x, poincare_y, x_label="θ mod 2π", y_label="ω", chart="scatter"))
+    from chaos_lab.core import DoublePendulumParams, simulate_double_pendulum, double_pendulum_energy, double_pendulum_cartesian
+    params=DoublePendulumParams(
+        mass1=f(p,"mass1",1.0,.01,100.0), mass2=f(p,"mass2",1.0,.01,100.0),
+        length1=f(p,"length1",1.0,.01,100.0), length2=f(p,"length2",1.0,.01,100.0),
+        gravity=f(p,"gravity",9.81,.01,100.0), damping=f(p,"damping",.05,0.0,20.0),
+    )
+    initial=np.asarray([
+        f(p,"theta1",1.2,-2*math.pi,2*math.pi), f(p,"omega1",0.0,-100.0,100.0),
+        f(p,"theta2",1.0,-2*math.pi,2*math.pi), f(p,"omega2",0.0,-100.0,100.0),
+    ])
+    duration=f(p,"duration",40.0,.1,1000.0); dt=f(p,"dt",.005,1e-5,1.0)
+    times,states=simulate_double_pendulum(initial,params,duration=duration,dt=dt)
+    energy=double_pendulum_energy(states,params); cart=double_pendulum_cartesian(states,params)
+    drift=float(np.max(np.abs(energy-energy[0]))/max(abs(float(energy[0])),np.finfo(float).tiny))
     return result(
         "nonlinear-chaos",
-        "native-rk4-driven-pendulum",
-        {"duration": duration, "dt": dt, "damping": damping, "drive": drive, "driveOmega": omega, "theta0": theta0, "perturbation": delta0},
-        {"maxAbsTheta": float(np.max(np.abs(theta))), "maxAbsVelocity": float(np.max(np.abs(velocity))), "finiteWindowDivergenceRate": lyap, "poincareSamples": len(poincare_x)},
-        series,
-        "Driven damped pendulum integrated with fixed-step RK4. The finite-window divergence estimate is diagnostic only and is not an asymptotic Lyapunov proof without convergence and renormalization checks.",
+        "pinned-chaos_lab.simulate_double_pendulum",
+        clean({"mass1":params.mass1,"mass2":params.mass2,"length1":params.length1,"length2":params.length2,"gravity":params.gravity,"damping":params.damping,"initial":initial,"duration":duration,"dt":dt}),
+        {"relativeEnergyDrift":drift,"samples":len(times),"finalTheta1":float(states[-1,0]),"finalTheta2":float(states[-1,2])},
+        [
+            xy_series("theta1","theta1",times,states[:,0],x_label="time",y_label="angle (rad)"),
+            xy_series("theta2","theta2",times,states[:,2],x_label="time",y_label="angle (rad)"),
+            xy_series("phase1","upper-arm phase",states[:,0],states[:,1],x_label="theta1",y_label="omega1",chart="scatter"),
+            xy_series("energy","total mechanical energy",times,energy,x_label="time",y_label="energy"),
+        ],
+        "Pinned Nonlinear Dynamics & Chaos Lab double-pendulum core. Apparent irregularity, flip maps and finite-time Lyapunov estimates require timestep/convergence checks before being interpreted as chaos evidence.",
+        [{"id":"cartesian-endpoint","label":"Final Cartesian state","rows":[{"x1":float(cart["x1"][-1]),"y1":float(cart["y1"][-1]),"x2":float(cart["x2"][-1]),"y2":float(cart["y2"][-1])}]}],
     )
-
 
 def oscillation(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    duration = f(p, "duration", 30.0, 1.0, 300.0)
-    dt = f(p, "dt", 0.01, 0.0005, 0.1)
-    omega0 = f(p, "omega0", 2.0, 0.05, 20.0)
-    zeta = f(p, "zeta", 0.08, 0.0, 2.0)
-    force = f(p, "force", 0.6, 0.0, 20.0)
-    drive_omega = f(p, "driveOmega", 1.6, 0.0, 20.0)
-    x0 = f(p, "x0", 1.0, -100.0, 100.0)
-    count = min(50000, max(100, int(duration / dt) + 1))
-    t = np.linspace(0.0, dt * (count - 1), count)
-    state = np.array([x0, 0.0], float)
-    x = np.zeros(count); v = np.zeros(count); energy = np.zeros(count)
-
-    def rhs(tt: float, y: np.ndarray) -> np.ndarray:
-        return np.array([y[1], force * math.cos(drive_omega * tt) - 2 * zeta * omega0 * y[1] - omega0 * omega0 * y[0]])
-
-    for k, tt in enumerate(t):
-        x[k], v[k] = state
-        energy[k] = 0.5 * v[k] ** 2 + 0.5 * omega0 ** 2 * x[k] ** 2
-        if k + 1 < count:
-            state = _rk4(rhs, state, tt, dt)
-    tail = x[max(0, count // 2):]
+    from oscillation_lab.core import OscillatorParams, simulate_fixed, linear_energy, energy_balance_diagnostic
+    params=OscillatorParams(
+        mass=f(p,"mass",1.0,.001,1000.0),
+        omega0=f(p,"omega0",2*math.pi,.001,1000.0),
+        gamma=f(p,"gamma",.1,0.0,100.0),
+        force_amplitude=f(p,"force",1.0,0.0,1000.0),
+        force_frequency=f(p,"driveOmega",6.0,0.0,1000.0),
+    )
+    initial=np.asarray([f(p,"x0",1.0,-1000.0,1000.0),f(p,"v0",0.0,-1000.0,1000.0)])
+    duration=f(p,"duration",20.0,.01,10000.0); dt=f(p,"dt",.01,1e-6,10.0)
+    method=str(p.get("method","rk4"))
+    out=simulate_fixed(initial,params,duration=duration,dt=dt,method=method)
+    times=np.asarray(out["time"]); states=np.asarray(out["state"])
+    energy=linear_energy(states,params); balance=energy_balance_diagnostic(times,states,params)
     return result(
         "oscillation-integration",
-        "native-rk4-linear-oscillator",
-        {"duration": duration, "dt": dt, "omega0": omega0, "zeta": zeta, "force": force, "driveOmega": drive_omega, "x0": x0},
-        {"maxAbsDisplacement": float(np.max(np.abs(x))), "rmsTailDisplacement": float(np.sqrt(np.mean(tail * tail))), "finalEnergy": float(energy[-1]), "steps": count - 1},
+        "pinned-oscillation_lab.simulate_fixed",
+        clean({"mass":params.mass,"omega0":params.omega0,"gamma":params.gamma,"forceAmplitude":params.force_amplitude,"driveOmega":params.force_frequency,"initial":initial,"duration":duration,"dt":dt,"method":method}),
+        {"actualDt":float(out["actual_dt"]),"samples":len(times),"maxAbsDisplacement":float(np.max(np.abs(states[:,0]))),"maxRelativeEnergyBalanceResidual":float(balance["max_relative_balance_residual"])},
         [
-            xy_series("displacement", "displacement", t, x, x_label="time", y_label="x"),
-            xy_series("velocity", "velocity", t, v, x_label="time", y_label="dx/dt"),
-            xy_series("phase", "phase portrait", x, v, x_label="x", y_label="dx/dt", chart="scatter"),
-            xy_series("energy", "mechanical energy", t, energy, x_label="time", y_label="E"),
+            xy_series("displacement","displacement",times,states[:,0],x_label="time (s)",y_label="u (m)"),
+            xy_series("velocity","velocity",times,states[:,1],x_label="time (s)",y_label="v (m/s)"),
+            xy_series("phase","phase portrait",states[:,0],states[:,1],x_label="u (m)",y_label="v (m/s)",chart="scatter"),
+            xy_series("energy","mechanical energy",times,energy,x_label="time (s)",y_label="E"),
+            xy_series("balance-residual","energy balance residual",times,balance["balance_residual"],x_label="time (s)",y_label="energy residual"),
         ],
-        "Single-degree-of-freedom linearly damped, harmonically forced oscillator integrated with fixed-step RK4. Real structural modes and experimental uncertainty are outside this adapter result.",
+        "Pinned Oscillation & Numerical Integration Lab core. Energy conservation is meaningful only for conservative configurations; damped or driven cases must be interpreted through the energy-power balance.",
     )
-
 
 def radia_magnet(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)

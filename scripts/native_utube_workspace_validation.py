@@ -60,8 +60,8 @@ for view_id in ("nativeExperimentView", "utubeView"):
         assert label in segment, f"{view_id} missing professional {label} navigation"
     assert ">Advanced<" not in segment, f"{view_id} still exposes a separate Advanced tab"
 
-shared_start = html.index('id="nativeExperimentView"')
-shared_end = html.find('<section id=', shared_start + 10)
+shared_start = html.index('<section id="nativeExperimentView"')
+shared_end = html.index('<section id="utubeView"', shared_start)
 shared = html[shared_start:shared_end]
 for forbidden_ui in (
     "Application workspace · no iframe",
@@ -72,8 +72,8 @@ for forbidden_ui in (
 ):
     assert forbidden_ui not in shared, f"developer-facing UI leaked into experiment workspace: {forbidden_ui}"
 
-ut_start = html.index('id="utubeView"')
-ut_end = html.find('<section id=', ut_start + 10)
+ut_start = html.index('<section id="utubeView"')
+ut_end = html.index('<section id="labView"', ut_start)
 ut_segment = html[ut_start:ut_end]
 for forbidden_ui in ("No iframe", "No localhost", "NATIVE WORKSPACE"):
     assert forbidden_ui not in ut_segment, f"developer-facing U-Tube UI leaked: {forbidden_ui}"
@@ -87,10 +87,7 @@ assert 'data-utube-panel="setup"' in ut_segment
 assert 'data-utube-panel="results"' in ut_segment
 assert 'data-utube-panel="verification"' in ut_segment
 
-for view_id in ("nativeExperimentView", "utubeView"):
-    start = html.index(f'id="{view_id}"')
-    end = html.find('<section id=', start + 10)
-    segment = html[start:] if end < 0 else html[start:end]
+for view_id, segment in (("nativeExperimentView", shared), ("utubeView", ut_segment)):
     assert "<iframe" not in segment, f"{view_id} still embeds iframe"
     for forbidden_src in (
         'src="http://localhost',

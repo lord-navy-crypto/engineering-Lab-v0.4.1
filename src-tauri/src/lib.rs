@@ -892,8 +892,18 @@ fn install_managed_python_dependency_blocking(app:&AppHandle, dependency_id:&str
 
         match status {
             Ok(code) if code.success() => {
+                let check=Command::new(&vpy).args(["-m","pip","check"]).output();
+                if let Ok(out)=check {
+                    if !out.status.success() {
+                        failures.push(format!("{} (pip check failed: {})",spec.name,String::from_utf8_lossy(&out.stdout).trim()));
+                        continue;
+                    }
+                }
+                let lock=module_root(app,&spec.id)?.join("physical-lab-lock.txt");
+                if let Ok(out)=Command::new(&vpy).args(["-m","pip","freeze","--all"]).output() {
+                    if out.status.success() { let _=fs::write(lock,out.stdout); }
+                }
                 repaired.push(spec.name.clone());
-                let _=write_module_lock(app,&spec,&vpy);
             }
             Ok(code) => failures.push(format!("{} (pip exit {})",spec.name,code.code().unwrap_or(-1))),
             Err(e) => failures.push(format!("{} ({e})",spec.name)),

@@ -1615,9 +1615,9 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             return result(experiment_id,"pinned-rw_mc_studio.nd_ball_volume_mc",p,{**{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},"theoreticalVolume":theoretical_nd_ball_volume(dim)},[],"Pseudo-random Monte Carlo estimate of the unit d-ball volume.",[{"id":"high-d","label":"High-dimensional MC","rows":[clean(out)]}])
         if tool=="qmc":
             out=repeated_scrambled_qmc(dim,power=i(p,"qmcPower",14,4,24),n_replicates=i(p,"qmcScrambles",8,2,128),seed=seed)
-            rows=out.get("replicates") if isinstance(out,dict) else None
-            if not isinstance(rows,list): rows=[clean(out)]
-            return result(experiment_id,"pinned-rw_mc_studio.repeated_scrambled_qmc",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},[],"Repeated scrambled Sobol QMC provides randomized-QMC uncertainty evidence, not deterministic error bounds.",[{"id":"qmc","label":"Repeated QMC","rows":clean(rows)}])
+            estimates=np.asarray(out.get("estimates",[]),dtype=float)
+            rows=[{"replicate":idx+1,"estimate":float(value)} for idx,value in enumerate(estimates)]
+            return result(experiment_id,"pinned-rw_mc_studio.repeated_scrambled_qmc",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},[xy_series("qmc-replicates","QMC replicate estimates",range(1,len(estimates)+1),estimates,x_label="replicate",y_label="volume estimate")] if len(estimates) else [],"Repeated scrambled Sobol QMC provides randomized-QMC uncertainty evidence, not deterministic error bounds.",[{"id":"qmc","label":"Repeated QMC","rows":rows}])
         if tool=="theory-volume":
             dims=np.arange(1,51); vols=[theoretical_nd_ball_volume(int(d)) for d in dims]
             return result(experiment_id,"pinned-rw_mc_studio.theoretical_nd_ball_volume",p,{"dimensions":50},[xy_series("volume-curve","unit d-ball volume",dims,vols,x_label="dimension",y_label="volume")],"Exact unit d-ball volume formula.",[{"id":"volume-curve","label":"Theoretical volumes","rows":[{"dimension":int(d),"volume":float(v)} for d,v in zip(dims,vols)]}])
@@ -1633,14 +1633,14 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             k2=i(p,"grid2d",500,10,5000); k3=i(p,"grid3d",100,5,1000)
             grid2=grid_circle_area(k2); grid3=grid_sphere_volume(k3)
             mc2=circle_area_mc(k2*k2,seed=seed); mc3=nd_ball_volume_mc(3,k3**3,seed=seed+1)
-            rows=[{"method":"2D midpoint grid","estimate":clean(grid2),"evaluations":k2*k2},{"method":"2D MC","estimate":clean(mc2.get("estimate",mc2.get("mean_estimate"))),"evaluations":k2*k2},{"method":"3D midpoint grid","estimate":clean(grid3),"evaluations":k3**3},{"method":"3D MC","estimate":clean(mc3.get("estimate",mc3.get("mean_estimate"))),"evaluations":k3**3}]
+            rows=[{"method":"2D midpoint grid","estimate":clean(grid2["estimate"]),"absoluteError":clean(grid2["absolute_error"]),"evaluations":grid2["points"]},{"method":"2D MC","estimate":clean(mc2.get("estimate")),"absoluteError":clean(mc2.get("absolute_error")),"evaluations":k2*k2},{"method":"3D midpoint grid","estimate":clean(grid3["estimate"]),"absoluteError":clean(grid3["absolute_error"]),"evaluations":grid3["points"]},{"method":"3D MC","estimate":clean(mc3.get("estimate")),"absoluteError":clean(mc3.get("absolute_error")),"evaluations":k3**3}]
             return result(experiment_id,"pinned-rw_mc_studio.grid-vs-mc",p,{"comparisons":4},[],"Equal-evaluation-count comparison between deterministic midpoint grids and Monte Carlo.",[{"id":"grid-vs-mc","label":"Grid vs Monte Carlo","rows":rows}])
         if tool=="reproducibility":
             seeds=[seed+j for j in range(i(p,"independentSeeds",8,2,128))]
             audit_model=str(p.get("auditStepModel","fixed")); ap1=f(p,"fixedStep",1,.0001,100) if audit_model=="fixed" else f(p,"uniformA",.5,0,100); ap2=None if audit_model=="fixed" else f(p,"uniformB",1.5,.0001,100)
-            out=multi_seed_random_walk(dim,i(p,"multiSeedSteps",1000,1,1000000),i(p,"walkersPerSeed",5000,1,1000000),seeds,audit_model,ap1,ap2)
-            rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else clean(out if isinstance(out,list) else [out])
-            return result(experiment_id,"pinned-rw_mc_studio.multi_seed_random_walk",p,{"seeds":len(seeds)},[],"Multi-seed reproducibility audit quantifies seed-to-seed variation.",[{"id":"reproducibility","label":"Reproducibility audit","rows":rows}])
+            frame,summary=multi_seed_random_walk(dim,i(p,"multiSeedSteps",1000,1,1000000),i(p,"walkersPerSeed",5000,1,1000000),seeds,audit_model,ap1,ap2)
+            rows=frame.to_dict(orient="records")
+            return result(experiment_id,"pinned-rw_mc_studio.multi_seed_random_walk",p,{"seeds":len(seeds),**clean(summary)},[],"Multi-seed reproducibility audit quantifies seed-to-seed variation.",[{"id":"reproducibility","label":"Reproducibility audit","rows":rows}])
         from rw_mc_studio.presets import loads_preset
         out=loads_preset(str(p.get("presetJson","{}")))
         return result(experiment_id,"pinned-rw_mc_studio.loads_preset",p,{"valid":True,"schemaVersion":out.get("schema_version",3)},[],"Preset parser validates schema/required fields only; it does not execute the configuration.",[{"id":"preset","label":"Validated preset","rows":[clean(out)]}])
@@ -1662,9 +1662,12 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
         if tool=="mass-response":
             masses=np.linspace(f(p,"mass1Min",.5,.01,100),f(p,"mass1Max",2,.01,100),i(p,"massScanPoints",21,3,201))
             out=double_pendulum_mass_response(masses,params,initial_state=initial,duration=f(p,"massScanDuration",20,.1,1000),dt=f(p,"massScanDt",.01,1e-5,1))
-            return result(experiment_id,"pinned-chaos_lab.double_pendulum_mass_response",p,{"points":len(out["mass1"])},[
-                xy_series("mass-response","peak |theta2|",out["mass1"],out["peak_abs_theta2"],x_label="m1",y_label="peak |theta2|")
-            ],"Pinned upper-mass response scan.",[{"id":"mass-response","label":"Mass response","rows":[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items()} for idx in range(len(out["mass1"]))]}])
+            peak_rows=[{"mass1":float(m),"theta1Peak":float(theta)} for m,theta in zip(out["mass1"],out["theta1_peak"])]
+            count_rows=[{"mass1":float(m),"peakCount":int(c)} for m,c in zip(out["scan_mass1"],out["peak_count"])]
+            return result(experiment_id,"pinned-chaos_lab.double_pendulum_mass_response",p,{"scanPoints":len(out["scan_mass1"]),"recordedPeaks":len(out["theta1_peak"])},[
+                xy_series("mass-peak-count","peak count",out["scan_mass1"],out["peak_count"],x_label="m1",y_label="post-transient peak count"),
+                xy_series("mass-response","theta1 peak samples",out["mass1"],out["theta1_peak"],x_label="m1",y_label="theta1 peak",chart="scatter") if len(out["theta1_peak"]) else xy_series("mass-peak-count-copy","peak count",out["scan_mass1"],out["peak_count"],x_label="m1",y_label="peak count")
+            ],"Pinned upper-mass response spectrum; peak samples do not by themselves prove a dynamical bifurcation.",[{"id":"mass-response-counts","label":"Mass response counts","rows":count_rows},{"id":"mass-response-peaks","label":"Mass response peaks","rows":peak_rows}])
         if tool=="lyapunov":
             out=lyapunov_benettin(initial,params,duration=f(p,"lyapunovDuration",40,.1,1000),dt=f(p,"lyapunovDt",.005,1e-5,1))
             return result(experiment_id,"pinned-chaos_lab.lyapunov_benettin",p,{"estimate":out["estimate"],"actualDt":out["actual_dt"]},[

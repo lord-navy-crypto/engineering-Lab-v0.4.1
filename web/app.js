@@ -214,7 +214,7 @@ function renderDependencies(){
     summary.innerHTML=`<div class="dep-summary-card ${red.length?'danger':'good'}"><span>Action needed</span><strong>${red.length}</strong><small>${esc(blockerText)}</small></div><div class="dep-summary-card"><span>Optional / build later</span><strong>${optional.length}</strong><small>${esc(optionalText)}</small></div><div class="dep-summary-card"><span>Verified / found</span><strong>${green.length}</strong><small>${green.length} dependency checks currently green</small></div><div class="dep-summary-card"><span>Managed automatically</span><strong>${states.filter(([d])=>d.delivery==='module-managed').length}</strong><small>Ordinary Python packages are repaired per Lab</small></div>`;
   }
   grid.innerHTML=states.map(([d,st])=>{const locs=(st.locations||[]);const priority=dependencyPriority(d,st);const locHtml=locs.length?`<details class="dependency-locations"><summary>${locs.length} detected location${locs.length===1?'':'s'}</summary>${locs.map(x=>`<code>${esc(x)}</code>`).join('')}</details>`:'';return `<article class="dependency-card"><div class="dependency-card-head"><div><div class="category">${esc(d.category)}</div><h4>${esc(d.name)}</h4></div><span class="health-light ${esc(st.level)}"><i></i>${esc(st.label)}</span></div><div class="dependency-priority"><strong>${esc(priority.label)}</strong><span>${esc(priority.detail)}</span></div><p class="desc">${esc(d.description)}</p><div class="dependency-meta"><div><span>Delivery</span><strong>${esc(deliveryLabel(d.delivery))}</strong></div><div><span>Used by</span><strong>${esc((d.usedBy||[]).join(' · '))}</strong></div><div><span>Version</span><strong>${esc(st.version||'—')}</strong></div></div><div class="dependency-detail">${esc(st.detail||d.notes||'')}</div>${locHtml}<div class="card-actions">${dependencyAction(d,st)}</div></article>`}).join('');
-  document.querySelectorAll('[data-dependency-action]').forEach(b=>b.onclick=()=>runDependencyAction(b.dataset.dependencyAction));
+  inActiveView('[data-dependency-action]').forEach(b=>b.onclick=()=>runDependencyAction(b.dataset.dependencyAction));
 }
 async function runDependencyAction(id){
   if(!invoke){toast('Preview mode: this action is available in the desktop build.');return}
@@ -332,7 +332,7 @@ async function runIntegrityChecks(){
 function renderIntegrity(){
   if(el('compatibilityMatrix')){const rows=compatibilityRows;el('compatibilityMatrix').innerHTML=rows.length?`<table class="research-table"><thead><tr><th>Lab</th><th>Interpreter</th><th>Package</th><th>Requirement</th><th>Found</th><th>Status</th><th>Repair</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.moduleName)}</td><td class="muted-text">${esc(r.interpreter||'Not installed')}</td><td>${esc(r.package)}</td><td><code>${esc(r.requirement)}</code></td><td>${esc(r.foundVersion||'—')}</td><td class="${r.compatible===true?'ok-text':r.compatible===false?'bad-text':'muted-text'}">${r.compatible===true?'Compatible':r.compatible===false?'Incompatible':'Not checked'}</td><td>${r.installed&&r.compatible===false?`<button class="secondary repair-button" data-repair-lab="${esc(r.moduleId)}">Repair Lab venv</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">No compatibility results yet.</div>';}
   if(el('smokeGrid'))el('smokeGrid').innerHTML=smokeResults.length?smokeResults.map(r=>`<article class="integrity-card"><div class="category">${r.installed?'SCIENTIFIC SMOKE':'NOT INSTALLED'}</div><h4>${esc(r.moduleName)}</h4><strong class="${r.passed?'ok-text':'bad-text'}">${r.passed?'Scientific Ready':'Not Ready / Skipped'}</strong><p class="hint">${esc(r.detail)}</p><span class="muted-text">${r.durationMs} ms</span></article>`).join(''):'<div class="empty-state">Run the integrity check to test installed Labs.</div>';
-  document.querySelectorAll('[data-repair-lab]').forEach(b=>b.onclick=()=>repairLabVenv(b.dataset.repairLab));
+  inActiveView('[data-repair-lab]').forEach(b=>b.onclick=()=>repairLabVenv(b.dataset.repairLab));
 }
 async function repairLabVenv(id){if(!invoke)return;try{const msg=await invoke('repair_lab_environment',{moduleId:id});toast(msg);await runIntegrityChecks()}catch(e){toast(String(e),true)}}
 async function savePipelineTemplate(index){if(!activeWorkspaceId){toast('Select a project first.',true);return}if(!invoke)return;const p=pipelineTemplates[index];const kinds=['accelerator-measurement','oscillation-modal','atomistic-magnetism','measurement-validation'];try{const id=await invoke('save_pipeline',{workspaceId:activeWorkspaceId,kind:kinds[index]||'measurement-validation'});toast(`Pipeline saved: ${id}`)}catch(e){toast(String(e),true)}}
@@ -440,14 +440,14 @@ function renderModelBuilder(){
 function invalidateModelBuilderGeneratedArtifacts(){modelBuilderBundle=null;modelBuilderPreviewData=null;modelBuilderValidationData=null}
 function syncModelSpecFromReview(){
   const spec=currentModelBuilderSpec();if(!spec){toast('ModelSpec JSON is invalid.',true);return null}
-  document.querySelectorAll('[data-model-review]').forEach(card=>{const i=Number(card.dataset.modelReview);const p=spec.parameters?.[i];if(!p)return;const get=name=>card.querySelector(`[data-mb-review-field="${name}"]`)?.value??'';p.label=get('label').trim()||p.name;p.unit=get('unit').trim()||null;p.control=get('control');p.default=parseModelBuilderDefault(get('default'),p.type);p.min=nullableNumber(get('min'));p.max=nullableNumber(get('max'));});
+  inActiveView('[data-model-review]').forEach(card=>{const i=Number(card.dataset.modelReview);const p=spec.parameters?.[i];if(!p)return;const get=name=>card.querySelector(`[data-mb-review-field="${name}"]`)?.value??'';p.label=get('label').trim()||p.name;p.unit=get('unit').trim()||null;p.control=get('control');p.default=parseModelBuilderDefault(get('default'),p.type);p.min=nullableNumber(get('min'));p.max=nullableNumber(get('max'));});
   el('modelBuilderSpec').value=JSON.stringify(spec,null,2);invalidateModelBuilderGeneratedArtifacts();return spec;
 }
 function renderModelBuilderControls(spec){
   const node=el('modelBuilderRuntimeControls');if(!node)return;const params=spec?.parameters||[];
   if(!modelBuilderBundle||!params.length){node.innerHTML=modelBuilderBundle?'<div class="hint">This ModelSpec declares no interactive parameters.</div>':'<div class="empty-state">Generate a bundle to render ModelSpec controls.</div>';return}
   node.innerHTML=`<div class="model-runtime-controls">${params.map(p=>modelBuilderControlHtml(p)).join('')}</div>`;
-  document.querySelectorAll('[data-model-param-range]').forEach(input=>input.oninput=()=>{const out=document.querySelector(`[data-model-param-value="${CSS.escape(input.dataset.modelParamRange)}"]`);if(out)out.textContent=input.value});
+  inActiveView('[data-model-param-range]').forEach(input=>input.oninput=()=>{const out=document.querySelector(`[data-model-param-value="${CSS.escape(input.dataset.modelParamRange)}"]`);if(out)out.textContent=input.value});
 }
 function modelBuilderControlHtml(p){
   const name=esc(p.name),label=esc(p.label||p.name),unit=p.unit?` <span>${esc(p.unit)}</span>`:'';const value=p.default??'';
@@ -457,7 +457,7 @@ function modelBuilderControlHtml(p){
   const type=p.control==='number'||p.type==='number'?'number':'text';return `<label class="model-runtime-control">${label}${unit}<input data-model-param data-param-name="${name}" type="${type}" ${type==='number'?'step="any"':''} value="${esc(value)}"/></label>`;
 }
 function collectModelBuilderParameters(){
-  const params={};for(const input of document.querySelectorAll('[data-model-param]')){const name=input.dataset.paramName;if(!name)continue;if(input.type==='checkbox')params[name]=input.checked;else if(input.type==='number'||input.type==='range'){const n=Number(input.value);if(!Number.isFinite(n))throw new Error(`Parameter ${name} needs a finite number.`);params[name]=n}else params[name]=input.value}return params;
+  const params={};for(const input of inActiveView('[data-model-param]')){const name=input.dataset.paramName;if(!name)continue;if(input.type==='checkbox')params[name]=input.checked;else if(input.type==='number'||input.type==='range'){const n=Number(input.value);if(!Number.isFinite(n))throw new Error(`Parameter ${name} needs a finite number.`);params[name]=n}else params[name]=input.value}return params;
 }
 function numericArray(value){return Array.isArray(value)&&value.length>1&&value.every(v=>typeof v==='number'&&Number.isFinite(v))}
 function sparkline(values){const w=280,h=90,min=Math.min(...values),max=Math.max(...values),span=Math.max(1e-12,max-min);const points=values.map((v,i)=>`${(i/(values.length-1)*w).toFixed(2)},${(h-(v-min)/span*h).toFixed(2)}`).join(' ');return `<svg class="builder-sparkline" viewBox="0 0 ${w} ${h}" role="img" aria-label="numeric output sparkline"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2"/></svg>`}
@@ -477,8 +477,8 @@ function renderTasks(){
   const running=list.filter(t=>!t.done).length; el('taskBadge').textContent=String(running); el('taskBadge').classList.toggle('hidden',running===0);
   if(!list.length){el('taskList').innerHTML='<div class="empty-state">No tasks yet.</div>';return}
   el('taskList').innerHTML=list.map(t=>`<div class="task"><div class="task-head"><div><div class="task-title">${esc(t.title)}</div><div class="task-meta">${esc(t.stage||'Working')} · ${esc(t.moduleId||'Physical Lab')}</div></div><div class="task-controls"><div class="task-state">${esc(t.status||'Running')}</div>${t.done?`<button class="task-delete" data-task-delete="${esc(t.taskId)}" title="Delete task entry">×</button>`:`<button class="secondary small" data-task-cancel="${esc(t.taskId)}">Cancel</button>`}</div></div><div class="progress"><div style="width:${Math.max(2,Math.min(100,t.percent??18))}%"></div></div><div class="task-message">${esc(t.message||'')}</div></div>`).join('');
-  document.querySelectorAll('[data-task-delete]').forEach(b=>b.onclick=()=>{tasks.delete(b.dataset.taskDelete);renderTasks()});
-  document.querySelectorAll('[data-task-cancel]').forEach(b=>b.onclick=()=>cancelTaskById(b.dataset.taskCancel));
+  inActiveView('[data-task-delete]').forEach(b=>b.onclick=()=>{tasks.delete(b.dataset.taskDelete);renderTasks()});
+  inActiveView('[data-task-cancel]').forEach(b=>b.onclick=()=>cancelTaskById(b.dataset.taskCancel));
 }
 
 async function cancelTaskById(id){if(!invoke)return;try{const msg=await invoke('cancel_task',{taskId:id});toast(msg)}catch(e){toast(String(e),true)}}

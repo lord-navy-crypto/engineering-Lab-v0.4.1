@@ -244,23 +244,37 @@
           <div>
             <div id="nativeExperimentEyebrow" class="eyebrow">EXPERIMENT</div>
             <h2 id="nativeExperimentTitle">Experiment</h2>
-            <p id="nativeExperimentSubtitle">Configure, run, and review this experiment.</p>
+            <p id="nativeExperimentSubtitle">Configure the complete model, run it, then analyze and verify the result.</p>
           </div>
         </div>
-        <div class="experiment-tabs">
+
+        <div class="experiment-tabs professional-tabs">
           <button class="filter active" data-native-exp-tab="setup">Setup</button>
-          <button class="filter" data-native-exp-tab="advanced">Advanced</button>
           <button class="filter" data-native-exp-tab="tools">Tools & Analysis</button>
           <button class="filter" data-native-exp-tab="results">Results</button>
-          <button class="filter" data-native-exp-tab="verification">Verification</button>
+          <button class="filter" data-native-exp-tab="verification">Verification & Assumptions</button>
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="setup">
-          <article class="experiment-panel primary-panel">
+          <article class="experiment-panel professional-setup-panel">
             <div class="panel-heading">
-              <div><h3>Parameters</h3><p>Adjust the values you want to test.</p></div>
+              <div>
+                <div class="eyebrow">COMPLETE EXPERIMENT STATE</div>
+                <h3>Setup</h3>
+                <p>All adjustable model, physics, sampling and solver parameters are exposed here. Nothing is hidden in a separate Advanced tab.</p>
+              </div>
+              <div class="setup-parameter-count"><strong id="nativeExperimentParameterCount">—</strong><span>adjustable parameters</span></div>
             </div>
-            <div id="nativeExperimentControls" class="native-parameter-grid"></div>
+            <div id="nativeExperimentControls" class="professional-parameter-sections"></div>
+            <div class="setup-runtime-strip">
+              <label>Engine mode
+                <select id="nativeExperimentRunMode">
+                  <option value="safe">Safe</option>
+                  <option value="full">Full</option>
+                </select>
+              </label>
+              <div><span>Workflow</span><strong>Configure → Run → Analyze → Verify</strong></div>
+            </div>
             <div class="primary-run-row">
               <button id="nativeExperimentRun" class="primary prominent-run">Run Experiment</button>
               <span id="nativeExperimentRunStatus">Ready.</span>
@@ -268,22 +282,24 @@
           </article>
         </div>
 
-        <div class="native-exp-tab-panel" data-native-exp-panel="advanced" hidden>
-          <article class="experiment-panel">
-            <div class="panel-heading"><div><h3>Advanced model & solver settings</h3><p>Full experiment controls are preserved here instead of being removed from the UI.</p></div></div>
-            <div id="nativeExperimentAdvancedControls" class="native-parameter-grid"></div>
-            <div class="advanced-runtime-row">
-              <label>Engine mode<select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select></label>
-            </div>
-          </article>
-        </div>
-
         <div class="native-exp-tab-panel" data-native-exp-panel="tools" hidden>
-          <div id="nativeExperimentTools" class="experiment-tool-grid"></div>
-          <div id="nativeExperimentToolStatus" class="native-status">Choose a tool to run experiment-specific analysis.</div>
+          <div class="tools-workbench-head">
+            <div><div class="eyebrow">POST-PROCESSING WORKBENCH</div><h3>Tools & Analysis</h3><p>Run analysis against the current experiment result. Tool output stays here and never overwrites the primary experiment result.</p></div>
+            <div id="nativeExperimentToolStatus" class="native-status">Run the experiment first, then choose an analysis tool.</div>
+          </div>
+          <div id="nativeExperimentTools" class="professional-tool-groups"></div>
+          <section id="nativeExperimentToolOutput" class="tool-output-workbench">
+            <div class="panel-heading"><div><h3>Analysis output</h3><p>Metrics, plots, tables and the tool-specific scientific boundary.</p></div><span id="nativeExperimentToolBackend" class="status-pill">not run</span></div>
+            <div id="nativeExperimentToolMetrics" class="native-result-metrics"></div>
+            <div id="nativeExperimentToolCharts" class="native-result-charts"></div>
+            <div id="nativeExperimentToolTables"></div>
+            <div id="nativeExperimentToolEmpty" class="empty-state compact-empty">Choose a tool after running the experiment.</div>
+            <p id="nativeExperimentToolBoundary" class="boundary-inline"></p>
+          </section>
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="results" hidden>
+          <div class="results-workbench-head"><div><div class="eyebrow">PRIMARY EXPERIMENT OUTPUT</div><h3>Results</h3><p>Only the authoritative output from Run Experiment is shown here.</p></div></div>
           <div id="nativeExperimentMetrics" class="native-result-metrics"></div>
           <div id="nativeExperimentResultCharts" class="native-result-charts"></div>
           <div id="nativeExperimentResultTables"></div>
@@ -291,17 +307,41 @@
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="verification" hidden>
-          <article class="verification-panel">
-            <h3>Verification & assumptions</h3>
-            <p id="nativeExperimentResultBoundary">Run the experiment to view its model assumptions and scientific boundary.</p>
-            <details class="advanced-disclosure">
-              <summary>Execution details</summary>
-              <div class="advanced-body">
-                <p>Computation runs through the experiment's scientific adapter and returns structured results directly to Engineering Lab.</p>
-                <p>Execution backend: <strong id="nativeExperimentBackend">not run</strong></p>
+          <div class="verification-workbench">
+            <article class="verification-panel verification-primary">
+              <div class="eyebrow">MODEL BOUNDARY</div>
+              <h3>Scientific assumptions & limits</h3>
+              <p id="nativeExperimentResultBoundary">Run the experiment to view its model assumptions and scientific boundary.</p>
+            </article>
+            <article class="verification-panel">
+              <div class="eyebrow">EXECUTION & PROVENANCE</div>
+              <h3>Run identity</h3>
+              <div id="nativeExperimentVerificationMeta" class="verification-meta-grid">
+                <div><span>Backend</span><strong id="nativeExperimentBackend">not run</strong></div>
+                <div><span>Mode</span><strong id="nativeExperimentVerificationMode">not run</strong></div>
+                <div><span>Parameters</span><strong id="nativeExperimentVerificationParameters">—</strong></div>
+                <div><span>Structured outputs</span><strong id="nativeExperimentVerificationOutputs">—</strong></div>
               </div>
-            </details>
-          </article>
+            </article>
+            <article class="verification-panel">
+              <div class="eyebrow">NUMERICAL CHECKS</div>
+              <h3>Inspect & challenge the result</h3>
+              <p>Run the original Result Inspector and convergence diagnostics against the current result without replacing it.</p>
+              <div class="verification-actions">
+                <button class="secondary" data-native-verification-tool="result-inspector">Run result inspector</button>
+                <button class="secondary" data-native-verification-tool="convergence-diagnostics">Run convergence diagnostics</button>
+                <button class="secondary" id="nativeExperimentOpenOriginalVerification">Open full original V&V workspace</button>
+              </div>
+            </article>
+            <article class="verification-panel verification-analysis-output">
+              <div class="panel-heading"><div><h3>Verification analysis output</h3><p>Inspector/convergence results appear here.</p></div><span id="nativeExperimentVerificationBackend" class="status-pill">not run</span></div>
+              <div id="nativeExperimentVerificationMetrics" class="native-result-metrics"></div>
+              <div id="nativeExperimentVerificationCharts" class="native-result-charts"></div>
+              <div id="nativeExperimentVerificationTables"></div>
+              <div id="nativeExperimentVerificationEmpty" class="empty-state compact-empty">Run a verification analysis above.</div>
+              <p id="nativeExperimentVerificationBoundary" class="boundary-inline"></p>
+            </article>
+          </div>
         </div>
         <div id="nativeExperimentStatus" class="native-status subtle-status">Ready.</div>
       </section>
@@ -312,27 +352,70 @@
           <div>
             <div class="eyebrow">ENGINEERING CLUB · FLUID EXPERIMENT</div>
             <h2>Rotating U-Tube</h2>
-            <p>Configure the apparatus, run the model, then inspect threshold and hysteresis results.</p>
+            <p>Configure the complete apparatus and uncertainty model, run it, then analyze and verify the result.</p>
           </div>
         </div>
-        <div class="experiment-tabs">
+
+        <div class="experiment-tabs professional-tabs">
           <button class="filter active" data-utube-tab="setup">Setup</button>
-          <button class="filter" data-utube-tab="advanced">Advanced</button>
           <button class="filter" data-utube-tab="tools">Tools & Analysis</button>
           <button class="filter" data-utube-tab="results">Results</button>
-          <button class="filter" data-utube-tab="verification">Verification</button>
+          <button class="filter" data-utube-tab="verification">Verification & Assumptions</button>
         </div>
 
         <div class="utube-panel" data-utube-panel="setup">
-          <article class="experiment-panel primary-panel">
-            <div class="panel-heading"><div><h3>Parameters</h3><p>Set the fluid volume, rotation speed, and tube geometry.</p></div></div>
-            <div class="native-control-grid">
-              <label>Liquid volume (mL)<input id="utVolume" type="number" min="0.05" step="0.05" value="3"></label>
-              <label>Operating speed (rpm)<input id="utRpm" type="number" min="1" step="1" value="260"></label>
-              <label>Inner radius R_in (mm)<input id="utRin" type="number" min="1" step="0.01" value="15.12"></label>
-              <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" step="0.01" value="7.48"></label>
-              <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
+          <article class="experiment-panel professional-setup-panel">
+            <div class="panel-heading">
+              <div><div class="eyebrow">COMPLETE APPARATUS STATE</div><h3>Setup</h3><p>Geometry, fluid properties, dynamic response, uncertainty and scan-planning controls are all exposed here.</p></div>
+              <div class="setup-parameter-count"><strong>22</strong><span>adjustable controls</span></div>
             </div>
+
+            <section class="parameter-section">
+              <div class="parameter-section-heading"><span>01</span><div><strong>Geometry & operating point</strong><small>Physical apparatus and operating state</small></div></div>
+              <div class="native-control-grid professional-control-grid">
+                <label>Liquid volume (mL)<input id="utVolume" type="number" min="0.05" max="30" step="0.05" value="3"></label>
+                <label>Operating speed (rpm)<input id="utRpm" type="number" min="1" max="1000" step="1" value="260"></label>
+                <label>Inner radius R_in (mm)<input id="utRin" type="number" min="1" max="100" step="0.01" value="15.12"></label>
+                <label>Tube radius a (mm)<input id="utRadius" type="number" min="0.1" max="50" step="0.01" value="7.48"></label>
+                <label>Quadrature order<input id="utNq" type="number" min="12" max="128" step="4" value="48"></label>
+              </div>
+            </section>
+
+            <section class="parameter-section">
+              <div class="parameter-section-heading"><span>02</span><div><strong>Fluid & dynamic response</strong><small>Reduced-order dynamics and fluid properties</small></div></div>
+              <div class="native-control-grid professional-control-grid">
+                <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" max="200" step="0.5" value="8"></label>
+                <label>Response τ (s)<input id="utTau" type="number" min="0" max="30" step="0.01" value="0.35"></label>
+                <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" max="100" step="0.1" value="2"></label>
+                <label>Density ρ (kg/m³)<input id="utRho" type="number" min="100" max="5000" step="0.1" value="997.8"></label>
+                <label>Surface tension γ (mN/m)<input id="utGamma" type="number" min="1" max="500" step="0.1" value="72"></label>
+                <label>Contact angle (deg)<input id="utThetaDeg" type="number" min="-180" max="180" step="0.5" value="0"></label>
+              </div>
+            </section>
+
+            <section class="parameter-section">
+              <div class="parameter-section-heading"><span>03</span><div><strong>Measurement uncertainty</strong><small>Declared standard uncertainties and propagation controls</small></div></div>
+              <div class="native-control-grid professional-control-grid">
+                <label>u(V) (mL)<input id="utUVolume" type="number" min="0" max="10" step="0.01" value="0.05"></label>
+                <label>u(n) (rpm)<input id="utURpm" type="number" min="0" max="100" step="0.1" value="1"></label>
+                <label>u(R_in) (mm)<input id="utURin" type="number" min="0" max="10" step="0.01" value="0.2"></label>
+                <label>u(a) (mm)<input id="utURadius" type="number" min="0" max="10" step="0.01" value="0.1"></label>
+                <label>Uncertainty samples<input id="utUncertaintySamples" type="number" min="50" max="5000" step="50" value="300"></label>
+                <label>Uncertainty seed<input id="utUncertaintySeed" type="number" min="0" max="2147483647" step="1" value="0"></label>
+                <label>Elasticity step<input id="utElasticityStep" type="number" min="0.00001" max="0.1" step="0.0001" value="0.001"></label>
+              </div>
+            </section>
+
+            <section class="parameter-section">
+              <div class="parameter-section-heading"><span>04</span><div><strong>Experiment planning</strong><small>Coarse/fine threshold scan controls</small></div></div>
+              <div class="native-control-grid professional-control-grid">
+                <label>Coarse span (rpm)<input id="utCoarseSpan" type="number" min="1" max="500" step="1" value="40"></label>
+                <label>Coarse step (rpm)<input id="utCoarseStep" type="number" min="0.1" max="100" step="0.5" value="10"></label>
+                <label>Fine span (rpm)<input id="utFineSpan" type="number" min="0.5" max="100" step="0.5" value="8"></label>
+                <label>Fine step (rpm)<input id="utFineStep" type="number" min="0.1" max="20" step="0.1" value="2"></label>
+              </div>
+            </section>
+
             <div class="primary-run-row">
               <button id="utRun" class="primary prominent-run">Run Experiment</button>
               <span id="utNativeStatus">Ready.</span>
@@ -340,60 +423,69 @@
           </article>
         </div>
 
-        <div class="utube-panel" data-utube-panel="advanced" hidden>
-          <article class="experiment-panel">
-            <div class="panel-heading"><div><h3>Advanced U-Tube settings</h3><p>Dynamic, uncertainty, sensitivity, and experiment-planning inputs remain directly adjustable.</p></div></div>
-            <div class="native-control-grid">
-              <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
-              <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>
-              <label>Quasi-static half-width H (rpm)<input id="utHalfwidth" type="number" min="0" step="0.1" value="2"></label>
-              <label>Density ρ (kg/m³)<input id="utRho" type="number" min="100" step="0.1" value="997.8"></label>
-              <label>Surface tension γ (mN/m)<input id="utGamma" type="number" min="1" step="0.1" value="72"></label>
-              <label>Contact angle (deg)<input id="utThetaDeg" type="number" min="-180" max="180" step="0.5" value="0"></label>
-              <label>u(V) (mL)<input id="utUVolume" type="number" min="0" step="0.01" value="0.05"></label>
-              <label>u(n) (rpm)<input id="utURpm" type="number" min="0" step="0.1" value="1"></label>
-              <label>u(R_in) (mm)<input id="utURin" type="number" min="0" step="0.01" value="0.2"></label>
-              <label>u(a) (mm)<input id="utURadius" type="number" min="0" step="0.01" value="0.1"></label>
-              <label>Uncertainty samples<input id="utUncertaintySamples" type="number" min="50" max="5000" step="50" value="300"></label>
-              <label>Uncertainty seed<input id="utUncertaintySeed" type="number" min="0" step="1" value="0"></label>
-              <label>Elasticity step<input id="utElasticityStep" type="number" min="0.00001" max="0.1" step="0.0001" value="0.001"></label>
-              <label>Coarse span (rpm)<input id="utCoarseSpan" type="number" min="1" step="1" value="40"></label>
-              <label>Coarse step (rpm)<input id="utCoarseStep" type="number" min="0.1" step="0.5" value="10"></label>
-              <label>Fine span (rpm)<input id="utFineSpan" type="number" min="0.5" step="0.5" value="8"></label>
-              <label>Fine step (rpm)<input id="utFineStep" type="number" min="0.1" step="0.1" value="2"></label>
-            </div>
-          </article>
-        </div>
-
         <div class="utube-panel" data-utube-panel="tools" hidden>
-          <div class="experiment-tool-grid">
-            <article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign U-Tube / Engineering Lab workbench, including the registry-backed All Workspaces catalog and any capability not yet migrated into the new layout.</p><button class="primary" id="utOpenFullOriginal">Open full original workspace</button></article>
-            <article class="experiment-tool-card"><h3>Operating state</h3><p>Classify the selected operating point relative to n_c and n_g(V), including capacity margins.</p><button class="secondary" data-utube-tool="operating-state">Run operating-state analysis</button></article>
-            <article class="experiment-tool-card"><h3>Threshold elasticity</h3><p>Compute local d ln(n_g) / d ln(x) sensitivity for volume and geometry.</p><button class="secondary" data-utube-tool="elasticity">Run elasticity</button></article>
-            <article class="experiment-tool-card"><h3>Experiment scan plan</h3><p>Generate coarse and fine RPM measurement points around the predicted threshold.</p><button class="secondary" data-utube-tool="scan-plan">Build scan plan</button></article>
-            <article class="experiment-tool-card"><h3>Uncertainty propagation</h3><p>Propagate declared measurement uncertainties through the threshold model.</p><button class="secondary" data-utube-tool="uncertainty">Run uncertainty</button></article>
-            <article class="experiment-tool-card"><h3>Dimensionless groups</h3><p>Compute dimensionless operating diagnostics from speed, geometry, density, and surface tension.</p><button class="secondary" data-utube-tool="dimensionless-groups">Compute groups</button></article>
-            <article class="experiment-tool-card"><h3>Inverse geometry design</h3><p>Solve a bounded geometry variable against a target threshold.</p><button class="secondary" data-utube-tool="inverse-geometry">Solve inverse design</button></article>
-            <article class="experiment-tool-card"><h3>Design space</h3><p>Explore bounded volume and geometry combinations around the current apparatus.</p><button class="secondary" data-utube-tool="design-space">Explore design space</button></article>
-            <article class="experiment-tool-card"><h3>Robust + Pareto design</h3><p>Evaluate tolerance-aware designs and retain Pareto-efficient candidates.</p><button class="secondary" data-utube-tool="robust-design">Run robust design</button></article>
-            <article class="experiment-tool-card"><h3>Adaptive threshold plan</h3><p>Generate the next bounded measurement plan around a threshold bracket.</p><button class="secondary" data-utube-tool="adaptive-plan">Build adaptive plan</button></article>
-            <article class="experiment-tool-card"><h3>Verification requirements</h3><p>Generate explicit U-Tube verification criteria without turning them into certification claims.</p><button class="secondary" data-utube-tool="verification-requirements">Build requirements</button></article>
-            <article class="experiment-tool-card"><h3>Research questions</h3><p>Restore the mature U-Tube research-question set.</p><button class="secondary" data-utube-tool="research-questions">Show research questions</button></article>
-            <article class="experiment-tool-card"><h3>Local uncertainty budget</h3><p>Break local threshold uncertainty into declared input contributions.</p><button class="secondary" data-utube-tool="uncertainty-budget">Run uncertainty budget</button></article>
-            <article class="experiment-tool-card"><h3>Hysteresis sweep analysis</h3><p>Analyze up/down threshold sweeps with the reduced-order apparatus model.</p><button class="secondary" data-utube-tool="hysteresis-analysis">Analyze hysteresis</button></article>
-            <article class="experiment-tool-card"><h3>Rate-sweep prediction</h3><p>Predict branch thresholds across a bounded set of ramp rates.</p><button class="secondary" data-utube-tool="rate-sweep">Run rate sweep</button></article>
-            <article class="experiment-tool-card"><h3>Digital twin calibration</h3><p>Fit and apply the original linear calibration core.</p><button class="secondary" data-utube-tool="digital-twin-calibration">Run calibration</button></article>
-            <article class="experiment-tool-card"><h3>Digital twin field comparison</h3><p>Compare measured/model field series and suggest residual measurement locations.</p><button class="secondary" data-utube-tool="digital-twin-field">Compare fields</button></article>
-            <article class="experiment-tool-card"><h3>Beam phase-space statistics</h3><p>Restore the digital-twin beam phase-space analysis core.</p><button class="secondary" data-utube-tool="beam-phase-space">Analyze phase space</button></article>
+          <div class="tools-workbench-head"><div><div class="eyebrow">POST-PROCESSING WORKBENCH</div><h3>Tools & Analysis</h3><p>Analysis stays in this workspace and does not replace the primary U-Tube result.</p></div><div id="utToolStatus" class="native-status">Choose an analysis tool.</div></div>
+          <div class="professional-tool-groups">
+            <details class="native-tool-group" open>
+              <summary><strong>Operating state & physics</strong><span>3 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="operating-state"><span><strong>Operating state</strong><small>Classify n relative to n_c and n_g(V), including capacity margins.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="dimensionless-groups"><span><strong>Dimensionless groups</strong><small>Compute operating diagnostics from speed, geometry, density and surface tension.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="elasticity"><span><strong>Threshold elasticity</strong><small>Compute local logarithmic sensitivity for volume and geometry.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Uncertainty & sensitivity</strong><span>2 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="uncertainty"><span><strong>Uncertainty propagation</strong><small>Propagate declared measurement uncertainties through the threshold model.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="uncertainty-budget"><span><strong>Local uncertainty budget</strong><small>Break threshold uncertainty into declared input contributions.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Design & experiment planning</strong><span>5 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="scan-plan"><span><strong>Experiment scan plan</strong><small>Generate coarse/fine RPM points around the predicted threshold.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="inverse-geometry"><span><strong>Inverse geometry design</strong><small>Solve geometry against a target threshold.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="design-space"><span><strong>Design space</strong><small>Explore bounded volume and geometry combinations.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="robust-design"><span><strong>Robust + Pareto design</strong><small>Evaluate tolerance-aware designs and Pareto candidates.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="adaptive-plan"><span><strong>Adaptive threshold plan</strong><small>Generate the next bounded measurement plan.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Dynamics & hysteresis</strong><span>2 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="hysteresis-analysis"><span><strong>Hysteresis sweep analysis</strong><small>Analyze up/down threshold sweeps.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="rate-sweep"><span><strong>Rate-sweep prediction</strong><small>Predict branch thresholds across ramp rates.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Digital twin</strong><span>3 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="digital-twin-calibration"><span><strong>Calibration</strong><small>Fit and apply the original linear calibration core.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="digital-twin-field"><span><strong>Field comparison</strong><small>Compare measured/model field series and residual locations.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="beam-phase-space"><span><strong>Beam phase-space</strong><small>Analyze beam phase-space statistics.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <details class="native-tool-group">
+              <summary><strong>Verification & research</strong><span>2 tools</span></summary>
+              <div class="native-tool-list">
+                <button class="native-tool-row" data-utube-tool="verification-requirements"><span><strong>Verification requirements</strong><small>Generate explicit U-Tube verification criteria.</small></span><b>Run →</b></button>
+                <button class="native-tool-row" data-utube-tool="research-questions"><span><strong>Research questions</strong><small>Show the mature U-Tube research-question set.</small></span><b>Run →</b></button>
+              </div>
+            </details>
+            <div class="full-original-strip"><div><strong>Full Original Workspace</strong><span>Every pre-redesign U-Tube capability remains available.</span></div><button class="secondary" id="utOpenFullOriginal">Open original workspace</button></div>
           </div>
-          <div id="utToolStatus" class="native-status">Choose an analysis tool.</div>
-          <div id="utToolMetrics" class="native-result-metrics"></div>
-          <div id="utToolCharts" class="native-result-charts"></div>
-          <div id="utToolTables"></div>
-          <p id="utToolBoundary" class="boundary-inline"></p>
+          <section class="tool-output-workbench">
+            <div class="panel-heading"><div><h3>Analysis output</h3><p>Tool metrics, plots, tables and scientific boundary stay here.</p></div></div>
+            <div id="utToolMetrics" class="native-result-metrics"></div>
+            <div id="utToolCharts" class="native-result-charts"></div>
+            <div id="utToolTables"></div>
+            <p id="utToolBoundary" class="boundary-inline"></p>
+          </section>
         </div>
 
         <div class="utube-panel" data-utube-panel="results" hidden>
+          <div class="results-workbench-head"><div><div class="eyebrow">PRIMARY EXPERIMENT OUTPUT</div><h3>Results</h3><p>These values come only from Run Experiment.</p></div></div>
           <div class="ut-metrics">
             <div><span>Angular bifurcation n_c</span><strong id="utMetricCritical">—</strong></div>
             <div><span>Volume threshold n_g</span><strong id="utMetricThreshold">—</strong></div>
@@ -410,10 +502,31 @@
         </div>
 
         <div class="utube-panel" data-utube-panel="verification" hidden>
-          <div class="verification-panel">
-            <h3>Verification & assumptions</h3>
-            <p>The model distinguishes the angular bifurcation <b>n_c</b> from the volume-dependent threshold <b>n_g(V)</b>. Numerical convergence does not establish physical validity, and agreement with measurements is validation evidence rather than proof of model truth.</p>
-            <p>The hysteresis view is a reduced-order apparatus-level description. H and τ must not be relabeled as contact-angle hysteresis, viscosity, pinning energy, or a hardware safety limit without an independently validated physical model.</p>
+          <div class="verification-workbench">
+            <article class="verification-panel verification-primary">
+              <div class="eyebrow">MODEL BOUNDARY</div>
+              <h3>Verification & assumptions</h3>
+              <p>The model distinguishes the angular bifurcation <b>n_c</b> from the volume-dependent threshold <b>n_g(V)</b>. Numerical convergence does not establish physical validity, and agreement with measurements is validation evidence rather than proof of model truth.</p>
+              <p>The hysteresis view is a reduced-order apparatus-level description. H and τ must not be relabeled as contact-angle hysteresis, viscosity, pinning energy, or a hardware safety limit without an independently validated physical model.</p>
+            </article>
+            <article class="verification-panel">
+              <div class="eyebrow">NUMERICAL & UNCERTAINTY CHECKS</div>
+              <h3>Verification tools</h3>
+              <div class="verification-actions">
+                <button class="secondary" data-utube-verification-tool="verification-requirements">Generate requirements</button>
+                <button class="secondary" data-utube-verification-tool="uncertainty-budget">Run uncertainty budget</button>
+                <button class="secondary" data-utube-verification-tool="operating-state">Run operating-state check</button>
+                <button class="secondary" id="utVerificationOpenOriginal">Open full original V&V workspace</button>
+              </div>
+            </article>
+            <article class="verification-panel verification-analysis-output">
+              <div class="panel-heading"><div><h3>Verification analysis output</h3><p>Verification metrics, tables and boundaries stay in this tab.</p></div><span id="utVerificationBackend" class="status-pill">not run</span></div>
+              <div id="utVerificationMetrics" class="native-result-metrics"></div>
+              <div id="utVerificationCharts" class="native-result-charts"></div>
+              <div id="utVerificationTables"></div>
+              <div id="utVerificationEmpty" class="empty-state compact-empty">Run a verification check above.</div>
+              <p id="utVerificationBoundary" class="boundary-inline"></p>
+            </article>
           </div>
         </div>
       </section>

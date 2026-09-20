@@ -142,23 +142,36 @@ function collectUtubeToolParameters(){
     uncertaintySamples:Number(uEl('utUncertaintySamples').value),uncertaintySeed:Number(uEl('utUncertaintySeed').value),
     elasticityStep:Number(uEl('utElasticityStep').value),
     coarseSpanRpm:Number(uEl('utCoarseSpan').value),coarseStepRpm:Number(uEl('utCoarseStep').value),
-    fineSpanRpm:Number(uEl('utFineSpan').value),fineStepRpm:Number(uEl('utFineStep').value)
+    fineSpanRpm:Number(uEl('utFineSpan').value),fineStepRpm:Number(uEl('utFineStep').value),
+    responseTau:Number(uEl('utTau').value),quasiStaticHalfwidth:Number(uEl('utHalfwidth').value)
   };
 }
-function renderUtubeToolPayload(payload){
+
+function renderUtubePayload(payload,targets){
   const metrics=payload.metrics||{};
-  uEl('utToolMetrics').innerHTML=Object.entries(metrics).slice(0,18).map(([k,val])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(val):String(val))+'</strong></div>').join('');
-  uEl('utToolCharts').innerHTML=(payload.series||[]).map(s=>{
-    const points=(s.x||[]).map((x,i)=>({x:Number(x),y:Number((s.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
-    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(s.label||s.id)+'</span></div>'+utubeLineSvg([{label:s.label||s.id,points}],{xLabel:s.xLabel||'x',yLabel:s.yLabel||'y'})+'</article>';
+  uEl(targets.metrics).innerHTML=Object.entries(metrics).slice(0,24).map(([k,val])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(val):String(val))+'</strong></div>').join('');
+  uEl(targets.charts).innerHTML=(payload.series||[]).map(series=>{
+    const points=(series.x||[]).map((x,i)=>({x:Number(x),y:Number((series.y||[])[i])})).filter(point=>Number.isFinite(point.x)&&Number.isFinite(point.y));
+    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(series.label||series.id)+'</span></div>'+utubeLineSvg([{label:series.label||series.id,points}],{xLabel:series.xLabel||'x',yLabel:series.yLabel||'y'})+'</article>';
   }).join('');
-  uEl('utToolTables').innerHTML=(payload.tables||[]).map(t=>{
-    const rows=Array.isArray(t.rows)?t.rows:[];if(!rows.length)return '';
-    const keys=Object.keys(rows[0]).slice(0,12);
-    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(row[k]):String(row[k]??''))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
+  uEl(targets.tables).innerHTML=(payload.tables||[]).map(table=>{
+    const rows=Array.isArray(table.rows)?table.rows:[];if(!rows.length)return '';
+    const keys=Object.keys(rows[0]).slice(0,14);
+    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(table.label||table.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,160).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(typeof nativeMetricText==='function'?nativeMetricText(row[k]):String(row[k]??''))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
   }).join('');
-  uEl('utToolBoundary').textContent=payload.boundary||'';
+  if(targets.boundary)uEl(targets.boundary).textContent=payload.boundary||'';
+  if(targets.backend)uEl(targets.backend).textContent=payload.backend||'scientific adapter';
+  if(targets.empty)uEl(targets.empty).hidden=true;
 }
+
+function renderUtubeToolPayload(payload){
+  renderUtubePayload(payload,{metrics:'utToolMetrics',charts:'utToolCharts',tables:'utToolTables',boundary:'utToolBoundary'});
+}
+
+function renderUtubeVerificationPayload(payload){
+  renderUtubePayload(payload,{metrics:'utVerificationMetrics',charts:'utVerificationCharts',tables:'utVerificationTables',boundary:'utVerificationBoundary',backend:'utVerificationBackend',empty:'utVerificationEmpty'});
+}
+
 async function runUtubeTool(tool){
   if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
   const status=uEl('utToolStatus');
@@ -167,11 +180,66 @@ async function runUtubeTool(tool){
     const parameters=collectUtubeToolParameters();parameters.__tool=tool;
     const payload=await invoke('native_experiment_run',{experimentId:'utube-studio',parameters,mode:'safe'});
     renderUtubeToolPayload(payload);
-    status.textContent='Completed '+tool+'.';
+    status.textContent='Completed '+tool+'. Analysis output remains in Tools & Analysis.';
   }catch(e){
     status.textContent=String(e);
     if(typeof toast==='function')toast(String(e),true);
   }
+}
+
+async function runUtubeVerificationTool(tool){
+  if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
+  const status=uEl('utNativeStatus');
+  try{
+    status.textContent='Running verification '+tool+'…';
+    const parameters=collectUtubeToolParameters();parameters.__tool=tool;
+    const payload=await invoke('native_experiment_run',{experimentId:'utube-studio',parameters,mode:'safe'});
+    renderUtubeVerificationPayload(payload);
+    status.textContent='Completed verification '+tool+'.';
+  }catch(e){
+    status.textContent=String(e);
+    if(typeof toast==='function')toast(String(e),true);
+  }
+}
+
+function bindUtubeProfessionalSliders(){
+  document.querySelectorAll('#utubeView [data-utube-panel="setup"] input[type="number"]').forEach(input=>{
+    if(/seed/i.test(input.id))return;
+    const min=Number(input.min),max=Number(input.max);
+    if(!Number.isFinite(min)||!Number.isFinite(max)||!(max>min))return;
+    if(input.dataset.sliderBound)return;
+    input.dataset.sliderBound='1';
+    const wrap=document.createElement('div');
+    wrap.className='utube-range-wrap';
+    const range=document.createElement('input');
+    range.type='range';
+    range.className='param-range';
+    range.dataset.rangeFor=input.id;
+    const log=min>0&&max/min>=1000;
+    range.dataset.rangeMode=log?'log':'linear';
+    range.min=String(log?Math.log10(min):min);
+    range.max=String(log?Math.log10(max):max);
+    range.step=String(log?.001:(Number(input.step)||.01));
+    range.value=String(log?Math.log10(Math.max(min,Number(input.value))):Number(input.value));
+    const readout=document.createElement('span');
+    readout.className='param-value-tag';
+    readout.textContent=input.value;
+    wrap.append(range,readout);
+    input.insertAdjacentElement('afterend',wrap);
+    const syncFromNumber=()=>{
+      const value=Number(input.value);
+      if(!Number.isFinite(value))return;
+      range.value=String(log&&value>0?Math.log10(value):value);
+      readout.textContent=input.value;
+    };
+    input.addEventListener('input',syncFromNumber);
+    range.addEventListener('input',()=>{
+      let value=Number(range.value);
+      if(log)value=10**value;
+      input.value=(Math.abs(value)>=1e5||Math.abs(value)<1e-5&&value!==0)?value.toExponential(8):String(Number(value.toPrecision(9)));
+      readout.textContent=input.value;
+    });
+  });
 }
 
 function bindNativeUtube(){
@@ -181,7 +249,10 @@ function bindNativeUtube(){
     document.querySelectorAll('.utube-panel').forEach(p=>p.hidden=p.dataset.utubePanel!==b.dataset.utubeTab);
   });
   document.querySelectorAll('[data-utube-tool]').forEach(b=>b.onclick=()=>runUtubeTool(b.dataset.utubeTool));
+  document.querySelectorAll('[data-utube-verification-tool]').forEach(b=>b.onclick=()=>runUtubeVerificationTool(b.dataset.utubeVerificationTool));
   if(uEl('utOpenFullOriginal'))uEl('utOpenFullOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
+  if(uEl('utVerificationOpenOriginal'))uEl('utVerificationOpenOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
+  bindUtubeProfessionalSliders();
   if(uEl('utRun'))uEl('utRun').onclick=()=>{
     renderNativeUtube();
     document.querySelector('[data-utube-tab="results"]')?.click();

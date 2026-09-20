@@ -56,11 +56,12 @@ for view_id in ("nativeExperimentView", "utubeView"):
     start = html.index(f'id="{view_id}"')
     end = html.find('<section id=', start + 10)
     segment = html[start:] if end < 0 else html[start:end]
-    for label in ("Setup", "Advanced", "Tools & Analysis", "Results", "Verification"):
-        assert label in segment, f"{view_id} missing simplified {label} navigation"
+    for label in ("Setup", "Tools & Analysis", "Results", "Verification"):
+        assert label in segment, f"{view_id} missing professional {label} navigation"
+    assert ">Advanced<" not in segment, f"{view_id} still exposes a separate Advanced tab"
 
-shared_start = html.index('id="nativeExperimentView"')
-shared_end = html.find('<section id=', shared_start + 10)
+shared_start = html.index('<section id="nativeExperimentView"')
+shared_end = html.index('<section id="utubeView"', shared_start)
 shared = html[shared_start:shared_end]
 for forbidden_ui in (
     "Application workspace · no iframe",
@@ -71,8 +72,8 @@ for forbidden_ui in (
 ):
     assert forbidden_ui not in shared, f"developer-facing UI leaked into experiment workspace: {forbidden_ui}"
 
-ut_start = html.index('id="utubeView"')
-ut_end = html.find('<section id=', ut_start + 10)
+ut_start = html.index('<section id="utubeView"')
+ut_end = html.index('<section id="labView"', ut_start)
 ut_segment = html[ut_start:ut_end]
 for forbidden_ui in ("No iframe", "No localhost", "NATIVE WORKSPACE"):
     assert forbidden_ui not in ut_segment, f"developer-facing U-Tube UI leaked: {forbidden_ui}"
@@ -86,10 +87,7 @@ assert 'data-utube-panel="setup"' in ut_segment
 assert 'data-utube-panel="results"' in ut_segment
 assert 'data-utube-panel="verification"' in ut_segment
 
-for view_id in ("nativeExperimentView", "utubeView"):
-    start = html.index(f'id="{view_id}"')
-    end = html.find('<section id=', start + 10)
-    segment = html[start:] if end < 0 else html[start:end]
+for view_id, segment in (("nativeExperimentView", shared), ("utubeView", ut_segment)):
     assert "<iframe" not in segment, f"{view_id} still embeds iframe"
     for forbidden_src in (
         'src="http://localhost',
@@ -110,12 +108,31 @@ assert guard in app, "openModule does not guard native experiments before legacy
 
 print("Native experiment workspace validation: PASS (14/14 registered)")
 
-assert 'id="nativeExperimentAdvancedControls"' in html
 assert 'id="nativeExperimentTools"' in html
-assert 'data-native-exp-panel="advanced"' in html
+assert 'data-native-exp-panel="advanced"' not in html
+assert 'data-native-exp-tab="advanced"' not in html
 assert 'data-native-exp-panel="tools"' in html
-assert 'data-utube-panel="advanced"' in html
+assert 'data-utube-panel="advanced"' not in html
+assert 'data-utube-tab="advanced"' not in html
 assert 'data-utube-panel="tools"' in html
+assert 'id="nativeExperimentParameterCount"' in html
+assert 'id="nativeExperimentToolMetrics"' in html
+assert 'id="nativeExperimentVerificationMetrics"' in html
+assert 'id="utVerificationMetrics"' in html
+assert "const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[]" in native
+assert "const fields=[...primary,...advanced]" in native
+assert "renderNativeParameterSections" in native
+assert "bindProfessionalParameterControls" in native
+assert "data-param-range" in native
+assert "renderNativeToolResult" in native
+assert "renderNativeVerificationResult" in native
+tool_runner = native[native.index("async function runNativeExperimentTool"):native.index("async function runNativeVerificationTool")]
+assert 'data-native-exp-tab="results"' not in tool_runner, "analysis tool still forces navigation to Results"
+assert "renderNativeToolResult(payload)" in tool_runner
+assert "contextResult=nativeExperimentResult" in tool_runner
+assert "bindUtubeProfessionalSliders" in utube
+assert "runUtubeVerificationTool" in utube
+print("Professional experiment workspace validation: PASS setup+advanced merged, sliders linked, tool/primary/verification outputs separated")
 for tool_marker in ("refinement","ftle","phonon-dispersion","phonon-dos","beam-broadening","duffing"):
     assert tool_marker in native, f"missing restored native tool marker: {tool_marker}"
 for tool_marker in ("operating-state","elasticity","scan-plan","uncertainty"):

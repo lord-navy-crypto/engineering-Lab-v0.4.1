@@ -618,6 +618,56 @@ const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
 ]);
 
 const NATIVE_TOOL_SPECS = Object.freeze({
+  'numerical-methods':[
+    {id:'parameter-scan',name:'Run parameter scan',description:'Run the pinned numerical_lab.scan_sine core across the configured interval.'},
+    {id:'single-point-convergence',name:'Single-point convergence',description:'Run the pinned convergence_scan at the configured single x value.'},
+    {id:'method-comparison',name:'Run method comparison',description:'Compare pinned numerical methods under the same precision/reference settings.'},
+    {id:'compliance',name:'Built-in numerical validation',description:'Run internal accuracy/reference checks against the pinned numerical core.'}
+  ],
+  'ising-monte-carlo':[
+    {id:'method-comparison',name:'Run method comparison',description:'Compare Metropolis, checkerboard, heat-bath and Wolff updates with the pinned core.'},
+    {id:'equilibration',name:'Run equilibration trajectory',description:'Run the pinned simulator and equilibration diagnostics.'},
+    {id:'multi-chain',name:'Run multi-chain convergence',description:'Run the pinned multi-chain convergence cross-check.'},
+    {id:'scan-1d',name:'Run 1D temperature scan',description:'Run thermodynamic_scan against the exact periodic 1-D reference.'},
+    {id:'scan-2d',name:'Run 2D temperature scan',description:'Run thermodynamic_scan against the Onsager reference.'},
+    {id:'finite-size',name:'Run finite-size scan',description:'Run the pinned finite-size approach-to-limit study.'},
+    {id:'snapshot',name:'Generate snapshot',description:'Generate a pinned single-run lattice state after the configured sweeps.'},
+    {id:'compliance',name:'Run compliance suite',description:'Run exact-reference and numerical consistency checks.'}
+  ],
+  'random-walk-monte-carlo':[
+    {id:'ensemble',name:'Run ensemble simulation',description:'Run pinned endpoint ensemble statistics.'},
+    {id:'trajectory',name:'Generate trajectory',description:'Generate a pinned single random-walk trajectory.'},
+    {id:'parameter-scan',name:'Run parameter scan',description:'Run the pinned random_walk_scan workflow.'},
+    {id:'repeated-mc',name:'Run repeated Monte Carlo',description:'Run repeated unit-disk Monte Carlo trials.'},
+    {id:'convergence-scan',name:'Run convergence scan',description:'Run pinned Monte Carlo convergence across configured sample counts.'},
+    {id:'high-d-mc',name:'Run pseudo-random high-dimensional MC',description:'Estimate a high-dimensional unit-ball volume with pseudo-random MC.'},
+    {id:'qmc',name:'Run repeated QMC',description:'Run repeated scrambled Sobol QMC volume estimates.'},
+    {id:'theory-volume',name:'Generate theoretical volume curve',description:'Generate the exact d-ball volume curve for dimensions 1 to 50.'},
+    {id:'return-probability',name:'Estimate finite-horizon return probability',description:'Estimate random-walk return probability within the configured horizon.'},
+    {id:'first-passage',name:'Run first-passage experiment',description:'Run the pinned one-dimensional first-passage extension.'},
+    {id:'grid-vs-mc',name:'Compare methods at equal evaluation counts',description:'Compare midpoint-grid estimates against Monte Carlo estimates.'},
+    {id:'reproducibility',name:'Run reproducibility audit',description:'Run pinned multi-seed random-walk reproducibility analysis.'},
+    {id:'validate-preset',name:'Validate preset',description:'Parse and validate the configured preset JSON against the pinned semantics.'}
+  ],
+  'nonlinear-chaos':[
+    {id:'driven-scan',name:'Run driven-pendulum scan',description:'Run the pinned Poincaré amplitude scan.'},
+    {id:'kapitza-scan',name:'Run Kapitza scan',description:'Run the pinned vibrating-pivot stabilization scan.'},
+    {id:'double-trajectory',name:'Run double-pendulum trajectory',description:'Integrate the configured double pendulum with the pinned core.'},
+    {id:'mass-response',name:'Run upper-mass response scan',description:'Run the pinned upper-mass response scan.'},
+    {id:'lyapunov',name:'Run Benettin Lyapunov analysis',description:'Run the pinned Benettin finite-time Lyapunov estimator.'},
+    {id:'lyapunov-convergence',name:'Run Lyapunov timestep sensitivity',description:'Run pinned Lyapunov convergence versus timestep.'},
+    {id:'flip-map',name:'Run flip map',description:'Run the pinned time-to-flip map across initial-angle grid.'},
+    {id:'compliance',name:'Run compliance checks',description:'Run numerical/energy/refinement checks for the configured double pendulum.'}
+  ],
+  'oscillation-integration':[
+    {id:'method-comparison',name:'Run method comparison',description:'Compare Euler, symplectic Euler, RK2 and RK4 against pinned references.'},
+    {id:'timestep-scan',name:'Run timestep scan',description:'Run the pinned convergence scan across timestep.'},
+    {id:'damping-regimes',name:'Generate damping regimes',description:'Generate underdamped, critical and overdamped responses.'},
+    {id:'resonance-scan',name:'Run resonance frequency scan',description:'Run the pinned steady-state resonance scan.'},
+    {id:'beat-analysis',name:'Run beat analysis',description:'Integrate a near-resonant driven oscillator and expose the beat envelope.'},
+    {id:'nonlinear-amplitude',name:'Run nonlinear amplitude scan',description:'Run the pinned nonlinear-pendulum period scan.'},
+    {id:'compliance',name:'Run compliance suite',description:'Run energy-balance and convergence/reference diagnostics.'}
+  ],
   'kerr-geodesics':[
     {id:'refinement',name:'Numerical refinement',description:'Compare loose and tight integration settings and inspect residual sensitivity.'},
     {id:'comparison',name:'Massive ↔ photon comparison',description:'Restore the original same-spacetime comparison using the configured comparison spin and inclination.'},

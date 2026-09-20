@@ -370,29 +370,50 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)
     K = f(p, "K", 0.7003, 0.0, 50.0)
     energy_gev = f(p, "energyGeV", 3.0, 0.001, 1000.0)
+    use_gamma = b(p, "useGamma", False)
+    gamma = f(p, "gamma", energy_gev / E_REST_GEV, 1.01, 1e7) if use_gamma else energy_gev / E_REST_GEV
     harmonic = i(p, "harmonic", 1, 1, 99)
     periods = i(p, "periods", 20, 2, 500)
-    gamma = energy_gev / E_REST_GEV
     period_m = period_mm / 1000.0
-    theta = np.linspace(0.0, max(0.5, 2.0 / gamma * 1000), 201)
+    observation_mrad = f(p, "observationAngleMrad", 0.0, 0.0, 20.0)
+    extent_gamma_theta = f(p, "angularExtentGammaTheta", 2.5, 0.5, 5.0)
+    theta_span_mrad = max(0.25, extent_gamma_theta / gamma * 1000.0)
+    theta = np.linspace(max(0.0, observation_mrad - theta_span_mrad), observation_mrad + theta_span_mrad, 201)
     theta_rad = theta / 1000.0
     lam = period_m * (1 + K * K / 2 + (gamma * theta_rad) ** 2) / (2 * gamma * gamma * harmonic)
     photon = HC_EV_M / lam
-    center = float(photon[0])
+    obs_lam = period_m * (1 + K * K / 2 + (gamma * observation_mrad / 1000.0) ** 2) / (2 * gamma * gamma * harmonic)
+    center = float(HC_EV_M / obs_lam)
     ef = np.linspace(center * 0.82, center * 1.18, 801)
     detune = periods * (ef / center - 1.0)
     intensity = np.sinc(detune) ** 2
     return result(
         "radiation-platform",
         "native-analytic-resonance",
-        {"periodMm": period_mm, "K": K, "energyGeV": energy_gev, "harmonic": harmonic, "periods": periods, "requestedMode": mode},
-        {"lorentzGamma": gamma, "onAxisPhotonEnergyEV": center, "onAxisWavelengthNm": HC_EV_M / center * 1e9, "finiteNRelativeWidth": 1.0 / periods},
+        {
+            "periodMm": period_mm, "K": K, "energyGeV": energy_gev, "gamma": gamma,
+            "useGamma": use_gamma, "harmonic": harmonic, "periods": periods,
+            "observationAngleMrad": observation_mrad,
+            "angularGridPoints": i(p, "angularGridPoints", 7, 5, 13),
+            "angularExtentGammaTheta": extent_gamma_theta,
+            "observerSamplesPerPixel": i(p, "observerSamplesPerPixel", 900, 100, 5000),
+            "trajectoryPointsPerPeriod": i(p, "trajectoryPointsPerPeriod", 48, 16, 256),
+            "observerDistanceM": f(p, "observerDistanceM", 100.0, 1.0, 10000.0),
+            "requestedMode": mode,
+        },
+        {
+            "lorentzGamma": gamma,
+            "observationPhotonEnergyEV": center,
+            "observationWavelengthNm": HC_EV_M / center * 1e9,
+            "finiteNRelativeWidth": 1.0 / periods,
+        },
         [
             xy_series("angle", "resonance energy vs angle", theta, photon, x_label="observation angle (mrad)", y_label="photon energy (eV)"),
             xy_series("spectrum", "finite-N resonance envelope", ef, intensity, x_label="photon energy (eV)", y_label="relative intensity"),
         ],
-        "Ideal planar-undulator resonance/interference adapter. It does not replace the full field-map → trajectory → Liénard-Wiechert radiation workflow, beam effects, optics or detector response.",
+        "Native analytic resonance/interference calculation using the configured gamma/observer geometry. Angular pixel sampling, trajectory samples and observer distance are preserved in the experiment state for parity with the full trajectory-radiation workflow; they become physically active only in that full field-map solver.",
     )
+
 
 
 def kerr_geodesics(p: dict[str, Any], mode: str) -> dict[str, Any]:
@@ -571,21 +592,53 @@ def kerr_shadow(p: dict[str, Any], mode: str) -> dict[str, Any]:
 
 
 def undulator_spectrum(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    from physical_lab_undulator_spectrum import harmonic_spectrum, angular_harmonic_map
+    from physical_lab_undulator_spectrum import harmonic_spectrum, angular_harmonic_map, resonance_energy_eV
     period_m = f(p, "periodMm", 50.0, 1.0, 1000.0) / 1000.0
     gamma = f(p, "gamma", 6000.0, 2.0, 1e7)
     K = f(p, "K", 0.7, 0.0, 20.0)
     periods = i(p, "periods", 20, 2, 500)
     harmonic = i(p, "harmonic", 1, 1, 15)
-    spec = harmonic_spectrum(period_m=period_m, gamma=gamma, K=K, n_periods=periods, harmonics=(1, 3, 5, 7), points=1200)
-    amap = angular_harmonic_map(period_m=period_m, gamma=gamma, K=K, harmonic=harmonic, theta_max_mrad=f(p, "thetaMaxMrad", 1.0, 0.05, 10.0), points=51)
+    observation_angle = f(p, "observationAngleMrad", 0.0, 0.0, 20.0)
+    raw_harmonics = str(p.get("harmonicsText", "1,3,5,7"))
+    harmonics = []
+    for token in raw_harmonics.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            value = int(token)
+        except Exception:
+            continue
+        if value > 0 and value % 2 == 1 and value not in harmonics:
+            harmonics.append(value)
+    if not harmonics:
+        harmonics = [1, 3, 5, 7]
+    harmonics = tuple(harmonics[:12])
+    spec = harmonic_spectrum(period_m=period_m, gamma=gamma, K=K, n_periods=periods, theta_mrad=observation_angle, harmonics=harmonics, points=1200)
+    amap = angular_harmonic_map(
+        period_m=period_m, gamma=gamma, K=K, harmonic=harmonic,
+        theta_max_mrad=f(p, "thetaMaxMrad", 1.0, 0.05, 20.0),
+        points=i(p, "angularPoints", 61, 21, 181),
+    )
     axis = np.asarray(amap["theta_axis_mrad"])
     center_line = np.asarray(amap["resonance_energy_eV"])[len(axis)//2]
+    selected_energy = resonance_energy_eV(period_m=period_m, gamma=gamma, K=K, harmonic=harmonic, theta_rad=observation_angle / 1000.0)
     return result(
         "undulator-spectrum",
         "physical_lab_undulator_spectrum",
-        {"periodMm": period_m * 1000, "gamma": gamma, "K": K, "periods": periods, "harmonic": harmonic},
-        {"onAxisEnergyEV": amap["on_axis_energy_eV"], "edgeEnergyEV": amap["edge_energy_eV"], "minimumEnergyEV": amap["minimum_energy_eV"], "maximumEnergyEV": amap["maximum_energy_eV"]},
+        {
+            "periodMm": period_m * 1000, "gamma": gamma, "K": K, "periods": periods,
+            "harmonic": harmonic, "harmonics": list(harmonics), "observationAngleMrad": observation_angle,
+            "thetaMaxMrad": f(p, "thetaMaxMrad", 1.0, 0.05, 20.0),
+            "angularPoints": i(p, "angularPoints", 61, 21, 181),
+        },
+        {
+            "onAxisEnergyEV": amap["on_axis_energy_eV"],
+            "selectedObservationEnergyEV": selected_energy,
+            "edgeEnergyEV": amap["edge_energy_eV"],
+            "minimumEnergyEV": amap["minimum_energy_eV"],
+            "maximumEnergyEV": amap["maximum_energy_eV"],
+        },
         [
             xy_series("spectrum", "harmonic spectrum", spec["energy_eV"], spec["relative_intensity"], x_label="photon energy (eV)", y_label="relative intensity"),
             xy_series("angle-cut", "angular resonance cut", axis, center_line, x_label="θ_x (mrad)", y_label="resonance energy (eV)"),
@@ -595,25 +648,49 @@ def undulator_spectrum(p: dict[str, Any], mode: str) -> dict[str, Any]:
     )
 
 
+
+def _sweep_quality(name: str, *, nonlinear: bool = False) -> dict[str, int]:
+    key = str(name or "Standard").strip().lower()
+    if nonlinear:
+        table = {
+            "fast": {"points": 13, "settle": 22, "observe": 5, "ppc": 48},
+            "standard": {"points": 21, "settle": 35, "observe": 8, "ppc": 60},
+            "deep": {"points": 31, "settle": 50, "observe": 10, "ppc": 84},
+        }
+    else:
+        table = {
+            "fast": {"points": 13, "settle": 16, "observe": 5, "ppc": 48},
+            "standard": {"points": 21, "settle": 26, "observe": 7, "ppc": 64},
+            "deep": {"points": 31, "settle": 40, "observe": 10, "ppc": 84},
+        }
+    return table.get(key, table["standard"])
+
+
 def frequency_response(p: dict[str, Any], mode: str) -> dict[str, Any]:
     from physical_lab_frequency_response import linear_forced_response_sweep
+    omega_n = f(p, "omegaN", 2.0, 0.1, 30.0)
+    start_ratio = f(p, "linearStartRatio", 0.30, 0.1, 3.0)
+    stop_ratio = f(p, "linearStopRatio", 1.60, 0.2, 5.0)
+    if stop_ratio <= start_ratio:
+        raise ValueError("Linear stop frequency ratio must exceed start ratio")
+    quality = _sweep_quality(str(p.get("linearSweepQuality", "Standard")))
     out = linear_forced_response_sweep(
-        omega_n=f(p, "omegaN", 2.0, 0.1, 20.0),
-        zeta=f(p, "zeta", 0.05, 0.0, 1.0),
+        omega_n=omega_n,
+        zeta=f(p, "zeta", 0.05, 0.0, 1.5),
         force_amplitude=f(p, "force", 1.0, 0.0, 20.0),
-        frequency_start=f(p, "frequencyStart", 0.6, 0.05, 20.0),
-        frequency_stop=f(p, "frequencyStop", 3.2, 0.1, 30.0),
-        frequency_points=i(p, "frequencyPoints", 17, 7, 41),
-        settle_cycles=i(p, "settleCycles", 12, 4, 40),
-        observe_cycles=i(p, "observeCycles", 5, 3, 20),
-        points_per_cycle=i(p, "pointsPerCycle", 48, 32, 120),
+        frequency_start=start_ratio * omega_n,
+        frequency_stop=stop_ratio * omega_n,
+        frequency_points=quality["points"],
+        settle_cycles=quality["settle"],
+        observe_cycles=quality["observe"],
+        points_per_cycle=quality["ppc"],
     )
     rows = out["rows"]
     omega = [r["omega_rad_s"] for r in rows]
     return result(
         "frequency-response",
         "physical_lab_frequency_response.linear_forced_response_sweep",
-        out["inputs"],
+        {**out["inputs"], "startRatio": start_ratio, "stopRatio": stop_ratio, "sweepQuality": str(p.get("linearSweepQuality", "Standard"))},
         {
             "numericalPeakFrequencyRadS": out["numerical_peak_frequency_rad_s"],
             "numericalPeakAmplitude": out["numerical_peak_amplitude"],
@@ -1014,7 +1091,34 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
     if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity", "polynomial-regression", "monte-carlo-propagation", "doe-design", "parameter-estimation", "polynomial-cv", "pca-svd", "conditioning-diagnostics", "tikhonov", "tsvd", "correlation-matrix", "pareto-frontier", "robust-sensitivity", "run-comparison", "morris-design"}:
         return run_global_analysis_tool(experiment_id, tool, p)
-    if experiment_id == "kerr-geodesics" and tool == "refinement":
+    if experiment_id == "kerr-geodesics" and tool in {"refinement","comparison","spin-sweep"}:
+        if tool == "comparison":
+            from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary
+            spin=f(p,"comparisonSpin",.6,0.0,.98); incl=f(p,"comparisonInclinationDeg",60.0,0.0,80.0)
+            massive=integrate_case(KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type="massive",periapsis=6.5,apoapsis=10.0,lam_max=10.0,samples=1500))
+            photon=integrate_case(KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type="photon",lam_max=3.0,samples=1000))
+            ms=result_summary(massive); ps=result_summary(photon)
+            rows=[{"particle":"massive",**ms},{"particle":"photon",**ps}]
+            return result(experiment_id,"physical_lab_kerr_geodesics.integrate_case comparison",p,{"massiveResidual":ms["first_integral_residual_max"],"photonResidual":ps["first_integral_residual_max"]},[],"Massive/photon comparison uses independent Mino-time spans; compare geometry and invariants rather than synchronized physical time.",[{"id":"comparison","label":"Massive ↔ photon comparison","rows":rows}])
+        if tool == "spin-sweep":
+            from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary
+            particle=str(p.get("sweepParticle","massive")).lower()
+            if particle not in {"massive","photon"}: particle="massive"
+            incl=f(p,"sweepInclinationDeg",60.0,0.0,80.0)
+            values=[]
+            for token in str(p.get("sweepSpinsText","0,0.15,0.30,0.45,0.60,0.75,0.90")).split(","):
+                token=token.strip()
+                if not token: continue
+                value=float(token)
+                if value < 0 or value >= 1: raise ValueError("Kerr sweep spins must be in [0,1)")
+                if value not in values: values.append(value)
+            if not values: raise ValueError("Enter at least one Kerr spin for the sweep")
+            rows=[]
+            for spin in sorted(values):
+                cfg=KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type=particle,periapsis=6.5,apoapsis=10.0,lam_max=8.0 if particle=="massive" else 2.5,samples=900)
+                rows.append(result_summary(integrate_case(cfg)))
+            return result(experiment_id,"physical_lab_kerr_geodesics spin sweep",p,{"cases":len(rows),"particle":particle},[xy_series("r-min","r min",[r["spin"] for r in rows],[r["r_min"] for r in rows],x_label="a/M",y_label="r/M"),xy_series("r-max","r max",[r["spin"] for r in rows],[r["r_max"] for r in rows],x_label="a/M",y_label="r/M")],"Bounded Kerr spin sweep reuses the original integrate_case/result_summary core.",[{"id":"spin-sweep","label":"Kerr spin sweep","rows":rows}])
+
         from physical_lab_kerr_geodesics import run_refinement_pair
         out = run_refinement_pair(_kerr_config_from_params(p))
         tight = out["tight"]
@@ -1078,7 +1182,11 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
 
     if experiment_id == "frequency-response" and tool == "duffing":
         from physical_lab_frequency_response import duffing_frequency_sweep
-        out=duffing_frequency_sweep(omega_0=f(p,"omega0",1.0,.1,20.0),zeta=f(p,"zeta",.05,0.0,1.0),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=f(p,"frequencyStart",.7,.05,20.0),frequency_stop=f(p,"frequencyStop",1.6,.1,30.0),frequency_points=i(p,"frequencyPoints",17,7,41),settle_cycles=i(p,"settleCycles",16,4,120),observe_cycles=i(p,"observeCycles",5,3,40),points_per_cycle=i(p,"pointsPerCycle",48,32,240))
+        omega0=f(p,"omega0",1.0,.1,20.0)
+        start_ratio=f(p,"duffingStartRatio",.7,.1,3.0); stop_ratio=f(p,"duffingStopRatio",1.6,.2,5.0)
+        if stop_ratio <= start_ratio: raise ValueError("Duffing stop frequency ratio must exceed start ratio")
+        q=_sweep_quality(str(p.get("duffingSweepQuality","Standard")),nonlinear=True)
+        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
         rows=out["rows"]; omega=[r["omega_rad_s"] for r in rows]
         return result(experiment_id,"physical_lab_frequency_response.duffing_frequency_sweep",p,{
             "forwardPeakFrequencyRadS":out["forward_peak_frequency_rad_s"],"forwardPeakAmplitude":out["forward_peak_amplitude"],"reversePeakFrequencyRadS":out["reverse_peak_frequency_rad_s"],"reversePeakAmplitude":out["reverse_peak_amplitude"],"maxBranchAmplitudeGap":out["max_branch_amplitude_gap"]

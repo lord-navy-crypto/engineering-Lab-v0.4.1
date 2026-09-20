@@ -4,7 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 required = [
-    'package.json','web/index.html','web/styles.css','web/app.js',
+    'package.json','web/index.html','web/styles.css','web/utube-native.js','web/app.js',
     'src-tauri/Cargo.toml','src-tauri/tauri.conf.json','src-tauri/src/lib.rs','src-tauri/src/research.rs','src-tauri/src/research_runtime_support.rs','src-tauri/src/research_legacy_impl.rs',
     'src-tauri/src/main.rs','src-tauri/src/model_builder.rs','src-tauri/resources/modules.json','src-tauri/resources/dependencies.json',
     'src-tauri/resources/safe_engine_server.py','src-tauri/resources/ui/sitecustomize.py',
@@ -79,6 +79,9 @@ for needle in [
 ]:
     assert needle in lib, needle
 
+index_html=(root/'web/index.html').read_text()
+assert '<script src="utube-native.js"></script>' in index_html
+assert (root/'web/utube-native.js').is_file()
 web=(root/'web/app.js').read_text()
 for needle in ['dependency_statuses','health-light','data-uninstall','uninstall_module','data-task-delete','open_log_directory','open_data_directory']:
     assert needle in web, needle

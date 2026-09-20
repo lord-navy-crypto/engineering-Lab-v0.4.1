@@ -291,8 +291,9 @@ def render_lattice_workspace(st: Any, profile: str) -> None:
         ("Review", "model boundary"),
     ])
 
+    st.caption("Workspace order: Setup → Run → Results → Analysis → Verification / Export.")
     setup_tab, result_tab, modes_tab, platform_tab = st.tabs([
-        "Setup & run", "Dynamics results", "Modes & phonons", "Advanced tools"
+        "1 · Setup & run", "2 · Results — Dynamics", "3 · Analysis — Modes & phonons", "4 · Verification & advanced tools"
     ])
 
     with setup_tab:

@@ -285,7 +285,44 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
 });
 
 const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
+  'radia-magnet-studio':[
+    {name:'errorsEnabled',label:'Enable manufacturing errors',type:'checkbox',value:false},
+    {name:'fieldErrorPct',label:'Field amplitude error (%)',type:'number',value:0,min:0,max:25,step:.01},
+    {name:'longitudinalErrorMm',label:'Longitudinal placement error (mm)',type:'number',value:0,min:0,max:10,step:.001},
+    {name:'transverseErrorMm',label:'Transverse placement error (mm)',type:'number',value:0,min:0,max:10,step:.001},
+    {name:'angleErrorDeg',label:'Angular placement error (deg)',type:'number',value:0,min:0,max:10,step:.001},
+    {name:'gapAsymmetryMm',label:'Gap asymmetry (mm)',type:'number',value:0,min:0,max:10,step:.001},
+    {name:'bankImbalancePct',label:'Bank imbalance (%)',type:'number',value:0,min:0,max:25,step:.01},
+    {name:'errorSeed',label:'Manufacturing seed',type:'number',value:31001,min:0,max:100000000,step:1},
+    {name:'manufacturingMembers',label:'Manufacturing realizations',type:'select',value:'3',options:['2','3','4','6','8']},
+    {name:'transversePoints',label:'3-D transverse grid',type:'select',value:'5',options:['3','5','7']},
+    {name:'transverseHalfWidthMm',label:'Transverse half-width (mm)',type:'number',value:2,min:.1,max:20,step:.25},
+    {name:'zSamplesPerPeriod',label:'RADIA z samples / period',type:'select',value:'8',options:['6','8','12','16']},
+    {name:'radiationGamma',label:'Propagation electron γ',type:'number',value:100,min:1.01,max:100000,step:1},
+    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:10000,step:10},
+    {name:'thetaXMrad',label:'Observer θx (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'thetaYMrad',label:'Observer θy (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'trackingPointsPerPeriod',label:'Trajectory samples / period',type:'select',value:'48',options:['24','32','48','64','96']},
+    {name:'angularGridPoints',label:'Angular grid',type:'select',value:'7',options:['5','7','9','11','13']},
+    {name:'angularExtentGammaTheta',label:'Angular extent (γθ)',type:'number',value:2.5,min:.5,max:5,step:.25},
+    {name:'angularObserverSamples',label:'Observer samples / pixel',type:'select',value:'900',options:['400','600','900','1200','1800']}
+  ],
+  'radiation-platform':[
+    {name:'useGamma',label:'Use Lorentz γ instead of energy',type:'checkbox',value:false},
+    {name:'gamma',label:'Electron γ',type:'number',value:6000,min:1.01,max:10000000,step:100},
+    {name:'observationAngleMrad',label:'Observation angle θ (mrad)',type:'number',value:0,min:0,max:20,step:.05},
+    {name:'angularGridPoints',label:'Angular grid',type:'select',value:'7',options:['5','7','9','11','13']},
+    {name:'angularExtentGammaTheta',label:'Angular extent (γθ)',type:'number',value:2.5,min:.5,max:5,step:.25},
+    {name:'observerSamplesPerPixel',label:'Observer samples / pixel',type:'select',value:'900',options:['400','600','900','1200','1800']},
+    {name:'trajectoryPointsPerPeriod',label:'Trajectory samples / period',type:'select',value:'48',options:['32','48','64','96']},
+    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:10000,step:10}
+  ],
   'kerr-geodesics':[
+    {name:'comparisonSpin',label:'Comparison spin a/M',type:'number',value:.6,min:0,max:.98,step:.01},
+    {name:'comparisonInclinationDeg',label:'Comparison inclination (deg)',type:'number',value:60,min:0,max:80,step:1},
+    {name:'sweepParticle',label:'Sweep particle',type:'select',value:'massive',options:['massive','photon']},
+    {name:'sweepSpinsText',label:'Sweep a/M values',type:'text',value:'0,0.15,0.30,0.45,0.60,0.75,0.90'},
+    {name:'sweepInclinationDeg',label:'Sweep inclination (deg)',type:'number',value:60,min:0,max:80,step:1},
     {name:'rtol',label:'Relative tolerance',type:'number',value:1e-9,min:1e-13,max:1e-5,step:1e-10},
     {name:'atol',label:'Absolute tolerance',type:'number',value:1e-11,min:1e-15,max:1e-7,step:1e-12},
     {name:'horizonPad',label:'Horizon guard pad',type:'number',value:1e-4,min:1e-8,max:.1,step:1e-4}
@@ -331,6 +368,8 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
     {name:'phononBins',label:'Phonon DOS bins',type:'number',value:80,min:16,max:240,step:8}
   ],
   'undulator-spectrum':[
+    {name:'observationAngleMrad',label:'Observation angle θ (mrad)',type:'number',value:0,min:0,max:20,step:.05},
+    {name:'harmonicsText',label:'Harmonics',type:'text',value:'1,3,5,7'},
     {name:'angularPoints',label:'Angular map points',type:'number',value:61,min:21,max:181,step:10},
     {name:'relativeEnergySpreadRms',label:'Relative energy spread RMS',type:'number',value:.001,min:0,max:.2,step:.0001},
     {name:'angularDivergenceRmsMrad',label:'Angular divergence RMS (mrad)',type:'number',value:.05,min:0,max:10,step:.01},
@@ -339,6 +378,12 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
     {name:'beamBins',label:'Beam histogram bins',type:'number',value:120,min:40,max:500,step:10}
   ],
   'frequency-response':[
+    {name:'linearStartRatio',label:'Linear start frequency ratio ω/ωₙ',type:'number',value:.3,min:.1,max:3,step:.05},
+    {name:'linearStopRatio',label:'Linear stop frequency ratio ω/ωₙ',type:'number',value:1.6,min:.2,max:5,step:.05},
+    {name:'linearSweepQuality',label:'Linear sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']},
+    {name:'duffingStartRatio',label:'Duffing start ω/ω₀',type:'number',value:.7,min:.1,max:3,step:.05},
+    {name:'duffingStopRatio',label:'Duffing stop ω/ω₀',type:'number',value:1.6,min:.2,max:5,step:.05},
+    {name:'duffingSweepQuality',label:'Duffing sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']},
     {name:'settleCycles',label:'Settle cycles',type:'number',value:16,min:4,max:120,step:1},
     {name:'observeCycles',label:'Observe cycles',type:'number',value:5,min:3,max:40,step:1},
     {name:'pointsPerCycle',label:'Points per cycle',type:'number',value:48,min:32,max:240,step:8},
@@ -423,6 +468,7 @@ function nativeParameterHtml(field){
   const name=uEsc(field.name),label=uEsc(field.label);
   if(field.type==='checkbox')return '<label class="native-check professional-check"><input data-native-param="'+name+'" type="checkbox" '+(field.value?'checked':'')+'><span>'+label+'</span></label>';
   if(field.type==='select')return '<label class="professional-param"><span class="param-label">'+label+'</span><select data-native-param="'+name+'">'+field.options.map(v=>'<option '+(String(v)===String(field.value)?'selected':'')+'>'+uEsc(v)+'</option>').join('')+'</select></label>';
+  if(field.type==='text')return '<label class="professional-param"><span class="param-label">'+label+'</span><input data-native-param="'+name+'" type="text" value="'+uEsc(field.value??'')+'"></label>';
   const hasSlider=nativeParameterHasSlider(field);
   const log=hasSlider&&nativeParameterUsesLogSlider(field);
   const slider=hasSlider

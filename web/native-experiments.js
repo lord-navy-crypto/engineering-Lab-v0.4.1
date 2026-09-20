@@ -368,6 +368,9 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'harmonic',label:'Harmonic',type:'number',value:1,min:1,max:99,step:2},
     {name:'periods',label:'Periods',type:'number',value:20,min:2,max:500,step:1}
   ],
+  'kerr-shadow':[
+    {id:'morphology-sweep',name:'Run Kerr shadow morphology sweep',description:'Sweep the configured observer inclinations with the original shadow-morphology core.'}
+  ],
   'kerr-geodesics':[
     {name:'spin',label:'Spin a/M',type:'number',value:.7,min:0,max:.995,step:.01},
     {name:'inclinationDeg',label:'Inclination (deg)',type:'number',value:25,min:0,max:89,step:1},
@@ -396,7 +399,9 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'duration',label:'Duration',type:'number',value:8,min:1,max:40,step:1}
   ],
   'kerr-shadow':[
-    {name:'spin',label:'Spin a/M',type:'number',value:.9,min:0,max:.98,step:.01},
+    {name:'sweepDepth',label:'Sweep depth',type:'select',value:'Standard',options:['Quick','Standard','Deep']},
+    {name:'observerInclinationsText',label:'Observer inclinations (deg)',type:'text',value:'15,30,45,60,75'},
+    {name:'spin',label:'Spin a/M',type:'number',value:.9,min:0,max:.998,step:.01},
     {name:'inclinationDeg',label:'Inclination (deg)',type:'number',value:60,min:.5,max:90,step:1},
     {name:'curveSamples',label:'Curve samples',type:'number',value:320,min:120,max:1200,step:40}
   ],
@@ -409,29 +414,12 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'thetaMaxMrad',label:'θ max (mrad)',type:'number',value:1,min:.05,max:10,step:.05}
   ],
   'frequency-response':[
-    {name:'omegaN',label:'Natural ωₙ',type:'number',value:2,min:.1,max:20,step:.05},
-    {name:'zeta',label:'Damping ζ',type:'number',value:.05,min:0,max:1,step:.01},
+    {name:'omegaN',label:'Natural frequency ωₙ (rad/s)',type:'number',value:2,min:.1,max:20,step:.05},
+    {name:'zeta',label:'Damping ratio ζ',type:'number',value:.05,min:0,max:1.5,step:.01},
     {name:'force',label:'Force amplitude',type:'number',value:1,min:0,max:20,step:.1},
-    {name:'frequencyStart',label:'ω start',type:'number',value:.6,min:.05,max:20,step:.05},
-    {name:'frequencyStop',label:'ω stop',type:'number',value:3.2,min:.1,max:30,step:.05},
-    {name:'frequencyPoints',label:'Frequency points',type:'number',value:17,min:7,max:41,step:2}
-  ]
-});
-
-const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
-  'radia-magnet-studio':[
-    {name:'manufacturingMembers',label:'Manufacturing realizations',type:'select',value:'3',options:['2','3','4','6','8']},
-    {name:'transversePoints',label:'3-D transverse grid',type:'select',value:'5',options:['3','5','7']},
-    {name:'propagationHalfWidthMm',label:'Propagation transverse half-width (mm)',type:'number',value:2,min:.1,max:20,step:.25},
-    {name:'zSamplesPerPeriod',label:'RADIA z samples / period',type:'select',value:'8',options:['6','8','12','16']},
-    {name:'radiationGamma',label:'Propagation electron γ',type:'number',value:100,min:1.01,max:100000,step:1},
-    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:10000,step:10},
-    {name:'thetaXMrad',label:'Observer θx (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
-    {name:'thetaYMrad',label:'Observer θy (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
-    {name:'trackingPointsPerPeriod',label:'Trajectory samples / period',type:'select',value:'48',options:['24','32','48','64','96']},
-    {name:'angularGridPoints',label:'Angular grid',type:'select',value:'7',options:['5','7','9','11','13']},
-    {name:'angularExtentGammaTheta',label:'Angular extent (γθ)',type:'number',value:2.5,min:.5,max:5,step:.25},
-    {name:'angularObserverSamples',label:'Observer samples / pixel',type:'select',value:'900',options:['400','600','900','1200','1800']}
+    {name:'linearStartRatio',label:'Start frequency ratio ω/ωₙ',type:'number',value:.3,min:.1,max:3,step:.05},
+    {name:'linearStopRatio',label:'Stop frequency ratio ω/ωₙ',type:'number',value:1.6,min:.2,max:5,step:.05},
+    {name:'linearSweepQuality',label:'Sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']}
   ],
 
   'radiation-platform':[
@@ -576,53 +564,15 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
     {name:'beamBins',label:'Beam histogram bins',type:'number',value:120,min:40,max:500,step:10}
   ],
   'frequency-response':[
-    {name:'linearStartRatio',label:'Linear start frequency ratio ω/ωₙ',type:'number',value:.3,min:.1,max:3,step:.05},
-    {name:'linearStopRatio',label:'Linear stop frequency ratio ω/ωₙ',type:'number',value:1.6,min:.2,max:5,step:.05},
-    {name:'linearSweepQuality',label:'Linear sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']},
-    {name:'duffingStartRatio',label:'Duffing start ω/ω₀',type:'number',value:.7,min:.1,max:3,step:.05},
-    {name:'duffingStopRatio',label:'Duffing stop ω/ω₀',type:'number',value:1.6,min:.2,max:5,step:.05},
+    {name:'omega0',label:'Linear ω₀ (rad/s)',type:'number',value:1,min:.1,max:20,step:.05},
+    {name:'cubicStiffness',label:'Cubic stiffness β',type:'number',value:1,min:0,max:50,step:.1},
+    {name:'duffingForce',label:'Drive amplitude F',type:'number',value:.3,min:0,max:20,step:.05},
+    {name:'duffingStartRatio',label:'Start ω/ω₀',type:'number',value:.7,min:.1,max:3,step:.05},
+    {name:'duffingStopRatio',label:'Stop ω/ω₀',type:'number',value:1.6,min:.2,max:5,step:.05},
     {name:'duffingSweepQuality',label:'Duffing sweep quality',type:'select',value:'Standard',options:['Fast','Standard','Deep']},
     {name:'settleCycles',label:'Settle cycles',type:'number',value:16,min:4,max:120,step:1},
     {name:'observeCycles',label:'Observe cycles',type:'number',value:5,min:3,max:40,step:1},
-    {name:'pointsPerCycle',label:'Points per cycle',type:'number',value:48,min:32,max:240,step:8},
-    {name:'omega0',label:'Duffing ω0',type:'number',value:1,min:.1,max:20,step:.05},
-    {name:'cubicStiffness',label:'Duffing cubic stiffness β',type:'number',value:1,min:0,max:50,step:.1}
-  ]
-});
-
-const NATIVE_GLOBAL_TOOL_SPECS = Object.freeze([
-  {id:'result-inspector',name:'Result Inspector',description:'Inspect the current structured result, schema inventory, and numerical sanity checks.'},
-  {id:'bootstrap',name:'Bootstrap uncertainty',description:'Resample the first numeric result series and estimate uncertainty for the selected statistic.'},
-  {id:'regression',name:'Linear regression diagnostics',description:'Fit and inspect an ordinary least-squares trend on the current numeric result series.'},
-  {id:'robust-regression',name:'Robust Huber regression',description:'Fit a Huber robust trend that reduces the leverage of large residuals.'},
-  {id:'convergence-diagnostics',name:'Convergence diagnostics',description:'Estimate a bounded convergence trend from the current numeric series; use explicit refinement tools when available.'},
-  {id:'visualization-summary',name:'Visualization summary',description:'Build the original Visualization Studio numeric field summary from the current structured result.'},
-  {id:'visualization-transform',name:'Normalize / transform results',description:'Apply z-score normalization to a copy of current numeric result fields for analysis and visualization.'},
-  {id:'local-sensitivity',name:'Local sensitivity',description:'Compute finite-difference local sensitivity between varying result fields.'},
-  {id:'elasticity-sensitivity',name:'Elasticity sensitivity',description:'Compute normalized local elasticity from the current finite result table.'},
-  {id:'standardized-sensitivity',name:'Standardized sensitivity',description:'Rank standardized associations across varying numeric fields using the original Visual Analytics core.'},
-  {id:'polynomial-regression',name:'Polynomial regression',description:'Fit the original bounded polynomial-regression core to varying fields in the current result.'},
-  {id:'monte-carlo-propagation',name:'Monte Carlo propagation',description:'Run the original linear uncertainty-propagation core with explicit sampling assumptions.'},
-  {id:'doe-design',name:'DOE design',description:'Generate a bounded Latin-hypercube design with the original Applied Analysis core.'},
-  {id:'parameter-estimation',name:'Parameter estimation',description:'Fit the original bounded parameter-estimation core to current result fields.'},
-  {id:'polynomial-cv',name:'Polynomial model selection',description:'Cross-validate polynomial families with the original Advanced Applied Analysis core.'},
-  {id:'pca-svd',name:'PCA / SVD',description:'Run standardized PCA/SVD on varying current-result fields.'},
-  {id:'conditioning-diagnostics',name:'Conditioning diagnostics',description:'Inspect rank, singular values and condition number of current-result variables.'},
-  {id:'tikhonov',name:'Tikhonov inverse solve',description:'Run the original regularized linear inverse solver on current-result fields.'},
-  {id:'tsvd',name:'Truncated-SVD inverse solve',description:'Run the original TSVD regularized inverse solver on current-result fields.'},
-  {id:'correlation-matrix',name:'Correlation matrix',description:'Compute a Pearson correlation matrix across varying current-result fields.'},
-  {id:'pareto-frontier',name:'Pareto frontier',description:'Compute a two-objective Pareto frontier without inventing a master score.'},
-  {id:'robust-sensitivity',name:'Robust sensitivity summary',description:'Combine complementary sensitivity diagnostics without a synthetic ranking score.'},
-  {id:'run-comparison',name:'Run comparison',description:'Compare finite numeric rows against a baseline using the original Research Orchestrator core.'},
-  {id:'morris-design',name:'Morris screening design',description:'Generate a prospective Morris screening design with explicit bounds and no automatic execution.'}
-]);
-
-const NATIVE_TOOL_SPECS = Object.freeze({
-  'numerical-methods':[
-    {id:'parameter-scan',name:'Run parameter scan',description:'Run the pinned numerical_lab.scan_sine core across the configured interval.'},
-    {id:'single-point-convergence',name:'Single-point convergence',description:'Run the pinned convergence_scan at the configured single x value.'},
-    {id:'method-comparison',name:'Run method comparison',description:'Compare pinned numerical methods under the same precision/reference settings.'},
-    {id:'compliance',name:'Built-in numerical validation',description:'Run internal accuracy/reference checks against the pinned numerical core.'}
+    {name:'pointsPerCycle',label:'Points per cycle',type:'number',value:48,min:32,max:240,step:8}
   ],
   'ising-monte-carlo':[
     {id:'method-comparison',name:'Run method comparison',description:'Compare Metropolis, checkerboard, heat-bath and Wolff updates with the pinned core.'},

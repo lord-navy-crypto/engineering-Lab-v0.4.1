@@ -112,10 +112,16 @@ print("Native experiment workspace validation: PASS (14/14 registered)")
 
 assert 'id="nativeExperimentAdvancedControls"' in html
 assert 'id="nativeExperimentTools"' in html
-assert 'data-native-exp-panel="advanced"' in html
+assert 'data-native-exp-tab="advanced"' not in html, "Advanced parameter depth must not be a sibling workflow tab"
+assert 'class="native-exp-tab-panel setup-subsection" data-native-exp-panel="setup"' in html
 assert 'data-native-exp-panel="tools"' in html
-assert 'data-utube-panel="advanced"' in html
+assert 'id="nativeExperimentToolMetrics"' in html and 'id="nativeExperimentVerificationMetrics"' in html
+assert 'renderNativeToolResult(payload)' in native
+assert 'async function runNativeVerificationTool' in native
+assert 'data-utube-tab="advanced"' not in html, "U-Tube advanced settings must stay inside Setup"
+assert 'class="utube-panel setup-subsection" data-utube-panel="setup"' in html
 assert 'data-utube-panel="tools"' in html
+assert 'id="utVerificationMetrics"' in html and 'async function runUtubeVerificationTool' in utube
 for tool_marker in ("refinement","ftle","phonon-dispersion","phonon-dos","beam-broadening","duffing"):
     assert tool_marker in native, f"missing restored native tool marker: {tool_marker}"
 for tool_marker in ("operating-state","elasticity","scan-plan","uncertainty"):

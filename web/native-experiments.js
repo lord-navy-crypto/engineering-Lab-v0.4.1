@@ -410,9 +410,18 @@ function renderNativeExperimentControls(spec){
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
   uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
   const tools=[...(NATIVE_TOOL_SPECS[spec.id]||[]),...NATIVE_GLOBAL_TOOL_SPECS];
-  const fullCard='<article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign Research Workbench and its registry-backed All Workspaces catalog. Use this whenever a function has not yet been migrated into the new native layout.</p><button class="primary" data-open-full-original="'+uEsc(spec.id)+'">Open full original workspace</button></article>';
-  const toolCards=tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join('');
-  uEl('nativeExperimentTools').innerHTML=fullCard+toolCards;
+  const toolGroups=[
+    ['Experiment-specific',tools.filter(t=>(NATIVE_TOOL_SPECS[spec.id]||[]).some(x=>x.id===t.id))],
+    ['Inspect & verify',tools.filter(t=>['result-inspector','convergence-diagnostics','visualization-summary'].includes(t.id))],
+    ['Uncertainty & sensitivity',tools.filter(t=>['bootstrap','monte-carlo-propagation','local-sensitivity','elasticity-sensitivity','standardized-sensitivity','robust-sensitivity'].includes(t.id))],
+    ['Fit & model selection',tools.filter(t=>['regression','robust-regression','polynomial-regression','parameter-estimation','polynomial-cv'].includes(t.id))],
+    ['Experimental design',tools.filter(t=>['doe-design','morris-design'].includes(t.id))],
+    ['Deep numerical analysis',tools.filter(t=>['pca-svd','conditioning-diagnostics','tikhonov','tsvd'].includes(t.id))],
+    ['Compare & transform',tools.filter(t=>['visualization-transform','correlation-matrix','pareto-frontier','run-comparison'].includes(t.id))]
+  ].filter(([,items])=>items.length);
+  const toolHtml=toolGroups.map(([name,items],index)=>'<details class="native-tool-group" '+(index===0?'open':'')+'><summary><strong>'+uEsc(name)+'</strong><span>'+items.length+' tools</span></summary><div class="native-tool-list">'+items.map(t=>'<button type="button" class="native-tool-row" data-native-tool="'+uEsc(t.id)+'"><span><strong>'+uEsc(t.name)+'</strong><small>'+uEsc(t.description)+'</small></span><b>Run →</b></button>').join('')+'</div></details>').join('');
+  const original='<div class="full-original-strip"><div><strong>Full Original Workspace</strong><span>Complete pre-redesign workbench remains available without removing any function.</span></div><button class="secondary" data-open-full-original="'+uEsc(spec.id)+'">Open original workspace</button></div>';
+  uEl('nativeExperimentTools').innerHTML=toolHtml+original;
   document.querySelectorAll('[data-open-full-original]').forEach(b=>b.onclick=()=>openFullOriginalWorkspace(b.dataset.openFullOriginal));
   document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
   uEl('nativeExperimentRunMode').value='safe';
@@ -694,43 +703,105 @@ function renderCapabilityCatalog(){
   document.querySelectorAll('[data-open-capability]').forEach(b=>b.onclick=()=>openCapabilitySurface(b.dataset.openCapability));
 }
 
-let actionTypeFilter='All';
+let actionStageFilter='Experiments & Physics';
+
+const ACTION_WORKFLOW_STAGES=Object.freeze([
+  {id:'Experiments & Physics',index:'01',title:'Experiments & Physics',description:'Build, run and inspect physical experiments and model-specific tools.'},
+  {id:'Data & Measurement',index:'02',title:'Data & Measurement',description:'Bring in measurements, calibrations, BetterBoard data and canonical datasets.'},
+  {id:'Visualization & Analysis',index:'03',title:'Visualization & Analysis',description:'Inspect, visualize, compare, fit and analyze scientific results.'},
+  {id:'Modeling & Simulation',index:'04',title:'Modeling & Simulation',description:'Define models, connect pipelines, design sweeps and orchestrate simulation workflows.'},
+  {id:'Engineering Decisions & Reliability',index:'05',title:'Engineering Decisions & Reliability',description:'Verify requirements, evaluate quality, reliability, risk, economics and engineering decisions.'},
+  {id:'Reproducibility & AI',index:'06',title:'Reproducibility & AI',description:'Capture evidence, reproduce runs, package results and use local advisory tools.'}
+]);
 
 function actionCatalogRows(){
   return Array.isArray(window.ENGINEERING_ACTION_CATALOG)?window.ENGINEERING_ACTION_CATALOG:[];
 }
 
-function actionCard(row){
-  return '<article class="module-card capability-card action-card" data-search="'+uEsc((row.label+' '+row.control_type+' '+row.surface_label+' '+row.module).toLowerCase())+'">'+
-    '<div class="card-top"><div class="module-icon">⌕</div><span class="status-pill ready">'+uEsc(row.control_type)+'</span></div>'+
-    '<div class="category">'+uEsc(row.surface_label)+'</div><h4>'+uEsc(row.label)+'</h4>'+
-    '<p class="desc">Original action preserved from '+uEsc(row.module)+'.</p>'+
-    '<div class="capability-route">Action-level parity · '+(row.baseline_action?'pre-redesign baseline':'current-only')+'</div>'+
-    '<div class="card-actions"><button class="primary" data-open-action="'+uEsc(row.action_id)+'">Open tool workspace</button></div></article>';
+function capabilityById(id){
+  return ENGINEERING_CAPABILITIES.find(x=>x.id===id)||null;
+}
+
+function actionStageForRow(row){
+  return capabilityById(row.surface_id)?.category||'Visualization & Analysis';
+}
+
+function actionVerbWeight(row){
+  const label=String(row.label||'').toLowerCase();
+  const type=String(row.control_type||'');
+  if(type==='button'||type==='download_button'||type==='form_submit_button')return 0;
+  if(/run|open|inspect|compare|validate|check|analy|fit|compute|generate|export|save|register|queue|build|create/.test(label))return 1;
+  if(type==='selectbox'||type==='radio'||type==='multiselect')return 2;
+  if(type==='slider'||type==='number_input'||type==='text_input'||type==='checkbox'||type==='toggle')return 3;
+  return 4;
+}
+
+function actionRowHtml(row){
+  const route=actionRouteInfo(row);
+  const routeClass=route.kind==='compatibility'?'compat':'native';
+  return '<button class="action-row" type="button" data-open-action="'+uEsc(row.action_id)+'">'+
+    '<span class="action-row-main"><strong>'+uEsc(row.label)+'</strong><small>'+uEsc(row.control_type.replaceAll('_',' '))+'</small></span>'+
+    '<span class="action-route-badge '+routeClass+'">'+uEsc(route.label)+'</span>'+
+    '<span class="action-arrow">→</span></button>';
+}
+
+function renderActionStageNav(rows,search){
+  const nav=uEl('actionStageNav');if(!nav)return;
+  nav.innerHTML=ACTION_WORKFLOW_STAGES.map(stage=>{
+    const count=rows.filter(row=>actionStageForRow(row)===stage.id&&(!search||(row.label+' '+row.surface_label+' '+row.module+' '+row.control_type).toLowerCase().includes(search))).length;
+    return '<button type="button" class="workflow-stage '+(stage.id===actionStageFilter?'active':'')+'" data-action-stage="'+uEsc(stage.id)+'">'+
+      '<span>'+stage.index+'</span><strong>'+uEsc(stage.title)+'</strong><small>'+count+' actions</small></button>';
+  }).join('');
+  document.querySelectorAll('[data-action-stage]').forEach(button=>button.onclick=()=>{
+    actionStageFilter=button.dataset.actionStage;
+    if(uEl('actionSearch'))uEl('actionSearch').value='';
+    renderActionCatalog();
+  });
 }
 
 function renderActionCatalog(){
-  const grid=uEl('actionGrid'); if(!grid)return;
+  const host=uEl('actionGroups');if(!host)return;
   const rows=actionCatalogRows();
   const search=(uEl('actionSearch')?.value||'').trim().toLowerCase();
-  const types=['All',...new Set(rows.map(x=>x.control_type))].sort((a,b)=>a==='All'?-1:b==='All'?1:a.localeCompare(b));
-  uEl('actionFilters').innerHTML=types.map(type=>'<button class="filter '+(type===actionTypeFilter?'active':'')+'" data-action-type="'+uEsc(type)+'">'+uEsc(type)+'</button>').join('');
-  const visible=rows.filter(row=>(actionTypeFilter==='All'||row.control_type===actionTypeFilter)&&(!search||(row.label+' '+row.control_type+' '+row.surface_label+' '+row.module).toLowerCase().includes(search)));
-  uEl('actionCount').textContent=String(visible.length);
+  renderActionStageNav(rows,search);
+  const stage=ACTION_WORKFLOW_STAGES.find(x=>x.id===actionStageFilter)||ACTION_WORKFLOW_STAGES[0];
+  uEl('actionStageTitle').textContent=search?'Search across all workflow stages':stage.title;
+  uEl('actionStageDescription').textContent=search?'Matching actions stay grouped by their real capability; no functions are moved or renamed.':stage.description;
+  const scoped=rows.filter(row=>{
+    const hay=(row.label+' '+row.surface_label+' '+row.module+' '+row.control_type).toLowerCase();
+    return search?hay.includes(search):actionStageForRow(row)===actionStageFilter;
+  });
+  uEl('actionCount').textContent=String(rows.length);
+  uEl('actionStageCount').textContent=search?(scoped.length+' matching actions'):(scoped.length+' actions in this stage');
   const parity=window.ENGINEERING_ACTION_PARITY||{};
   const missing=Array.isArray(parity.missing_from_current)?parity.missing_from_current.length:0;
-  uEl('actionParityStatus').textContent=rows.length
-    ?('Action catalog: '+rows.length+' indexed · baseline '+(parity.baseline_action_count??'—')+' · current '+(parity.current_action_count??'—')+' · missing '+missing)
-    :'Action catalog is generated by npm run prepare for the desktop build.';
-  grid.innerHTML=visible.map(actionCard).join('')||'<div class="empty-state">No tools/actions match this search.</div>';
-  document.querySelectorAll('[data-action-type]').forEach(b=>b.onclick=()=>{actionTypeFilter=b.dataset.actionType;renderActionCatalog()});
-  document.querySelectorAll('[data-open-action]').forEach(b=>b.onclick=()=>{
-    const row=rows.find(x=>x.action_id===b.dataset.openAction);
+  uEl('actionParityStatus').textContent=rows.length?('baseline '+(parity.baseline_action_count??'—')+' · current '+(parity.current_action_count??'—')+' · missing '+missing):'generated during desktop build';
+
+  const grouped=new Map();
+  scoped.forEach(row=>{
+    if(!grouped.has(row.surface_id))grouped.set(row.surface_id,[]);
+    grouped.get(row.surface_id).push(row);
+  });
+  const groups=[...grouped.entries()].sort((a,b)=>String(capabilityById(a[0])?.label||a[0]).localeCompare(String(capabilityById(b[0])?.label||b[0])));
+  host.innerHTML=groups.length?groups.map(([surfaceId,items],groupIndex)=>{
+    const cap=capabilityById(surfaceId);
+    items.sort((a,b)=>actionVerbWeight(a)-actionVerbWeight(b)||String(a.label).localeCompare(String(b.label)));
+    const nativeCount=items.filter(row=>actionRouteInfo(row).kind!=='compatibility').length;
+    const open=search||groupIndex<2;
+    return '<details class="action-capability-group" '+(open?'open':'')+'>'+
+      '<summary><div class="action-group-title"><span class="action-group-index">'+String(groupIndex+1).padStart(2,'0')+'</span><div><strong>'+uEsc(cap?.label||items[0].surface_label)+'</strong><small>'+uEsc(cap?.description||items[0].module)+'</small></div></div>'+
+      '<div class="action-group-stats"><span>'+items.length+' actions</span><span>'+nativeCount+' direct/native</span><b>⌄</b></div></summary>'+
+      '<div class="action-list">'+items.map(actionRowHtml).join('')+'</div></details>';
+  }).join(''):'<div class="empty-state">No preserved actions match this search.</div>';
+
+  document.querySelectorAll('[data-open-action]').forEach(button=>button.onclick=()=>{
+    const row=rows.find(x=>x.action_id===button.dataset.openAction);
     if(row)openActionWorkspace(row);
   });
   if(uEl('actionSearch')&&!uEl('actionSearch').dataset.bound){
     uEl('actionSearch').dataset.bound='1';
     uEl('actionSearch').addEventListener('input',renderActionCatalog);
+    uEl('actionClearSearch').onclick=()=>{uEl('actionSearch').value='';renderActionCatalog();uEl('actionSearch').focus()};
   }
   if(uEl('backFromActionWorkspace')&&!uEl('backFromActionWorkspace').dataset.bound){
     uEl('backFromActionWorkspace').dataset.bound='1';

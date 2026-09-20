@@ -350,20 +350,206 @@ def oscillation(p: dict[str, Any], mode: str) -> dict[str, Any]:
 
 def radia_magnet(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)
-    b0 = f(p, "b0T", 0.15, 0.0, 20.0)
     periods = i(p, "periods", 20, 1, 500)
-    samples = i(p, "samples", 401, 81, 3001)
-    z = np.linspace(-period_mm, period_mm, samples)
-    by = b0 * np.sin(2 * math.pi * z / period_mm)
-    k = 0.934 * b0 * (period_mm / 10.0)
-    return result(
-        "radia-magnet-studio",
-        "native-analytic-safe" if mode != "full" else "native-analytic-full-fallback",
-        {"periodMm": period_mm, "b0T": b0, "periods": periods, "samples": samples, "requestedMode": mode},
-        {"undulatorK": k, "magneticLengthM": period_mm / 1000 * periods, "peakFieldT": b0},
-        [xy_series("field", "ideal on-axis B_y", z, by, x_label="z (mm)", y_label="B_y (T)")],
-        "Ideal planar-undulator analytical adapter. It preserves a native no-server workflow but does not replace finite RADIA geometry, material relaxation, fringe fields, manufacturing errors or a 3-D field solve. Full RADIA remains an authoritative backend to be invoked through its solver adapter when available.",
-    )
+    device = str(p.get("device", "Planar"))
+    if device not in {"Planar", "Helical", "Elliptical", "APPLE-II", "Wiggler"}:
+        device = "Planar"
+
+    params = {
+        "device": device,
+        "period_mm": period_mm,
+        "periods": periods,
+        "gap_mm": f(p, "gapMm", 12.0, 0.5, 100.0),
+        "blocks_per_period": i(p, "blocksPerPeriod", 4, 4, 16),
+        "block_width_mm": f(p, "blockWidthMm", 10.0, 0.1, 100.0),
+        "block_height_mm": f(p, "blockHeightMm", 10.0, 0.1, 100.0),
+        "longitudinal_fill": f(p, "longitudinalFill", 0.90, 0.50, 0.99),
+        "br_t": f(p, "brT", 1.20, 0.01, 3.0),
+        "material_mode": str(p.get("materialMode", "Fixed remanence")),
+        "mu_parallel": f(p, "muParallel", 1.05, 1.0, 3.0),
+        "mu_perpendicular": f(p, "muPerpendicular", 1.05, 1.0, 3.0),
+        "segmentation": (i(p, "segmentation", 1, 1, 3),) * 3,
+        "ellipticity": f(p, "ellipticity", 0.5, 0.0, 1.0),
+        "apple_phase_deg": f(p, "applePhaseDeg", 90.0, -180.0, 180.0),
+        "apple_shift_mode": str(p.get("appleShiftMode", "Antiparallel")),
+        "errors_enabled": b(p, "errorsEnabled", False),
+        "field_error_pct": f(p, "fieldErrorPct", 1.0, 0.0, 25.0),
+        "longitudinal_error_mm": f(p, "longitudinalErrorMm", 0.05, 0.0, 10.0),
+        "transverse_error_mm": f(p, "transverseErrorMm", 0.05, 0.0, 10.0),
+        "angle_error_deg": f(p, "angleErrorDeg", 0.5, 0.0, 10.0),
+        "gap_asymmetry_mm": f(p, "gapAsymmetryMm", 0.0, -10.0, 10.0),
+        "bank_imbalance_pct": f(p, "bankImbalancePct", 0.0, -25.0, 25.0),
+        "error_seed": i(p, "errorSeed", 12345, 0, 100000000),
+        "target_b0_enabled": b(p, "targetB0Enabled", False),
+        "target_b0_t": f(p, "targetB0T", 0.15, 0.001, 20.0),
+        "b0_definition": str(p.get("b0Definition", "Central-period peak B⊥")),
+    }
+    settings = {
+        "axis_samples": i(p, "axisSamples", 1000, 100, 4000),
+        "field_margin_periods": f(p, "fieldMarginPeriods", 1.0, 0.0, 10.0),
+        "electron_energy_GeV": f(p, "electronEnergyGeV", 3.0, 0.01, 1000.0),
+        "relax": b(p, "relax", False),
+        "precision": f(p, "precision", 1e-4, 1e-7, 1e-2),
+        "max_iter": i(p, "maxIter", 1000, 1, 10000),
+        "calculate_2d": b(p, "calculate2d", True),
+        "calculate_3d": b(p, "calculate3d", True),
+        "transverse_half_width_mm": f(p, "transverseHalfWidthMm", 5.0, 0.1, 100.0),
+        "geometry_limit": i(p, "geometryLimit", 600, 100, 1200),
+        "compare_ideal": b(p, "compareIdeal", True),
+    }
+
+    if mode != "full":
+        reference_b0 = params["target_b0_t"] if params["target_b0_enabled"] else 0.15
+        samples = settings["axis_samples"]
+        z = np.linspace(-period_mm, period_mm, samples)
+        by = reference_b0 * np.sin(2 * math.pi * z / period_mm)
+        k = 0.934 * reference_b0 * (period_mm / 10.0)
+        configured_errors = {key: params[key] for key in (
+            "field_error_pct","longitudinal_error_mm","transverse_error_mm",
+            "angle_error_deg","gap_asymmetry_mm","bank_imbalance_pct","error_seed"
+        )}
+        return result(
+            "radia-magnet-studio",
+            "native-analytic-safe",
+            {**clean(params), **clean(settings), "requestedMode": mode},
+            {
+                "undulatorKReference": k,
+                "magneticLengthM": period_mm / 1000 * periods,
+                "referencePeakFieldT": reference_b0,
+                "manufacturingErrorsConfigured": bool(params["errors_enabled"]),
+            },
+            [xy_series("field", "safe-mode ideal reference B_y", z, by, x_label="z (mm)", y_label="B_y (T)")],
+            "Safe mode preserves the complete pinned RADIA setup state but computes only an ideal analytical reference. Manufacturing errors, finite geometry, material relaxation, target-B0 calibration, 2-D/3-D field maps and realized field metrics require Full mode.",
+            [{"id":"configured-errors","label":"Configured manufacturing-error state","rows":[configured_errors]}],
+        )
+
+    from radia_support import load_radia
+    from devices.factory import build_device
+    from solver.pipeline import solve_model, sample_on_axis, sample_slice_xz, sample_slice_yz, sample_3d
+    from analysis.metrics import analyze, compare_metrics, classify_k
+    from analysis.geometry_bounds import union_field_range
+    from calibration.target_b0 import calibrate_br
+
+    rad = load_radia()
+    try:
+        if hasattr(rad, "UtiDelAll"):
+            rad.UtiDelAll()
+
+        full_params = dict(params)
+        calibration_history = []
+        if params["target_b0_enabled"]:
+            calibrated_br, calibration_history = calibrate_br(
+                rad, device, full_params, params["target_b0_t"],
+                mode=params["b0_definition"], relax=settings["relax"],
+                precision=settings["precision"], max_iter=settings["max_iter"],
+            )
+            full_params["br_t"] = float(calibrated_br)
+            if hasattr(rad, "UtiDelAll"):
+                rad.UtiDelAll()
+
+        ideal_model = None
+        if params["errors_enabled"] and settings["compare_ideal"]:
+            p_ideal = dict(full_params)
+            p_ideal["errors_enabled"] = False
+            ideal_model = build_device(rad, device, p_ideal)
+
+        model = build_device(rad, device, full_params)
+        ideal_relax = None
+        if ideal_model is not None:
+            ideal_relax = solve_model(
+                rad, ideal_model, relax=settings["relax"],
+                precision=settings["precision"], max_iter=settings["max_iter"], method=4,
+            )
+        relaxation = solve_model(
+            rad, model, relax=settings["relax"],
+            precision=settings["precision"], max_iter=settings["max_iter"], method=4,
+        )
+
+        range_models = [model] + ([ideal_model] if ideal_model is not None else [])
+        z_lo, z_hi = union_field_range(range_models, period_mm, settings["field_margin_periods"])
+        z = np.linspace(float(z_lo), float(z_hi), settings["axis_samples"])
+        B = np.asarray(sample_on_axis(rad, model["obj"], z), dtype=float)
+        metrics = analyze(z, B, period_mm, settings["electron_energy_GeV"])
+
+        Bideal = None
+        ideal_metrics = None
+        comparison = None
+        if ideal_model is not None:
+            Bideal = np.asarray(sample_on_axis(rad, ideal_model["obj"], z), dtype=float)
+            ideal_metrics = analyze(z, Bideal, period_mm, settings["electron_energy_GeV"])
+            comparison = compare_metrics(ideal_metrics, metrics)
+
+        series = [
+            xy_series("Bx","B_x",z,B[:,0],x_label="z (mm)",y_label="B_x (T)"),
+            xy_series("By","B_y",z,B[:,1],x_label="z (mm)",y_label="B_y (T)"),
+            xy_series("Bz","B_z",z,B[:,2],x_label="z (mm)",y_label="B_z (T)"),
+        ]
+        if Bideal is not None:
+            series.append(xy_series("By-ideal","ideal B_y",z,Bideal[:,1],x_label="z (mm)",y_label="B_y (T)"))
+
+        tables = []
+        if calibration_history:
+            tables.append({"id":"b0-calibration","label":"Target-B0 calibration history","rows":clean(calibration_history)})
+        if comparison is not None:
+            rows=[]
+            if isinstance(comparison, dict):
+                for key,value in comparison.items():
+                    rows.append({"metric":key,"difference":clean(value)})
+            tables.append({"id":"ideal-error-comparison","label":"Ideal vs manufacturing-error comparison","rows":rows})
+
+        if settings["calculate_2d"]:
+            transverse = np.linspace(-settings["transverse_half_width_mm"], settings["transverse_half_width_mm"], 31)
+            z2 = np.linspace(float(z_lo), float(z_hi), min(181, max(61, settings["axis_samples"] // 5)))
+            if abs(float(metrics.get("By_peak_T",0.0))) >= abs(float(metrics.get("Bx_peak_T",0.0))):
+                slice_data = np.asarray(sample_slice_xz(rad, model["obj"], transverse, z2, 0.0), dtype=float)
+                plane = "XZ"
+            else:
+                slice_data = np.asarray(sample_slice_yz(rad, model["obj"], transverse, z2, 0.0), dtype=float)
+                plane = "YZ"
+            tables.append({"id":"field-slice","label":"2-D field slice metadata","rows":[{"plane":plane,"transversePoints":len(transverse),"zPoints":len(z2),"shape":list(slice_data.shape)}]})
+
+        if settings["calculate_3d"]:
+            x3=np.linspace(-settings["transverse_half_width_mm"],settings["transverse_half_width_mm"],5)
+            y3=x3.copy(); z3=np.linspace(float(z_lo),float(z_hi),17)
+            field3=np.asarray(sample_3d(rad,model["obj"],x3,y3,z3),dtype=float)
+            tables.append({"id":"field-3d","label":"Sparse 3-D field map metadata","rows":[{"nx":len(x3),"ny":len(y3),"nz":len(z3),"shape":list(field3.shape)}]})
+
+        scalar_metrics={}
+        for key,value in metrics.items():
+            if isinstance(value,(int,float,np.integer,np.floating)) and np.isfinite(float(value)):
+                scalar_metrics[key]=float(value)
+        scalar_metrics.update({
+            "generatedBlocks": len(model.get("blocks") or []),
+            "fieldRangeMinMm": float(z_lo),
+            "fieldRangeMaxMm": float(z_hi),
+            "magneticRegime": classify_k(float(metrics.get("K_peak",0.0))),
+            "usedBrT": float(full_params["br_t"]),
+            "manufacturingErrorsEnabled": bool(params["errors_enabled"]),
+            "idealComparisonComputed": bool(comparison is not None),
+        })
+        if isinstance(relaxation, dict):
+            for key,value in relaxation.items():
+                if isinstance(value,(int,float,bool,str)):
+                    scalar_metrics[f"relaxation_{key}"]=value
+        if isinstance(ideal_relax, dict):
+            scalar_metrics["idealRelaxationAvailable"]=True
+
+        return result(
+            "radia-magnet-studio",
+            "pinned-radia-magnet-studio-full-core",
+            {**clean(full_params), **clean(settings), "requestedMode": mode},
+            scalar_metrics,
+            series,
+            "Full mode directly reuses the pinned RADIA Magnet Studio build_device, target-B0 calibration, solve_model, geometry-derived field range, field sampling and analyze cores. Manufacturing-error results are realized RADIA fields, not an analytical surrogate.",
+            tables,
+        )
+    finally:
+        try:
+            if hasattr(rad, "UtiDelAll"):
+                rad.UtiDelAll()
+        except Exception:
+            pass
+
 
 
 def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:

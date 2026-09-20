@@ -270,7 +270,7 @@
     "safeBackend": "radiation-analytic",
     "safeModeNote": "Runs analytical undulator/radiation estimates without importing RADIA. It is a fallback, not a replacement for 3-D field solving.",
     "fullModeNote": "Runs the full magnet → trajectory → radiation workflow with RADIA.",
-    "revision": "85d785ae8ebb98a560496ca95be65e9bc883db3f"
+    "revision": "fc68e181ee16ee5a3e24d99b5f6cdefda71949be"
   },
   {
     "kind": "lab",

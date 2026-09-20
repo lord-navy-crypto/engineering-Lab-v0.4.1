@@ -259,6 +259,7 @@ function render(){
   }else if(currentView==='utube'){
     bindNativeUtube();renderNativeUtube();
   }
+  bindStaticViewActions();
   applySearch();
 }
 
@@ -489,38 +490,58 @@ async function initEvents(){if(listen){await listen('physical-lab://task-progres
 document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showView(b.dataset.go));
 el('refreshBtn').onclick=refreshAll;
-  if(el('exportDependencyReport'))el('exportDependencyReport').onclick=exportDependencyDoctorReport;
-  if(el('refreshDependencies'))el('refreshDependencies').onclick=refreshAll; el('searchInput').oninput=applySearch; el('backFromLab').onclick=closeModule; el('reloadLab').onclick=()=>{const f=el('labFrame');f.src=f.src};
-el('clearTasks').onclick=()=>{for(const [k,v] of tasks)if(v.done)tasks.delete(k);renderTasks()};
-el('openLogs').onclick=async()=>{if(!invoke){toast(logDir||'Log folder is available in the desktop build.');return}try{const p=await invoke('open_log_directory');toast(`Opened logs: ${p}`)}catch(e){toast(String(e),true)}};
-el('openData').onclick=async()=>{if(!invoke){toast(dataDir||'Data folder is available in the desktop build.');return}try{const p=await invoke('open_data_directory');toast(`Opened Physical Lab data: ${p}`)}catch(e){toast(String(e),true)}};
+  function bindStaticViewActions(){
+  const here=id=>{
+    const node=el(id);
+    return node && node.closest('.view')===activeViewRoot() ? node : null;
+  };
+  const on=(id,handler)=>{const node=here(id);if(node)node.onclick=handler};
 
+  if(currentView==='dependencies'){
+    on('exportDependencyReport',exportDependencyDoctorReport);
+    on('refreshDependencies',refreshAll);
+  }else if(currentView==='lab'){
+    on('backFromLab',closeModule);
+    on('reloadLab',()=>{const frame=here('labFrame');if(frame)frame.src=frame.src});
+  }else if(currentView==='tasks'){
+    on('clearTasks',()=>{for(const [k,v] of tasks)if(v.done)tasks.delete(k);renderTasks()});
+    on('openLogs',async()=>{if(!invoke){toast(logDir||'Log folder is available in the desktop build.');return}try{const p=await invoke('open_log_directory');toast(`Opened logs: ${p}`)}catch(e){toast(String(e),true)}});
+    on('openData',async()=>{if(!invoke){toast(dataDir||'Data folder is available in the desktop build.');return}try{const p=await invoke('open_data_directory');toast(`Opened Physical Lab data: ${p}`)}catch(e){toast(String(e),true)}});
+  }else if(currentView==='modelbuilder'){
+    on('modelBuilderChooseSource',chooseResearchModelSource);
+    on('modelBuilderAnalyze',analyzeResearchModel);
+    on('modelBuilderApplyReview',()=>{if(syncModelSpecFromReview())renderModelBuilder()});
+    on('modelBuilderGenerate',generateResearchModel);
+    on('modelBuilderPreview',runResearchModelPreview);
+    on('modelBuilderValidate',validateResearchModelAdapter);
+    on('modelBuilderSave',saveResearchModelToProject);
+    on('modelBuilderOpenBundle',openResearchModelBundle);
+    const spec=here('modelBuilderSpec');if(spec)spec.onchange=()=>{invalidateModelBuilderGeneratedArtifacts();renderModelBuilder()};
+  }else if(currentView==='workspaces'){
+    on('createWorkspace',createProject);
+    on('refreshWorkspaces',async()=>{await refreshResearchBasics();renderResearch()});
+  }else if(currentView==='data'){
+    on('importDataset',importMeasurement);
+    on('scanSerial',scanSerialDevices);
+    on('captureSerial',captureSerial);
+    on('refreshDatasets',()=>refreshDatasetsForActive(true));
+  }else if(currentView==='integrity'){
+    on('runIntegrity',runIntegrityChecks);
+  }else if(currentView==='campaigns'){
+    on('createCampaign',createCampaignQueue);
+  }else if(currentView==='results'){
+    on('analyzeDataset',analyzeSelectedDataset);
+    on('validateDataset',validateSelectedDataset);
+    on('saveSnapshot',saveRunSnapshot);
+    on('exportRepro',exportRepro);
+    on('compareRuns',compareSavedRuns);
+  }else if(currentView==='settings'){
+    on('saveSettings',saveUiSettings);
+    on('resetSettings',resetUiSettings);
+  }
+}
 
-if(el('modelBuilderChooseSource'))el('modelBuilderChooseSource').onclick=chooseResearchModelSource;
-if(el('modelBuilderAnalyze'))el('modelBuilderAnalyze').onclick=analyzeResearchModel;
-if(el('modelBuilderApplyReview'))el('modelBuilderApplyReview').onclick=()=>{if(syncModelSpecFromReview())renderModelBuilder()};
-if(el('modelBuilderGenerate'))el('modelBuilderGenerate').onclick=generateResearchModel;
-if(el('modelBuilderPreview'))el('modelBuilderPreview').onclick=runResearchModelPreview;
-if(el('modelBuilderValidate'))el('modelBuilderValidate').onclick=validateResearchModelAdapter;
-if(el('modelBuilderSave'))el('modelBuilderSave').onclick=saveResearchModelToProject;
-if(el('modelBuilderOpenBundle'))el('modelBuilderOpenBundle').onclick=openResearchModelBundle;
-if(el('modelBuilderSpec'))el('modelBuilderSpec').onchange=()=>{invalidateModelBuilderGeneratedArtifacts();renderModelBuilder()};
-
-if(el('createWorkspace'))el('createWorkspace').onclick=createProject;
-if(el('refreshWorkspaces'))el('refreshWorkspaces').onclick=async()=>{await refreshResearchBasics();renderResearch()};
-if(el('importDataset'))el('importDataset').onclick=importMeasurement;
-if(el('scanSerial'))el('scanSerial').onclick=scanSerialDevices;
-if(el('captureSerial'))el('captureSerial').onclick=captureSerial;
-if(el('refreshDatasets'))el('refreshDatasets').onclick=()=>refreshDatasetsForActive(true);
-if(el('runIntegrity'))el('runIntegrity').onclick=runIntegrityChecks;
-if(el('createCampaign'))el('createCampaign').onclick=createCampaignQueue;
-if(el('analyzeDataset'))el('analyzeDataset').onclick=analyzeSelectedDataset;
-if(el('validateDataset'))el('validateDataset').onclick=validateSelectedDataset;
-if(el('saveSnapshot'))el('saveSnapshot').onclick=saveRunSnapshot;
-if(el('exportRepro'))el('exportRepro').onclick=exportRepro;
-if(el('compareRuns'))el('compareRuns').onclick=compareSavedRuns;
-if(el('saveSettings'))el('saveSettings').onclick=saveUiSettings;
-if(el('resetSettings'))el('resetSettings').onclick=resetUiSettings;
+el('searchInput').oninput=applySearch;
 
 showView('home');
 initEvents().then(refreshAll);

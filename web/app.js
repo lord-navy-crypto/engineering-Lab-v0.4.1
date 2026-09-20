@@ -156,7 +156,7 @@ function dependencyAction(d,state){
   if(d.id==='radia'||d.id==='fftw') return `<button class="${ready?'secondary':'primary'}" data-install="radia-runtime">${ready?'Repair / rebuild RADIA':'Install with Physical Lab'}</button>`;
   if(d.id==='chrono-modal') return `<button class="${ready?'secondary':'primary'}" data-install="chrono-modal-runtime">${ready?'Repair / rebuild':'Build with Physical Lab'}</button>`;
   if(d.id==='vampire') return `<button class="${ready?'secondary':'primary'}" data-install="vampire-runtime">${ready?'Repair / rebuild':'Build with Physical Lab'}</button>`;
-  if(d.delivery==='module-managed') return `<button class="secondary" data-dependency-action="${esc(d.id)}">Open PyPI</button>`;
+  if(d.delivery==='module-managed') return `<button class="${ready?'secondary':'primary'}" data-dependency-install="${esc(d.id)}">${ready?'Repair dependency':'Install dependency'}</button><button class="secondary" data-dependency-action="${esc(d.id)}">Package source</button>`;
   return `<button class="${ready?'secondary':'primary'}" data-dependency-action="${esc(d.id)}">${d.id==='xcode-clt'&&state.level==='red'?'Open macOS installer':'Open official source'}</button>`;
 }
 
@@ -199,6 +199,17 @@ function renderDependencies(){
   }
   grid.innerHTML=states.map(([d,st])=>{const locs=(st.locations||[]);const priority=dependencyPriority(d,st);const locHtml=locs.length?`<details class="dependency-locations"><summary>${locs.length} detected location${locs.length===1?'':'s'}</summary>${locs.map(x=>`<code>${esc(x)}</code>`).join('')}</details>`:'';return `<article class="dependency-card"><div class="dependency-card-head"><div><div class="category">${esc(d.category)}</div><h4>${esc(d.name)}</h4></div><span class="health-light ${esc(st.level)}"><i></i>${esc(st.label)}</span></div><div class="dependency-priority"><strong>${esc(priority.label)}</strong><span>${esc(priority.detail)}</span></div><p class="desc">${esc(d.description)}</p><div class="dependency-meta"><div><span>Delivery</span><strong>${esc(deliveryLabel(d.delivery))}</strong></div><div><span>Used by</span><strong>${esc((d.usedBy||[]).join(' · '))}</strong></div><div><span>Version</span><strong>${esc(st.version||'—')}</strong></div></div><div class="dependency-detail">${esc(st.detail||d.notes||'')}</div>${locHtml}<div class="card-actions">${dependencyAction(d,st)}</div></article>`}).join('');
   document.querySelectorAll('[data-dependency-action]').forEach(b=>b.onclick=()=>runDependencyAction(b.dataset.dependencyAction));
+  document.querySelectorAll('[data-dependency-install]').forEach(b=>b.onclick=()=>installManagedDependency(b.dataset.dependencyInstall));
+}
+async function installManagedDependency(id){
+  if(!invoke){toast('Preview mode: dependency installation is available in the desktop build.');return}
+  const dep=(dependencies||[]).find(d=>d.id===id);
+  toast('Installing '+(dep?.name||id)+' in managed Lab environments…');
+  try{
+    const msg=await invoke('install_dependency',{dependencyId:id});
+    toast(msg);
+  }catch(e){toast(String(e),true)}
+  await refreshAll();
 }
 async function runDependencyAction(id){
   if(!invoke){toast('Preview mode: this action is available in the desktop build.');return}

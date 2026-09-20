@@ -1740,6 +1740,24 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             xy_series("balance","energy-balance residual",out["time"],diag["balance_residual"],x_label="time",y_label="residual")
         ],"Pinned conservative energy-balance compliance diagnostic.")
 
+    if experiment_id == "kerr-shadow" and tool == "morphology-sweep":
+        from physical_lab_kerr_shadow_sweep import kerr_shadow_morphology_sweep
+        depth=str(p.get("sweepDepth","Standard"))
+        spins={"Quick":[0.0,0.6,0.9],"Standard":[0.0,0.3,0.6,0.8,0.9,0.98],"Deep":[0.0,0.15,0.3,0.45,0.6,0.75,0.9,0.97,0.985]}.get(depth,[0.0,0.3,0.6,0.8,0.9,0.98])
+        inclinations=[]
+        for token in str(p.get("observerInclinationsText","15,30,45,60,75")).split(","):
+            token=token.strip()
+            if token: inclinations.append(float(token))
+        out=kerr_shadow_morphology_sweep(spins=spins,inclinations_deg=inclinations,curve_samples=i(p,"curveSamples",320,120,1200))
+        rows=out["rows"]
+        return result(experiment_id,"physical_lab_kerr_shadow_sweep.kerr_shadow_morphology_sweep",p,{
+            "cases":len(rows),"maxAbsHorizontalShiftOverM":out["max_abs_horizontal_shift_over_M"],
+            "maxAbsSignedFlattening":out["max_abs_signed_flattening"]
+        },[
+            xy_series("shadow-shift","horizontal shift",[r["spin_a_over_M"] for r in rows],[r["horizontal_shift_over_M"] for r in rows],x_label="a/M",y_label="shift/M",chart="scatter"),
+            xy_series("shadow-flat","signed flattening",[r["spin_a_over_M"] for r in rows],[r["signed_flattening"] for r in rows],x_label="a/M",y_label="flattening",chart="scatter"),
+        ],out["boundary"],[{"id":"morphology","label":"Kerr shadow morphology sweep","rows":rows}])
+
     if experiment_id == "kerr-geodesics" and tool in {"refinement","comparison","spin-sweep"}:
         if tool == "comparison":
             from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary

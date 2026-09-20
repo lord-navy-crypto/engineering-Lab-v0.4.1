@@ -557,47 +557,205 @@ def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
     K = f(p, "K", 0.7003, 0.0, 50.0)
     energy_gev = f(p, "energyGeV", 3.0, 0.001, 1000.0)
     use_gamma = b(p, "useGamma", False)
-    gamma = f(p, "gamma", energy_gev / E_REST_GEV, 1.01, 1e7) if use_gamma else energy_gev / E_REST_GEV
+    gamma = f(p, "gamma", energy_gev / E_REST_GEV, 1.01, 1e7) if use_gamma or "gamma" in p else energy_gev / E_REST_GEV
     harmonic = i(p, "harmonic", 1, 1, 99)
     periods = i(p, "periods", 20, 2, 500)
     period_m = period_mm / 1000.0
-    observation_mrad = f(p, "observationAngleMrad", 0.0, 0.0, 20.0)
-    extent_gamma_theta = f(p, "angularExtentGammaTheta", 2.5, 0.5, 5.0)
-    theta_span_mrad = max(0.25, extent_gamma_theta / gamma * 1000.0)
-    theta = np.linspace(max(0.0, observation_mrad - theta_span_mrad), observation_mrad + theta_span_mrad, 201)
-    theta_rad = theta / 1000.0
-    lam = period_m * (1 + K * K / 2 + (gamma * theta_rad) ** 2) / (2 * gamma * gamma * harmonic)
-    photon = HC_EV_M / lam
-    obs_lam = period_m * (1 + K * K / 2 + (gamma * observation_mrad / 1000.0) ** 2) / (2 * gamma * gamma * harmonic)
-    center = float(HC_EV_M / obs_lam)
-    ef = np.linspace(center * 0.82, center * 1.18, 801)
-    detune = periods * (ef / center - 1.0)
-    intensity = np.sinc(detune) ** 2
+    observer_distance = f(p, "observerDistanceM", 100.0, 1.0, 10000.0)
+    theta_x_mrad = f(p, "thetaXMrad", f(p, "observationAngleMrad", 0.0, -20.0, 20.0), -20.0, 20.0)
+    theta_y_mrad = f(p, "thetaYMrad", 0.0, -20.0, 20.0)
+    tracking_ppp = i(p, "trackingPointsPerPeriod", i(p, "trajectoryPointsPerPeriod", 64, 16, 256), 16, 256)
+
+    if mode != "full":
+        observation_mrad = math.hypot(theta_x_mrad, theta_y_mrad)
+        extent_gamma_theta = f(p, "angularExtentGammaTheta", 2.5, 0.5, 5.0)
+        theta_span_mrad = max(0.25, extent_gamma_theta / gamma * 1000.0)
+        theta = np.linspace(max(0.0, observation_mrad - theta_span_mrad), observation_mrad + theta_span_mrad, 201)
+        theta_rad = theta / 1000.0
+        lam = period_m * (1 + K * K / 2 + (gamma * theta_rad) ** 2) / (2 * gamma * gamma * harmonic)
+        photon = HC_EV_M / lam
+        obs_lam = period_m * (1 + K * K / 2 + (gamma * observation_mrad / 1000.0) ** 2) / (2 * gamma * gamma * harmonic)
+        center = float(HC_EV_M / obs_lam)
+        ef = np.linspace(center * 0.82, center * 1.18, 801)
+        detune = periods * (ef / center - 1.0)
+        intensity = np.sinc(detune) ** 2
+        return result(
+            "radiation-platform",
+            "native-analytic-resonance-safe",
+            {
+                "periodMm": period_mm, "K": K, "energyGeV": energy_gev, "gamma": gamma,
+                "harmonic": harmonic, "periods": periods, "thetaXMrad": theta_x_mrad,
+                "thetaYMrad": theta_y_mrad, "observerDistanceM": observer_distance,
+                "fieldModel": str(p.get("fieldModel", "analytic")), "requestedMode": mode,
+            },
+            {
+                "lorentzGamma": gamma,
+                "observationPhotonEnergyEV": center,
+                "observationWavelengthNm": HC_EV_M / center * 1e9,
+                "finiteNRelativeWidth": 1.0 / periods,
+            },
+            [
+                xy_series("angle", "resonance energy vs angle", theta, photon, x_label="observation angle (mrad)", y_label="photon energy (eV)"),
+                xy_series("spectrum", "finite-N resonance envelope", ef, intensity, x_label="photon energy (eV)", y_label="relative intensity"),
+            ],
+            "Safe mode is the ideal planar-undulator resonance/interference reference only. The complete configured RADIA field model, manufacturing-error model, Lorentz trajectory and retarded radiation solver are executed only in Full mode.",
+        )
+
+    import undulator_v11_radia_integrated_v9 as v11
+
+    field_model = str(p.get("fieldModel", "radia_generated"))
+    device_preset = str(p.get("devicePreset", "helical"))
+    if device_preset not in set(v11.list_device_presets()):
+        raise ValueError(f"Unknown Radiation Platform device preset: {device_preset}")
+    if field_model == "radia_csv":
+        raise ValueError("RADIA CSV mode requires an explicitly imported field-map file. Use the Original Data Bridge/import workflow first, or choose RADIA generated 3D field / analytic field.")
+
+    error_mode = str(p.get("errorMode", "Selected errors"))
+    switches = {
+        "field_amplitude": b(p, "errField", True),
+        "longitudinal_position": b(p, "errLongitudinal", True),
+        "transverse_position": b(p, "errTransverse", True),
+        "magnetization_angle": b(p, "errAngle", True),
+        "gap_asymmetry": b(p, "errGap", True),
+        "bank_strength_imbalance": b(p, "errBank", True),
+    }
+    if error_mode == "All errors":
+        switches = {key: True for key in switches}
+    elif error_mode == "Ideal (no errors)":
+        switches = {key: False for key in switches}
+
+    error_config = {
+        "field_amplitude": {"enabled": switches["field_amplitude"], "rms_fraction": f(p, "fieldSigmaPct", 0.2, 0.0, 25.0) / 100.0},
+        "longitudinal_position": {"enabled": switches["longitudinal_position"], "rms_m": f(p, "longitudinalSigmaUm", 20.0, 0.0, 10000.0) * 1e-6},
+        "transverse_position": {"enabled": switches["transverse_position"], "rms_m": f(p, "transverseSigmaUm", 10.0, 0.0, 10000.0) * 1e-6},
+        "magnetization_angle": {"enabled": switches["magnetization_angle"], "rms_rad": f(p, "angleSigmaMrad", 0.5, 0.0, 1000.0) * 1e-3},
+        "gap_asymmetry": {"enabled": switches["gap_asymmetry"], "rms_m": f(p, "gapAsymmetryUm", 10.0, 0.0, 10000.0) * 1e-6},
+        "bank_strength_imbalance": {"enabled": switches["bank_strength_imbalance"], "rms_fraction": f(p, "bankSigmaPct", 0.1, 0.0, 25.0) / 100.0},
+    }
+
+    if field_model == "radia_generated":
+        preset = v11.get_device_preset(device_preset)
+        manual_target = f(p, "manualTargetB0T", 0.15, 0.001, 20.0)
+        if str(p.get("generatedTargetMode", "Preset default")) == "Manual B0":
+            target_b0 = manual_target
+        elif preset.get("wiggler_K") is not None:
+            target_b0 = v11.B0_from_K(float(preset["wiggler_K"]), period_m)
+        else:
+            target_b0 = float(getattr(v11, "RADIA_TARGET_B0_T", 0.15))
+        radia_options = {
+            "lambda_u_m": period_m,
+            "target_B0_T": target_b0,
+            "gap_m": f(p, "radiaGapMm", 12.0, 0.5, 100.0) * 1e-3,
+            "block_width_m": f(p, "radiaBlockWidthMm", 10.0, 0.1, 100.0) * 1e-3,
+            "block_height_m": f(p, "radiaBlockHeightMm", 15.0, 0.1, 100.0) * 1e-3,
+            "x_half_m": f(p, "radiaMapHalfMm", 3.0, 0.2, 100.0) * 1e-3,
+            "y_half_m": f(p, "radiaMapHalfMm", 3.0, 0.2, 100.0) * 1e-3,
+            "nx": i(p, "radiaMapNxy", 7, 3, 11),
+            "ny": i(p, "radiaMapNxy", 7, 3, 11),
+            "samples_per_period": i(p, "radiaSamplesPerPeriod", 24, 8, 64),
+            "field_margin_periods": f(p, "radiaFieldMarginPeriods", 1.0, 0.0, 10.0),
+            "error_config": error_config,
+            "error_seed": i(p, "manufacturingSeed", 20260820, 0, 100000000),
+            "material_mode": str(p.get("radiaMaterialMode", "Fixed remanence")),
+            "mu_parallel": f(p, "radiaMuParallel", 1.05, 1.0, 3.0),
+            "mu_perpendicular": f(p, "radiaMuPerpendicular", 1.05, 1.0, 3.0),
+            "segmentation": (i(p, "radiaSegmentation", 1, 1, 3),) * 3,
+            "ellipticity": f(p, "radiaEllipticity", 0.5, 0.0, 1.0),
+            "apple_phase_deg": f(p, "radiaApplePhaseDeg", 90.0, -180.0, 180.0),
+            "apple_shift_mode": str(p.get("radiaAppleShiftMode", "Antiparallel")),
+        }
+        und = v11.make_default_undulator(
+            preset=device_preset,
+            field_model="radia_generated",
+            n_periods=periods,
+            error_switches=switches,
+            radia_options=radia_options,
+        )
+    else:
+        und = v11.make_default_undulator(
+            preset=device_preset,
+            field_model="analytic",
+            n_periods=periods,
+            analytic_h3=f(p, "analyticH3", 0.0, -0.5, 0.5),
+            analytic_h5=f(p, "analyticH5", 0.0, -0.5, 0.5),
+        )
+        if hasattr(und, "B0") and K >= 0:
+            try:
+                und.B0 = v11.B0_from_K(K, float(und.lambda_u))
+            except Exception:
+                pass
+
+    theta_x = theta_x_mrad * 1e-3
+    theta_y = theta_y_mrad * 1e-3
+    observer = np.array([
+        observer_distance * math.tan(theta_x),
+        observer_distance * math.tan(theta_y),
+        observer_distance,
+    ], dtype=float)
+    span = v11.simulation_span_for_device(gamma, und, n_periods=periods)
+    n_base = v11.samples_for_periods(
+        periods,
+        pts_per_period=tracking_ppp,
+        min_pts=max(1000, periods * tracking_ppp),
+        max_pts=max(4000, periods * tracking_ppp + 1),
+    )
+    full = v11.run_sim_scalar(
+        und, None, span, observer,
+        n_base=n_base, gamma0_input=gamma,
+    )
+    if not isinstance(full, dict):
+        raise RuntimeError("Pinned Radiation Platform full solver returned no valid result for this configuration.")
+
+    metrics = {}
+    for key, value in full.items():
+        if isinstance(value, (bool, str)):
+            metrics[key] = value
+        elif isinstance(value, (int, float, np.integer, np.floating)):
+            try:
+                if np.isfinite(float(value)):
+                    metrics[key] = float(value)
+            except Exception:
+                pass
+
+    inputs = {
+        "fieldModel": field_model,
+        "devicePreset": device_preset,
+        "periodMm": period_mm,
+        "K": K,
+        "gamma": gamma,
+        "periods": periods,
+        "observerDistanceM": observer_distance,
+        "thetaXMrad": theta_x_mrad,
+        "thetaYMrad": theta_y_mrad,
+        "trackingPointsPerPeriod": tracking_ppp,
+        "errorMode": error_mode,
+        "errorSwitches": switches,
+        "errorConfig": error_config,
+        "requestedMode": mode,
+    }
+    if field_model == "radia_generated":
+        inputs["radiaOptions"] = radia_options
+
+    tables = [
+        {
+            "id": "full-solver-summary",
+            "label": "Pinned V11/RADIA full-solver observables",
+            "rows": [{key: clean(value) for key, value in full.items() if not isinstance(value, (np.ndarray, list, tuple, dict))}],
+        },
+        {
+            "id": "error-configuration",
+            "label": "Manufacturing error configuration",
+            "rows": [{"error": key, **clean(value)} for key, value in error_config.items()],
+        },
+    ]
     return result(
         "radiation-platform",
-        "native-analytic-resonance",
-        {
-            "periodMm": period_mm, "K": K, "energyGeV": energy_gev, "gamma": gamma,
-            "useGamma": use_gamma, "harmonic": harmonic, "periods": periods,
-            "observationAngleMrad": observation_mrad,
-            "angularGridPoints": i(p, "angularGridPoints", 7, 5, 13),
-            "angularExtentGammaTheta": extent_gamma_theta,
-            "observerSamplesPerPixel": i(p, "observerSamplesPerPixel", 900, 100, 5000),
-            "trajectoryPointsPerPeriod": i(p, "trajectoryPointsPerPeriod", 48, 16, 256),
-            "observerDistanceM": f(p, "observerDistanceM", 100.0, 1.0, 10000.0),
-            "requestedMode": mode,
-        },
-        {
-            "lorentzGamma": gamma,
-            "observationPhotonEnergyEV": center,
-            "observationWavelengthNm": HC_EV_M / center * 1e9,
-            "finiteNRelativeWidth": 1.0 / periods,
-        },
-        [
-            xy_series("angle", "resonance energy vs angle", theta, photon, x_label="observation angle (mrad)", y_label="photon energy (eV)"),
-            xy_series("spectrum", "finite-N resonance envelope", ef, intensity, x_label="photon energy (eV)", y_label="relative intensity"),
-        ],
-        "Native analytic resonance/interference calculation using the configured gamma/observer geometry. Angular pixel sampling, trajectory samples and observer distance are preserved in the experiment state for parity with the full trajectory-radiation workflow; they become physically active only in that full field-map solver.",
+        "pinned-radiation-platform-full-core",
+        clean(inputs),
+        metrics,
+        [],
+        "Full mode directly reuses the pinned Radiation Platform field-device builder, Lorentz trajectory integration, retarded Liénard-Wiechert observer signal, spectrum/Stokes analysis, trajectory/phase diagnostics, energy accounting and radiation observables. RADIA-generated mode additionally uses the pinned strict 3-D RADIA field-map backend with the configured manufacturing-error model.",
+        tables,
     )
 
 

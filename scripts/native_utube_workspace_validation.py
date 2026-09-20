@@ -246,7 +246,8 @@ assert "ENGINEERING_ACTION_CATALOG" in action_js
 assert "ENGINEERING_ACTION_PARITY" in action_js
 assert 'data-view="actions"' in html
 assert 'id="actionsView"' in html
-assert 'id="actionGrid"' in html
+assert 'id="actionGroups"' in html
+assert 'id="actionGrid"' not in html
 assert "renderActionCatalog" in native
 assert "pl_action=" in native
 assert 'st.query_params.get("pl_action")' in project_patch

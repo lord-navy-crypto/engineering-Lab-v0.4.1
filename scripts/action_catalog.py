@@ -48,6 +48,23 @@ EXTRA_MODULES = {
     "physical_lab_radia_radiation_propagation",
 }
 
+# Visual/workflow labels may evolve without deleting the underlying action.
+# Keep pre-redesign action identities resolvable to their current, clearer tab names.
+LEGACY_ACTION_ALIASES = {
+    ("physical_lab_kerr_ui", "tab", "Single orbit"): "1 · Run — Single orbit",
+    ("physical_lab_kerr_ui", "tab", "Massive ↔ photon"): "2 · Comparison — Massive ↔ photon",
+    ("physical_lab_kerr_ui", "tab", "Spin sweep"): "3 · Analysis — Spin sweep",
+    ("physical_lab_kerr_ui", "tab", "Numerical verification"): "4 · Verification — Numerical audit",
+    ("physical_lab_solar_system_ui", "tab", "Setup & run"): "1 · Setup & run",
+    ("physical_lab_solar_system_ui", "tab", "Results"): "2 · Results",
+    ("physical_lab_solar_system_ui", "tab", "Sensitivity audit"): "3 · Verification — Sensitivity audit",
+    ("physical_lab_solar_system_ui", "tab", "Advanced tools"): "4 · Analysis — Advanced tools",
+    ("physical_lab_lattice_ui", "tab", "Setup & run"): "1 · Setup & run",
+    ("physical_lab_lattice_ui", "tab", "Dynamics results"): "2 · Results — Dynamics",
+    ("physical_lab_lattice_ui", "tab", "Modes & phonons"): "3 · Analysis — Modes & phonons",
+    ("physical_lab_lattice_ui", "tab", "Advanced tools"): "4 · Verification & advanced tools",
+}
+
 
 def _load_registry(root: Path):
     path = root / "src-tauri" / "resources" / "ui" / "physical_lab_surface_registry.py"
@@ -161,6 +178,18 @@ def build_action_catalog(root: Path, baseline_ref: str = BASELINE_REF) -> dict[s
     current_by_key = {_key(row): row for row in current}
     baseline_by_key = {_key(row): row for row in baseline}
 
+    # Treat a renamed workflow tab as the same preserved action when an explicit
+    # legacy alias points to a current control in the same module/type.
+    resolved_aliases: dict[tuple[str, str, str], tuple[str, str, str]] = {}
+    for legacy_key, current_label in LEGACY_ACTION_ALIASES.items():
+        target_key = (legacy_key[0], legacy_key[1], current_label)
+        if legacy_key in baseline_by_key and target_key in current_by_key:
+            alias_row = dict(current_by_key[target_key])
+            alias_row["label"] = legacy_key[2]
+            alias_row["aliased_to"] = current_label
+            current_by_key.setdefault(legacy_key, alias_row)
+            resolved_aliases[legacy_key] = target_key
+
     missing_from_current = [
         row for key, row in sorted(baseline_by_key.items())
         if key not in current_by_key
@@ -187,6 +216,7 @@ def build_action_catalog(root: Path, baseline_ref: str = BASELINE_REF) -> dict[s
             "line": int(row.get("line") or 0),
             "baseline_action": key in baseline_by_key,
             "current_action": key in current_by_key,
+            "aliased_to": (current_by_key.get(key) or {}).get("aliased_to"),
         })
 
     return {
@@ -197,6 +227,7 @@ def build_action_catalog(root: Path, baseline_ref: str = BASELINE_REF) -> dict[s
         "current_action_count": len(current_by_key),
         "catalog_action_count": len(actions),
         "missing_from_current": missing_from_current,
+        "resolved_alias_count": len(resolved_aliases),
         "unmapped_modules": sorted(unmapped_modules),
         "actions": actions,
     }

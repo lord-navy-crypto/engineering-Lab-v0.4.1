@@ -34,7 +34,7 @@
     "safeBackend": "standard",
     "safeModeNote": "Uses the normal NumPy/mpmath scientific implementation; no fragile external physics engine is required.",
     "fullModeNote": "Same validated numerical solver today. Full mode is reserved for future external reference engines.",
-    "revision": "37275bab5c1918b2dc991de12bfd03c8fd6286b1"
+    "revision": "51816da5b6543d2eb9aa5675d50daa42859a5a24"
   },
   {
     "id": "ising-monte-carlo",
@@ -71,7 +71,7 @@
     "safeBackend": "standard",
     "safeModeNote": "Uses NumPy/SciPy Monte Carlo directly; no fragile external physics engine is required.",
     "fullModeNote": "Same validated Ising solver today. No native external engine is required.",
-    "revision": "ebd79c89ce4d1d621b0ca0d06da9fc6072b9026d"
+    "revision": "17e29d4a912bb83db78a3fa7a22ae8827b7ab26b"
   },
   {
     "id": "random-walk-monte-carlo",
@@ -110,7 +110,7 @@
     "safeBackend": "standard",
     "safeModeNote": "Uses the normal NumPy/SciPy/Matplotlib implementation; no fragile engine is required.",
     "fullModeNote": "Same validated stochastic solver today. No native external engine is required.",
-    "revision": "fc7fb190520ca5588daa1b1260a55a040b7e95ea"
+    "revision": "33276ff2573ff9334e709ddb8d08cac16a93fa6f"
   },
   {
     "id": "nonlinear-chaos",
@@ -148,7 +148,7 @@
     "safeBackend": "standard",
     "safeModeNote": "Uses NumPy/SciPy/mpmath directly; no fragile external physics engine is required.",
     "fullModeNote": "Same validated nonlinear solver today. No native external engine is required.",
-    "revision": "2ef9e4f0180aa0af31afa660e5e60899193fdd28"
+    "revision": "03848b9640ec7d630dda2088d2768ada4495a3b3"
   },
   {
     "id": "oscillation-integration",
@@ -185,7 +185,7 @@
     "safeBackend": "standard",
     "safeModeNote": "Uses the existing NumPy/SciPy oscillator and integration solvers; no fragile external engine is required.",
     "fullModeNote": "Same validated solver today. PyChrono is not forced into this model until a real comparison adapter is implemented.",
-    "revision": "4981df60353ae32639535c8e5d1bacf73c296f1e"
+    "revision": "abd1141e622bc25bcf56c6f68dd53e0da1d375cd"
   },
   {
     "id": "radia-magnet-studio",
@@ -227,7 +227,7 @@
     "safeBackend": "radia-analytic",
     "safeModeNote": "Runs an analytical ideal-undulator fallback without importing RADIA. NumPy/SciPy/plotting packages remain allowed.",
     "fullModeNote": "Runs the full RADIA 3-D magnet geometry and field solver.",
-    "revision": "3bceb02a5195a6eb14d01458cc44f7206ed6b40a"
+    "revision": "f47117a12ca225b98a38e4155af9204bcac957df"
   },
   {
     "id": "radiation-platform",
@@ -270,7 +270,7 @@
     "safeBackend": "radiation-analytic",
     "safeModeNote": "Runs analytical undulator/radiation estimates without importing RADIA. It is a fallback, not a replacement for 3-D field solving.",
     "fullModeNote": "Runs the full magnet → trajectory → radiation workflow with RADIA.",
-    "revision": "6d19b36304c9d30f9b608214f7cfb9fcbaf941d4"
+    "revision": "85d785ae8ebb98a560496ca95be65e9bc883db3f"
   },
   {
     "kind": "lab",

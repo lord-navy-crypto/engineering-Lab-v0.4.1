@@ -397,18 +397,94 @@ const NATIVE_TOOL_SPECS = Object.freeze({
 });
 
 let nativeExperimentResult = null;
+let nativeExperimentToolResult = null;
+let nativeExperimentVerificationResult = null;
+
+function nativeParameterGroup(field){
+  const name=String(field.name||'').toLowerCase();
+  if(/seed|uncert|spread|divergence|stochastic|langevin|temperature/.test(name))return 'Stochastic / uncertainty';
+  if(/rtol|atol|maxstep|samples|points|bins|grid|order|cycles|dt|duration|lambdamax|segment|maxyears/.test(name))return 'Numerical / solver';
+  if(/drive|force|damping|zeta|omega|stiff|alpha|beta|drag|backreaction|1pn|strain/.test(name))return 'Driving / physics';
+  return 'Model / geometry';
+}
+
+function nativeParameterUsesLogSlider(field){
+  const min=Number(field.min),max=Number(field.max);
+  return Number.isFinite(min)&&Number.isFinite(max)&&min>0&&max/min>=1000;
+}
+
+function nativeParameterHasSlider(field){
+  if(field.type!=='number')return false;
+  if(/seed/i.test(String(field.name||'')))return false;
+  return Number.isFinite(Number(field.min))&&Number.isFinite(Number(field.max))&&Number(field.max)>Number(field.min);
+}
 
 function nativeParameterHtml(field){
   const name=uEsc(field.name),label=uEsc(field.label);
-  if(field.type==='checkbox')return '<label class="native-check"><input data-native-param="'+name+'" type="checkbox" '+(field.value?'checked':'')+'><span>'+label+'</span></label>';
-  if(field.type==='select')return '<label>'+label+'<select data-native-param="'+name+'">'+field.options.map(v=>'<option '+(String(v)===String(field.value)?'selected':'')+'>'+uEsc(v)+'</option>').join('')+'</select></label>';
-  return '<label>'+label+'<input data-native-param="'+name+'" type="number" value="'+uEsc(field.value)+'" min="'+uEsc(field.min??'')+'" max="'+uEsc(field.max??'')+'" step="'+uEsc(field.step??'any')+'"></label>';
+  if(field.type==='checkbox')return '<label class="native-check professional-check"><input data-native-param="'+name+'" type="checkbox" '+(field.value?'checked':'')+'><span>'+label+'</span></label>';
+  if(field.type==='select')return '<label class="professional-param"><span class="param-label">'+label+'</span><select data-native-param="'+name+'">'+field.options.map(v=>'<option '+(String(v)===String(field.value)?'selected':'')+'>'+uEsc(v)+'</option>').join('')+'</select></label>';
+  const hasSlider=nativeParameterHasSlider(field);
+  const log=hasSlider&&nativeParameterUsesLogSlider(field);
+  const slider=hasSlider
+    ?('<input class="param-range" data-param-range="'+name+'" data-range-mode="'+(log?'log':'linear')+'" type="range" min="'+uEsc(log?Math.log10(Number(field.min)):field.min)+'" max="'+uEsc(log?Math.log10(Number(field.max)):field.max)+'" step="'+uEsc(log?.001:(field.step??'any'))+'" value="'+uEsc(log?Math.log10(Number(field.value)):field.value)+'">')
+    :'';
+  return '<label class="professional-param"><span class="param-label">'+label+'</span><div class="param-input-row"><input data-native-param="'+name+'" type="number" value="'+uEsc(field.value)+'" min="'+uEsc(field.min??'')+'" max="'+uEsc(field.max??'')+'" step="'+uEsc(field.step??'any')+'"><span class="param-value-tag">'+uEsc(field.value)+'</span></div>'+slider+'</label>';
 }
+
+function bindProfessionalParameterControls(){
+  document.querySelectorAll('#nativeExperimentControls [data-native-param]').forEach(input=>{
+    if(input.type!=='number')return;
+    const key=input.dataset.nativeParam;
+    const range=document.querySelector('#nativeExperimentControls [data-param-range="'+key+'"]');
+    const tag=input.closest('.professional-param')?.querySelector('.param-value-tag');
+    const updateTag=()=>{if(tag)tag.textContent=input.value};
+    input.addEventListener('input',()=>{
+      updateTag();
+      if(!range)return;
+      const value=Number(input.value);
+      if(!Number.isFinite(value))return;
+      if(range.dataset.rangeMode==='log'&&value>0)range.value=String(Math.log10(value));
+      else range.value=String(value);
+    });
+    if(range){
+      range.addEventListener('input',()=>{
+        let value=Number(range.value);
+        if(range.dataset.rangeMode==='log')value=10**value;
+        const step=Number(input.step);
+        if(Number.isFinite(step)&&step>0&&range.dataset.rangeMode!=='log'){
+          const min=Number(input.min)||0;
+          value=Math.round((value-min)/step)*step+min;
+        }
+        input.value=(Math.abs(value)>=1e5||Math.abs(value)<1e-5&&value!==0)?value.toExponential(8):String(Number(value.toPrecision(9)));
+        updateTag();
+      });
+    }
+    updateTag();
+  });
+}
+
+function renderNativeParameterSections(fields){
+  const order=['Model / geometry','Driving / physics','Numerical / solver','Stochastic / uncertainty'];
+  const groups=new Map(order.map(x=>[x,[]]));
+  fields.forEach(field=>groups.get(nativeParameterGroup(field))?.push(field));
+  return order.filter(name=>groups.get(name).length).map((name,index)=>{
+    const items=groups.get(name);
+    return '<section class="parameter-section"><div class="parameter-section-heading"><span>'+String(index+1).padStart(2,'0')+'</span><div><strong>'+uEsc(name)+'</strong><small>'+items.length+' adjustable controls</small></div></div><div class="native-parameter-grid professional-control-grid">'+items.map(nativeParameterHtml).join('')+'</div></section>';
+  }).join('');
+}
+
 function renderNativeExperimentControls(spec){
-  const schema=NATIVE_PARAMETER_SCHEMAS[spec.id]||[];
-  uEl('nativeExperimentControls').innerHTML=schema.map(nativeParameterHtml).join('');
+  const primary=NATIVE_PARAMETER_SCHEMAS[spec.id]||[];
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
-  uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
+  const seen=new Set();
+  const fields=[...primary,...advanced].filter(field=>{
+    if(seen.has(field.name))return false;
+    seen.add(field.name);return true;
+  });
+  uEl('nativeExperimentControls').innerHTML=renderNativeParameterSections(fields);
+  uEl('nativeExperimentParameterCount').textContent=String(fields.length);
+  bindProfessionalParameterControls();
+
   const tools=[...(NATIVE_TOOL_SPECS[spec.id]||[]),...NATIVE_GLOBAL_TOOL_SPECS];
   const toolGroups=[
     ['Experiment-specific',tools.filter(t=>(NATIVE_TOOL_SPECS[spec.id]||[]).some(x=>x.id===t.id))],
@@ -424,17 +500,39 @@ function renderNativeExperimentControls(spec){
   uEl('nativeExperimentTools').innerHTML=toolHtml+original;
   document.querySelectorAll('[data-open-full-original]').forEach(b=>b.onclick=()=>openFullOriginalWorkspace(b.dataset.openFullOriginal));
   document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
+  document.querySelectorAll('[data-native-verification-tool]').forEach(b=>b.onclick=()=>runNativeVerificationTool(b.dataset.nativeVerificationTool));
+  if(uEl('nativeExperimentOpenOriginalVerification'))uEl('nativeExperimentOpenOriginalVerification').onclick=()=>activeNativeExperimentId&&openFullOriginalWorkspace(activeNativeExperimentId);
+
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;
+  nativeExperimentToolResult=null;
+  nativeExperimentVerificationResult=null;
   uEl('nativeExperimentMetrics').innerHTML='';
   uEl('nativeExperimentResultCharts').innerHTML='';
   uEl('nativeExperimentResultTables').innerHTML='';
+  uEl('nativeExperimentToolMetrics').innerHTML='';
+  uEl('nativeExperimentToolCharts').innerHTML='';
+  uEl('nativeExperimentToolTables').innerHTML='';
+  uEl('nativeExperimentVerificationMetrics').innerHTML='';
+  uEl('nativeExperimentVerificationCharts').innerHTML='';
+  uEl('nativeExperimentVerificationTables').innerHTML='';
+  uEl('nativeExperimentToolBoundary').textContent='';
+  uEl('nativeExperimentVerificationBoundary').textContent='';
   uEl('nativeExperimentResultBoundary').textContent='Run the experiment to view its model assumptions and scientific boundary.';
+  uEl('nativeExperimentBackend').textContent='not run';
+  uEl('nativeExperimentVerificationMode').textContent='not run';
+  uEl('nativeExperimentVerificationParameters').textContent='—';
+  uEl('nativeExperimentVerificationOutputs').textContent='—';
+  uEl('nativeExperimentToolBackend').textContent='not run';
+  uEl('nativeExperimentVerificationBackend').textContent='not run';
   if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=false;
+  if(uEl('nativeExperimentToolEmpty'))uEl('nativeExperimentToolEmpty').hidden=false;
+  if(uEl('nativeExperimentVerificationEmpty'))uEl('nativeExperimentVerificationEmpty').hidden=false;
 }
+
 function collectNativeExperimentParameters(){
   const values={};
-  document.querySelectorAll('#nativeExperimentControls [data-native-param], #nativeExperimentAdvancedControls [data-native-param]').forEach(node=>{
+  document.querySelectorAll('#nativeExperimentControls [data-native-param]').forEach(node=>{
     const key=node.dataset.nativeParam;
     if(node.type==='checkbox')values[key]=node.checked;
     else if(node.type==='number'){const v=Number(node.value);if(!Number.isFinite(v))throw new Error(key+' must be finite');values[key]=v}
@@ -442,6 +540,7 @@ function collectNativeExperimentParameters(){
   });
   return values;
 }
+
 function nativeMetricText(value){
   if(value===null||value===undefined)return '—';
   if(typeof value==='number'){
@@ -453,27 +552,49 @@ function nativeMetricText(value){
   if(typeof value==='object')return JSON.stringify(value);
   return String(value);
 }
-function renderNativeExperimentResult(payload){
-  nativeExperimentResult=payload;
+
+function renderNativePayload(payload,targets){
   const metrics=payload.metrics||{};
   const entries=Object.entries(metrics).filter(([,v])=>typeof v!=='object'||v===null||Array.isArray(v));
-  uEl('nativeExperimentMetrics').innerHTML=entries.length?entries.slice(0,16).map(([k,v])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(nativeMetricText(v))+'</strong></div>').join(''):'<div class="empty-state compact-empty">No scalar metrics returned.</div>';
+  uEl(targets.metrics).innerHTML=entries.length?entries.slice(0,24).map(([k,v])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(nativeMetricText(v))+'</strong></div>').join(''):'<div class="empty-state compact-empty">No scalar metrics returned.</div>';
   const series=Array.isArray(payload.series)?payload.series:[];
-  uEl('nativeExperimentResultCharts').innerHTML=series.map((s,idx)=>{
-    const points=(s.x||[]).map((x,i)=>({x:Number(x),y:Number((s.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
-    const graph=s.chart==='scatter'?nativeScatterSvg([{label:s.label||s.id,points}],{xLabel:s.xLabel||'x',yLabel:s.yLabel||'y'}):utubeLineSvg([{label:s.label||s.id,points}],{xLabel:s.xLabel||'x',yLabel:s.yLabel||'y',height:280});
-    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(s.label||s.id||('Series '+(idx+1)))+'</span><small>'+uEsc(s.chart||'line')+'</small></div>'+graph+'</article>';
+  uEl(targets.charts).innerHTML=series.map((seriesRow,idx)=>{
+    const points=(seriesRow.x||[]).map((x,i)=>({x:Number(x),y:Number((seriesRow.y||[])[i])})).filter(point=>Number.isFinite(point.x)&&Number.isFinite(point.y));
+    const graph=seriesRow.chart==='scatter'?nativeScatterSvg([{label:seriesRow.label||seriesRow.id,points}],{xLabel:seriesRow.xLabel||'x',yLabel:seriesRow.yLabel||'y'}):utubeLineSvg([{label:seriesRow.label||seriesRow.id,points}],{xLabel:seriesRow.xLabel||'x',yLabel:seriesRow.yLabel||'y',height:280});
+    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(seriesRow.label||seriesRow.id||('Series '+(idx+1)))+'</span><small>'+uEsc(seriesRow.chart||'line')+'</small></div>'+graph+'</article>';
   }).join('');
   const tables=Array.isArray(payload.tables)?payload.tables:[];
-  uEl('nativeExperimentResultTables').innerHTML=tables.map(t=>{
-    const rows=Array.isArray(t.rows)?t.rows:[];if(!rows.length)return '';
-    const keys=Object.keys(rows[0]).slice(0,12);
-    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
+  uEl(targets.tables).innerHTML=tables.map(table=>{
+    const rows=Array.isArray(table.rows)?table.rows:[];if(!rows.length)return '';
+    const keys=Object.keys(rows[0]).slice(0,14);
+    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(table.label||table.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,160).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
   }).join('');
-  uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'';
-  if(uEl('nativeExperimentBackend'))uEl('nativeExperimentBackend').textContent=payload.backend||'scientific adapter';
-  if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=true;
+  if(targets.boundary)uEl(targets.boundary).textContent=payload.boundary||'';
+  if(targets.backend)uEl(targets.backend).textContent=payload.backend||'scientific adapter';
+  if(targets.empty)uEl(targets.empty).hidden=true;
 }
+
+function renderNativeExperimentResult(payload,parameters,mode){
+  nativeExperimentResult=payload;
+  renderNativePayload(payload,{metrics:'nativeExperimentMetrics',charts:'nativeExperimentResultCharts',tables:'nativeExperimentResultTables',empty:'nativeExperimentEmptyResults'});
+  uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'No explicit boundary returned.';
+  uEl('nativeExperimentBackend').textContent=payload.backend||'scientific adapter';
+  uEl('nativeExperimentVerificationMode').textContent=mode||'safe';
+  uEl('nativeExperimentVerificationParameters').textContent=String(Object.keys(parameters||{}).length);
+  const outputs=Object.keys(payload.metrics||{}).length+(payload.series||[]).length+(payload.tables||[]).length;
+  uEl('nativeExperimentVerificationOutputs').textContent=String(outputs);
+}
+
+function renderNativeToolResult(payload){
+  nativeExperimentToolResult=payload;
+  renderNativePayload(payload,{metrics:'nativeExperimentToolMetrics',charts:'nativeExperimentToolCharts',tables:'nativeExperimentToolTables',boundary:'nativeExperimentToolBoundary',backend:'nativeExperimentToolBackend',empty:'nativeExperimentToolEmpty'});
+}
+
+function renderNativeVerificationResult(payload){
+  nativeExperimentVerificationResult=payload;
+  renderNativePayload(payload,{metrics:'nativeExperimentVerificationMetrics',charts:'nativeExperimentVerificationCharts',tables:'nativeExperimentVerificationTables',boundary:'nativeExperimentVerificationBoundary',backend:'nativeExperimentVerificationBackend',empty:'nativeExperimentVerificationEmpty'});
+}
+
 async function runNativeExperiment(){
   if(!activeNativeExperimentId||activeNativeExperimentId==='utube-studio')return;
   if(!invoke){toast('Experiment execution is available in the desktop build.',true);return}
@@ -484,8 +605,8 @@ async function runNativeExperiment(){
     const parameters=collectNativeExperimentParameters();
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
-    renderNativeExperimentResult(payload);
-    uEl('nativeExperimentRunStatus').textContent='Completed.';
+    renderNativeExperimentResult(payload,parameters,mode);
+    uEl('nativeExperimentRunStatus').textContent='Completed. Primary result saved in Results; analysis tools are ready.';
     document.querySelector('[data-native-exp-tab="results"]')?.click();
   }catch(e){
     uEl('nativeExperimentRunStatus').textContent=String(e);
@@ -494,7 +615,6 @@ async function runNativeExperiment(){
     button.disabled=false;button.textContent='Run Experiment';
   }
 }
-
 
 async function runNativeExperimentTool(tool){
   if(!activeNativeExperimentId||!invoke)return;
@@ -506,9 +626,26 @@ async function runNativeExperimentTool(tool){
     if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
-    renderNativeExperimentResult(payload);
-    status.textContent='Completed '+tool+'. Results are available in Results and Verification.';
-    document.querySelector('[data-native-exp-tab="results"]')?.click();
+    renderNativeToolResult(payload);
+    status.textContent='Completed '+tool+'. Analysis output remains in Tools & Analysis.';
+  }catch(e){
+    status.textContent=String(e);
+    toast(String(e),true);
+  }
+}
+
+async function runNativeVerificationTool(tool){
+  if(!activeNativeExperimentId||!invoke)return;
+  const status=uEl('nativeExperimentStatus');
+  try{
+    status.textContent='Running verification tool '+tool+'…';
+    const parameters=collectNativeExperimentParameters();
+    parameters.__tool=tool;
+    if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
+    const mode=uEl('nativeExperimentRunMode').value||'safe';
+    const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
+    renderNativeVerificationResult(payload);
+    status.textContent='Completed verification tool '+tool+'.';
   }catch(e){
     status.textContent=String(e);
     toast(String(e),true);

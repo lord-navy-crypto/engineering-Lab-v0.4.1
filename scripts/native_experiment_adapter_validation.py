@@ -14,11 +14,11 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 CASES = {
-    "numerical-methods": {"xMax": 1.5, "order": 7, "points": 101},
-    "ising-monte-carlo": {"size": 8, "temperature": 2.269, "sweeps": 20, "seed": 7},
-    "random-walk-monte-carlo": {"steps": 30, "walkers": 120, "dimension": 2, "seed": 7},
-    "nonlinear-chaos": {"duration": 5, "dt": 0.05, "damping": 0.2, "drive": 1.2, "driveOmega": 0.6666667},
-    "oscillation-integration": {"duration": 3, "dt": 0.02, "omega0": 2, "zeta": 0.08, "force": 0.6, "driveOmega": 1.6},
+    "numerical-methods": {"xMin": -1.5, "xMax": 1.5, "points": 61, "method": "range_reduced", "maxTerms": 40, "referencePrecisionDigits": 50},
+    "ising-monte-carlo": {"size": 6, "temperature": 2.269, "seed": 7, "equilibrationSweeps": 8, "measurementSweeps": 12, "measureEvery": 1, "recordEvery": 2, "scanMethod": "metropolis"},
+    "random-walk-monte-carlo": {"steps": 30, "walkers": 120, "dimension": 2, "seed": 7, "trajectorySteps": 20},
+    "nonlinear-chaos": {"duration": 1.5, "dt": 0.02, "damping": 0.0, "mass1": 1.0, "mass2": 1.0, "length1": 1.0, "length2": 1.0},
+    "oscillation-integration": {"duration": 2, "dt": 0.02, "omega0": 2, "gamma": 0.08, "force": 0.2, "driveOmega": 1.6, "method": "rk4"},
     "radia-magnet-studio": {"periodMm": 50, "b0T": 0.15, "periods": 5, "samples": 81},
     "radiation-platform": {"periodMm": 50, "K": 0.7, "energyGeV": 3, "harmonic": 1, "periods": 10},
     "kerr-geodesics": {"spin": 0.5, "inclinationDeg": 10, "particleType": "massive", "periapsis": 7, "apoapsis": 9, "lambdaMax": 2, "samples": 200},
@@ -49,6 +49,13 @@ for experiment_id, params in CASES.items():
 print("Native experiment adapter smoke suite: PASS 14/14")
 
 TOOL_CASES = [
+    ("numerical-methods", "single-point-convergence", {"singleX": 1.0, "convergenceTerms": 20, "method": "range_reduced", "maxTerms": 40, "referencePrecisionDigits": 50}),
+    ("numerical-methods", "method-comparison", {"xMin": -1.0, "xMax": 1.0, "points": 31, "maxTerms": 40, "referencePrecisionDigits": 50}),
+    ("ising-monte-carlo", "multi-chain", {"size": 4, "temperature": 2.5, "seed": 3, "equilibrationSweeps": 4, "measurementSweeps": 8, "measureEvery": 1, "scanMethod": "metropolis"}),
+    ("random-walk-monte-carlo", "convergence-scan", {"sampleCounts": "50,100", "trialsPerCount": 3, "seed": 3}),
+    ("random-walk-monte-carlo", "reproducibility", {"dimension": 2, "multiSeedSteps": 20, "walkersPerSeed": 40, "independentSeeds": 3, "seed": 3, "auditStepModel": "fixed", "fixedStep": 1.0}),
+    ("nonlinear-chaos", "lyapunov-convergence", {"mass1": 1.0, "mass2": 1.0, "length1": 1.0, "length2": 1.0, "gravity": 9.81, "damping": 0.0, "theta1": 1.0, "theta2": 0.8, "lyapunovDuration": 1.0, "lyapunovDt": 0.02}),
+    ("oscillation-integration", "timestep-scan", {"mass": 1.0, "omega0": 2.0, "gamma": 0.0, "force": 0.0, "driveOmega": 1.6, "x0": 1.0, "v0": 0.0, "duration": 1.0, "dtMin": 0.01, "dtMax": 0.04, "scanPoints": 4, "method": "rk4"}),
     ("kerr-geodesics", "refinement", {"spin": 0.5, "inclinationDeg": 10, "particleType": "massive", "periapsis": 7, "apoapsis": 9, "lambdaMax": 2, "samples": 200}),
     ("solar-system-dynamics", "ftle", {"durationYears": 0.2, "samples": 100, "inclinationDeg": 5, "maxStepYears": 0.01, "ftleSegmentYears": 0.05, "ftleMaxYears": 0.2}),
     ("honeycomb-lattice", "normal-modes", {"nx": 2, "ny": 2, "layers": 1, "stacking": "AA"}),
@@ -79,7 +86,7 @@ print(f"Native deep-tool smoke suite: PASS {len(TOOL_CASES)}/{len(TOOL_CASES)}")
 
 
 
-base_context = runner.HANDLERS["numerical-methods"]({"xMax": 1.5, "order": 7, "points": 101}, "safe")
+base_context = runner.HANDLERS["numerical-methods"]({"xMin": -1.5, "xMax": 1.5, "points": 61, "method": "range_reduced", "maxTerms": 40, "referencePrecisionDigits": 50}, "safe")
 GLOBAL_TOOL_CASES = [
     ("result-inspector", {}),
     ("bootstrap", {"bootstrapResamples": 200, "bootstrapConfidence": 0.95, "analysisSeed": 7}),
@@ -106,7 +113,7 @@ WORKFLOW_TOOL_CASES = [
     ("elasticity-sensitivity", {}),
     ("standardized-sensitivity", {}),
 ]
-workflow_context = runner.HANDLERS["numerical-methods"]({"xMax": 1.5, "order": 7, "points": 101}, "safe")
+workflow_context = runner.HANDLERS["numerical-methods"]({"xMin": -1.5, "xMax": 1.5, "points": 61, "method": "range_reduced", "maxTerms": 40, "referencePrecisionDigits": 50}, "safe")
 for tool, extra in WORKFLOW_TOOL_CASES:
     payload = runner.run_global_analysis_tool("numerical-methods", tool, {"contextResult": workflow_context, **extra})
     assert payload["schema"] == runner.SCHEMA
@@ -155,7 +162,7 @@ NATIVE_ANALYSIS_BATCH_TOOLS = [
     "run-comparison",
     "morris-design",
 ]
-analysis_context = runner.HANDLERS["numerical-methods"]({"xMax": 2.0, "order": 7, "points": 121}, "safe")
+analysis_context = runner.HANDLERS["numerical-methods"]({"xMin": -2.0, "xMax": 2.0, "points": 81, "method": "range_reduced", "maxTerms": 40, "referencePrecisionDigits": 50}, "safe")
 for tool in NATIVE_ANALYSIS_BATCH_TOOLS:
     payload = runner.run_global_analysis_tool("numerical-methods", tool, {
         "contextResult": analysis_context,

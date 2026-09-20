@@ -1856,7 +1856,7 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
         start_ratio=f(p,"duffingStartRatio",.7,.1,3.0); stop_ratio=f(p,"duffingStopRatio",1.6,.2,5.0)
         if stop_ratio <= start_ratio: raise ValueError("Duffing stop frequency ratio must exceed start ratio")
         q=_sweep_quality(str(p.get("duffingSweepQuality","Standard")),nonlinear=True)
-        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
+        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"duffingForce",f(p,"force",.3,0.0,20.0),0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
         rows=out["rows"]; omega=[r["omega_rad_s"] for r in rows]
         return result(experiment_id,"physical_lab_frequency_response.duffing_frequency_sweep",p,{
             "forwardPeakFrequencyRadS":out["forward_peak_frequency_rad_s"],"forwardPeakAmplitude":out["forward_peak_amplitude"],"reversePeakFrequencyRadS":out["reverse_peak_frequency_rad_s"],"reversePeakAmplitude":out["reverse_peak_amplitude"],"maxBranchAmplitudeGap":out["max_branch_amplitude_gap"]

@@ -11,6 +11,7 @@ let logDir = "";
 let dataDir = "";
 let tasks = new Map();
 let activeCategory = 'All';
+let currentView = 'home';
 let activeModule = null;
 let activeMode = null;
 let selectedModes = {};
@@ -38,6 +39,12 @@ const icons = {
 };
 
 const el = id => document.getElementById(id);
+const activeViewRoot = () => document.querySelector('.view.active-view');
+const viewEl = id => {
+  const node=document.getElementById(id);
+  return node && node.closest('.view')===activeViewRoot() ? node : null;
+};
+const inActiveView = selector => activeViewRoot()?.querySelectorAll(selector) || [];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function toast(message, error=false){
@@ -46,10 +53,21 @@ function toast(message, error=false){
 }
 
 function showView(name){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active-view'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
   const map={home:['homeView','Physical Lab','One local home for your computational physics tools.'],labs:['labsView','Physics Labs','Install, open and switch between computational models.'],modelbuilder:['modelBuilderView','Research Model Builder','Preserve the science. Standardize the interface. Automate the bridge.'],runtime:['runtimeView','Runtime Center','Scientific runtimes, builders and dependency health.'],dependencies:['dependenciesView','Dependency Center','Everything Physical Lab needs, and exactly how it is delivered.'],workspaces:['workspacesView','Projects','Reproducible experimental workspaces.'],data:['dataView','Data Bridge','Measurements, Arduino serial capture and dataset provenance.'],integrity:['integrityView','Integrity Center','Per-Lab compatibility and scientific smoke tests.'],pipelines:['pipelinesView','Physics Pipelines','Explicit cross-Lab handoffs and native adapter boundaries.'],campaigns:['campaignsView','Campaigns','Persistent parameter-scan planning and run queues.'],results:['resultsView','Results Center','Statistics, model validation and reproducibility exports.'],tasks:['tasksView','Task Center','Live work performed by Physical Lab.'],settings:['settingsView','Settings','Desktop-shell defaults and visualization policy.'],lab:['labView','Lab Session','Running locally inside Physical Lab.'],utube:['utubeView','Rotating U-Tube','Native Engineering Club experiment workspace.']};
-  const item=map[name]||map.home; el(item[0]).classList.add('active-view'); el('viewTitle').textContent=item[1]; el('viewSubtitle').textContent=item[2];
+  const item=map[name]||map.home;
+  currentView=map[name]?name:'home';
+  document.body.dataset.view=currentView;
+  document.querySelectorAll('.view').forEach(v=>{
+    const active=v.id===item[0];
+    v.classList.toggle('active-view',active);
+    v.hidden=!active;
+    if('inert' in v) v.inert=!active;
+    v.setAttribute('aria-hidden',active?'false':'true');
+  });
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===currentView));
+  el('viewTitle').textContent=item[1];
+  el('viewSubtitle').textContent=item[2];
+  render();
 }
 
 function mockModules(){
@@ -203,18 +221,45 @@ async function runDependencyAction(id){
   try{const msg=await invoke('dependency_action',{dependencyId:id});toast(msg);setTimeout(refreshAll,700)}catch(e){toast(String(e),true)}
 }
 
+function renderGlobalStatus(){
+  if(el('logPath'))el('logPath').textContent=logDir||'not available';
+  if(el('dataPath'))el('dataPath').textContent=dataDir||'not available';
+  if(el('pythonDot')){el('pythonDot').className='dot '+(runtime.pythonReady?'good':'warn');el('pythonMini').textContent=runtime.pythonReady?(runtime.pythonVersion||'Python ready'):'Python missing';}
+  if(el('radiaDot')){el('radiaDot').className='dot '+(runtime.radiaReady?'good':'warn');el('radiaMini').textContent=runtime.radiaReady?'RADIA ready':'RADIA not installed';}
+}
 function render(){
   const labs=modules.filter(m=>m.kind==='lab'), runtimes=modules.filter(m=>m.kind==='runtime');
-  if(el('logPath'))el('logPath').textContent=logDir||'not available'; if(el('dataPath'))el('dataPath').textContent=dataDir||'not available';
-  const installed=labs.filter(m=>statusFor(m).ready).length;
-  el('stats').innerHTML=[[String(modules.length),'Integrated modules'],[String(labs.length),'Physics labs'],[String(runtimes.length),'Runtime builders'],[String(installed),'Ready to open']].map(s=>`<div class="stat"><strong>${s[0]}</strong><span>${s[1]}</span></div>`).join('');
-  el('featuredGrid').innerHTML=nativeUtubeCard()+labs.slice(-2).map(labCard).join('');
-  const cats=['All',...new Set(labs.map(m=>m.category))];
-  el('labFilters').innerHTML=cats.map(c=>`<button class="filter ${c===activeCategory?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
-  const visible=activeCategory==='All'?labs:labs.filter(m=>m.category===activeCategory);
-  el('labGrid').innerHTML=(activeCategory==='All'?nativeUtubeCard():'')+visible.map(labCard).join('');
-  el('runtimeGrid').innerHTML=runtimes.map(runtimeCard).join('');
-  renderRuntimeSummary(); renderDependencies(); renderResearch(); renderModelBuilder(); renderSettings(); applyUiSettings(); bindDynamic(); bindNativeUtube(); renderTasks(); applySearch();
+  renderGlobalStatus();
+  applyUiSettings();
+
+  if(currentView==='home'){
+    const installed=labs.filter(m=>statusFor(m).ready).length;
+    el('stats').innerHTML=[[String(modules.length),'Integrated modules'],[String(labs.length),'Physics labs'],[String(runtimes.length),'Runtime builders'],[String(installed),'Ready to open']].map(s=>`<div class="stat"><strong>${s[0]}</strong><span>${s[1]}</span></div>`).join('');
+    el('featuredGrid').innerHTML=nativeUtubeCard()+labs.slice(-2).map(labCard).join('');
+    bindDynamic();bindNativeUtube();
+  }else if(currentView==='labs'){
+    const cats=['All',...new Set(labs.map(m=>m.category))];
+    el('labFilters').innerHTML=cats.map(c=>`<button class="filter ${c===activeCategory?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+    const visible=activeCategory==='All'?labs:labs.filter(m=>m.category===activeCategory);
+    el('labGrid').innerHTML=(activeCategory==='All'?nativeUtubeCard():'')+visible.map(labCard).join('');
+    bindDynamic();bindNativeUtube();
+  }else if(currentView==='runtime'){
+    el('runtimeGrid').innerHTML=runtimes.map(runtimeCard).join('');
+    renderRuntimeSummary();bindDynamic();
+  }else if(currentView==='dependencies'){
+    renderDependencies();bindDynamic();
+  }else if(currentView==='modelbuilder'){
+    renderModelBuilder();
+  }else if(['workspaces','data','integrity','pipelines','campaigns','results'].includes(currentView)){
+    renderResearch();
+  }else if(currentView==='settings'){
+    renderSettings();
+  }else if(currentView==='tasks'){
+    renderTasks();
+  }else if(currentView==='utube'){
+    bindNativeUtube();renderNativeUtube();
+  }
+  applySearch();
 }
 
 
@@ -242,28 +287,28 @@ async function refreshDatasetsForActive(rerender=true){
 }
 function renderResearch(){
   const ws=activeWorkspace();
-  if(el('activeWorkspaceBadge'))el('activeWorkspaceBadge').textContent=ws?`Project: ${ws.name}`:'No project selected';
-  if(el('workspaceGrid')){
-    el('workspaceGrid').innerHTML=workspaces.length?workspaces.map(w=>`<article class="workspace-card ${w.id===activeWorkspaceId?'active':''}"><div class="category">PHYSICAL LAB PROJECT</div><h4>${esc(w.name)}</h4><div class="workspace-meta"><div><span>Datasets</span><strong>${w.datasets}</strong></div><div><span>Runs</span><strong>${w.runs}</strong></div><div><span>Campaigns</span><strong>${w.campaigns}</strong></div></div><div class="dataset-path">${esc(w.path)}</div><div class="card-actions"><button class="${w.id===activeWorkspaceId?'secondary':'primary'}" data-workspace-select="${esc(w.id)}">${w.id===activeWorkspaceId?'Active':'Use Project'}</button><button class="secondary" data-workspace-open="${esc(w.id)}">Open Folder</button></div></article>`).join(''):'<div class="empty-state">Create your first reproducible Physical Lab project.</div>';
+  if(viewEl('activeWorkspaceBadge'))viewEl('activeWorkspaceBadge').textContent=ws?`Project: ${ws.name}`:'No project selected';
+  if(viewEl('workspaceGrid')){
+    viewEl('workspaceGrid').innerHTML=workspaces.length?workspaces.map(w=>`<article class="workspace-card ${w.id===activeWorkspaceId?'active':''}"><div class="category">PHYSICAL LAB PROJECT</div><h4>${esc(w.name)}</h4><div class="workspace-meta"><div><span>Datasets</span><strong>${w.datasets}</strong></div><div><span>Runs</span><strong>${w.runs}</strong></div><div><span>Campaigns</span><strong>${w.campaigns}</strong></div></div><div class="dataset-path">${esc(w.path)}</div><div class="card-actions"><button class="${w.id===activeWorkspaceId?'secondary':'primary'}" data-workspace-select="${esc(w.id)}">${w.id===activeWorkspaceId?'Active':'Use Project'}</button><button class="secondary" data-workspace-open="${esc(w.id)}">Open Folder</button></div></article>`).join(''):'<div class="empty-state">Create your first reproducible Physical Lab project.</div>';
   }
-  if(el('datasetGrid')){
-    el('datasetGrid').innerHTML=datasets.length?datasets.map(d=>`<article class="dataset-card"><div class="category">${esc((d.format||'data').toUpperCase())} · ${esc(d.quantity||'Measurement')}</div><h4>${esc(d.name)}</h4><div class="dataset-meta"><div><span>Unit</span><strong>${esc(d.unit||'—')}</strong></div><div><span>Sensor</span><strong>${esc(d.sensor||'—')}</strong></div><div><span>SHA</span><strong>${esc((d.sha256||'—').slice(0,10))}</strong></div></div><div class="dataset-path">${esc(d.storedFile)}</div><div class="card-actions"><button class="secondary" data-dataset-analyze="${esc(d.id)}">Analyze</button></div></article>`).join(''):'<div class="empty-state">No datasets in the active project.</div>';
+  if(viewEl('datasetGrid')){
+    viewEl('datasetGrid').innerHTML=datasets.length?datasets.map(d=>`<article class="dataset-card"><div class="category">${esc((d.format||'data').toUpperCase())} · ${esc(d.quantity||'Measurement')}</div><h4>${esc(d.name)}</h4><div class="dataset-meta"><div><span>Unit</span><strong>${esc(d.unit||'—')}</strong></div><div><span>Sensor</span><strong>${esc(d.sensor||'—')}</strong></div><div><span>SHA</span><strong>${esc((d.sha256||'—').slice(0,10))}</strong></div></div><div class="dataset-path">${esc(d.storedFile)}</div><div class="card-actions"><button class="secondary" data-dataset-analyze="${esc(d.id)}">Analyze</button></div></article>`).join(''):'<div class="empty-state">No datasets in the active project.</div>';
   }
   const labOptions=modules.filter(m=>m.kind==='lab').map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
-  if(el('campaignModule'))el('campaignModule').innerHTML=labOptions;if(el('snapshotModule'))el('snapshotModule').innerHTML=labOptions;
-  if(el('resultDataset'))el('resultDataset').innerHTML=datasets.length?datasets.map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join(''):'<option value="">No dataset</option>';
-  const runOpts=runSnapshots.length?runSnapshots.map(r=>`<option value="${esc(r.id)}">${esc((r.moduleId||'run')+' · '+(r.createdAt||''))}</option>`).join(''):'<option value="">No saved runs</option>';if(el('compareRunA'))el('compareRunA').innerHTML=runOpts;if(el('compareRunB')){el('compareRunB').innerHTML=runOpts;if(runSnapshots.length>1)el('compareRunB').selectedIndex=1;}
-  if(el('pipelineGrid'))el('pipelineGrid').innerHTML=pipelineTemplates.map((p,i)=>{const steps=p.steps||[];return `<article class="pipeline-card"><div class="category">PIPELINE TEMPLATE</div><h4>${esc(p.name||'Physics pipeline')}</h4><div class="pipeline-steps">${steps.map((st,j)=>`${j?'<span class="pipeline-arrow">→</span>':''}<span class="pipeline-step">${esc(st.label||st.id||'Step')}</span>`).join('')}</div><p class="hint">${esc(p.note||'Explicit reproducible handoff.')}</p><button class="secondary" data-pipeline-save="${i}">Save to Project</button></article>`}).join('');
-  if(el('adapterGrid'))el('adapterGrid').innerHTML=adapterStatuses.map(a=>`<article class="integrity-card"><div class="category">NATIVE ADAPTER</div><h4>${esc(a.name)}</h4><div class="adapter-state"><strong>${a.runtimeFound?'Runtime found':'Runtime optional / not found'}</strong><br/>${esc(a.adapterState)}<div>${(a.interchange||[]).map(x=>`<code>${esc(x)}</code>`).join('')}</div><p class="hint">${esc(a.note||'')}</p></div></article>`).join('');
-  if(el('campaignStatus'))el('campaignStatus').innerHTML=campaignData.length?campaignData.map(c=>`<article class="campaign-card"><div><div class="category">${esc(c.queueState||'ready')} · ${esc(c.moduleId||'Lab')}</div><h4>${esc(c.id)}</h4><p class="hint">${esc(c.parameter||'parameter')}: ${c.start} → ${c.stop} · ${c.points} points · max parallel ${c.maxParallel||1}</p></div><div class="card-actions"><button class="secondary small" data-campaign-action="pause" data-campaign-id="${esc(c.id)}">Pause</button><button class="secondary small" data-campaign-action="resume" data-campaign-id="${esc(c.id)}">Resume</button><button class="secondary small" data-campaign-action="retry-failed" data-campaign-id="${esc(c.id)}">Retry failed</button></div></article>`).join(''):'Select a project, then create a campaign.';
+  if(viewEl('campaignModule'))viewEl('campaignModule').innerHTML=labOptions;if(viewEl('snapshotModule'))viewEl('snapshotModule').innerHTML=labOptions;
+  if(viewEl('resultDataset'))viewEl('resultDataset').innerHTML=datasets.length?datasets.map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join(''):'<option value="">No dataset</option>';
+  const runOpts=runSnapshots.length?runSnapshots.map(r=>`<option value="${esc(r.id)}">${esc((r.moduleId||'run')+' · '+(r.createdAt||''))}</option>`).join(''):'<option value="">No saved runs</option>';if(viewEl('compareRunA'))viewEl('compareRunA').innerHTML=runOpts;if(viewEl('compareRunB')){viewEl('compareRunB').innerHTML=runOpts;if(runSnapshots.length>1)viewEl('compareRunB').selectedIndex=1;}
+  if(viewEl('pipelineGrid'))viewEl('pipelineGrid').innerHTML=pipelineTemplates.map((p,i)=>{const steps=p.steps||[];return `<article class="pipeline-card"><div class="category">PIPELINE TEMPLATE</div><h4>${esc(p.name||'Physics pipeline')}</h4><div class="pipeline-steps">${steps.map((st,j)=>`${j?'<span class="pipeline-arrow">→</span>':''}<span class="pipeline-step">${esc(st.label||st.id||'Step')}</span>`).join('')}</div><p class="hint">${esc(p.note||'Explicit reproducible handoff.')}</p><button class="secondary" data-pipeline-save="${i}">Save to Project</button></article>`}).join('');
+  if(viewEl('adapterGrid'))viewEl('adapterGrid').innerHTML=adapterStatuses.map(a=>`<article class="integrity-card"><div class="category">NATIVE ADAPTER</div><h4>${esc(a.name)}</h4><div class="adapter-state"><strong>${a.runtimeFound?'Runtime found':'Runtime optional / not found'}</strong><br/>${esc(a.adapterState)}<div>${(a.interchange||[]).map(x=>`<code>${esc(x)}</code>`).join('')}</div><p class="hint">${esc(a.note||'')}</p></div></article>`).join('');
+  if(viewEl('campaignStatus'))viewEl('campaignStatus').innerHTML=campaignData.length?campaignData.map(c=>`<article class="campaign-card"><div><div class="category">${esc(c.queueState||'ready')} · ${esc(c.moduleId||'Lab')}</div><h4>${esc(c.id)}</h4><p class="hint">${esc(c.parameter||'parameter')}: ${c.start} → ${c.stop} · ${c.points} points · max parallel ${c.maxParallel||1}</p></div><div class="card-actions"><button class="secondary small" data-campaign-action="pause" data-campaign-id="${esc(c.id)}">Pause</button><button class="secondary small" data-campaign-action="resume" data-campaign-id="${esc(c.id)}">Resume</button><button class="secondary small" data-campaign-action="retry-failed" data-campaign-id="${esc(c.id)}">Retry failed</button></div></article>`).join(''):'Select a project, then create a campaign.';
   bindResearchDynamic();
 }
 function bindResearchDynamic(){
-  document.querySelectorAll('[data-workspace-select]').forEach(b=>b.onclick=async()=>{activeWorkspaceId=b.dataset.workspaceSelect;localStorage.setItem('physicalLab.activeWorkspace',activeWorkspaceId);await refreshResearchBasics();renderResearch();toast('Active project selected.')});
-  document.querySelectorAll('[data-workspace-open]').forEach(b=>b.onclick=async()=>{if(!invoke)return;try{await invoke('open_workspace',{workspaceId:b.dataset.workspaceOpen})}catch(e){toast(String(e),true)}});
-  document.querySelectorAll('[data-dataset-analyze]').forEach(b=>b.onclick=async()=>{showView('results');if(el('resultDataset'))el('resultDataset').value=b.dataset.datasetAnalyze;await analyzeSelectedDataset()});
-  document.querySelectorAll('[data-pipeline-save]').forEach(b=>b.onclick=()=>savePipelineTemplate(Number(b.dataset.pipelineSave)));
-  document.querySelectorAll('[data-campaign-action]').forEach(b=>b.onclick=()=>runCampaignAction(b.dataset.campaignId,b.dataset.campaignAction));
+  inActiveView('[data-workspace-select]').forEach(b=>b.onclick=async()=>{activeWorkspaceId=b.dataset.workspaceSelect;localStorage.setItem('physicalLab.activeWorkspace',activeWorkspaceId);await refreshResearchBasics();renderResearch();toast('Active project selected.')});
+  inActiveView('[data-workspace-open]').forEach(b=>b.onclick=async()=>{if(!invoke)return;try{await invoke('open_workspace',{workspaceId:b.dataset.workspaceOpen})}catch(e){toast(String(e),true)}});
+  inActiveView('[data-dataset-analyze]').forEach(b=>b.onclick=async()=>{showView('results');if(el('resultDataset'))el('resultDataset').value=b.dataset.datasetAnalyze;await analyzeSelectedDataset()});
+  inActiveView('[data-pipeline-save]').forEach(b=>b.onclick=()=>savePipelineTemplate(Number(b.dataset.pipelineSave)));
+  inActiveView('[data-campaign-action]').forEach(b=>b.onclick=()=>runCampaignAction(b.dataset.campaignId,b.dataset.campaignAction));
 }
 async function createProject(){
   const name=el('workspaceName').value.trim();if(!name){toast('Enter a project name.',true);return}if(!invoke){toast('Project creation is available in the desktop build.');return}
@@ -326,11 +371,11 @@ function resetUiSettings(){
 }
 
 function bindDynamic(){
-  document.querySelectorAll('[data-install]').forEach(b=>b.onclick=()=>installModule(b.dataset.install));
-  document.querySelectorAll('[data-uninstall]').forEach(b=>b.onclick=()=>uninstallModule(b.dataset.uninstall));
-  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openModule(b.dataset.open,selectedModes[b.dataset.open]||'safe'));
-  document.querySelectorAll('[data-mode-id]').forEach(b=>b.onclick=()=>{selectedModes[b.dataset.modeId]=b.dataset.mode;render()});
-  document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;render()});
+  inActiveView('[data-install]').forEach(b=>b.onclick=()=>installModule(b.dataset.install));
+  inActiveView('[data-uninstall]').forEach(b=>b.onclick=()=>uninstallModule(b.dataset.uninstall));
+  inActiveView('[data-open]').forEach(b=>b.onclick=()=>openModule(b.dataset.open,selectedModes[b.dataset.open]||'safe'));
+  inActiveView('[data-mode-id]').forEach(b=>b.onclick=()=>{selectedModes[b.dataset.modeId]=b.dataset.mode;render()});
+  inActiveView('[data-cat]').forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;render()});
 }
 
 async function installModule(id){
@@ -437,7 +482,7 @@ function renderTasks(){
 
 async function cancelTaskById(id){if(!invoke)return;try{const msg=await invoke('cancel_task',{taskId:id});toast(msg)}catch(e){toast(String(e),true)}}
 function onTask(ev){const t=ev.payload||ev;const previous=tasks.get(t.taskId);t.updatedAt=Date.now();tasks.set(t.taskId,t);renderTasks();if(uiSettings.taskCompletionToasts&&t.done&&!previous?.done)toast(`${t.title||'Physical Lab task'} completed.`);}
-function applySearch(){const q=el('searchInput').value.trim().toLowerCase();document.querySelectorAll('.module-card[data-search]').forEach(c=>c.style.display=(!q||c.dataset.search.includes(q))?'':'none')}
+function applySearch(){const q=el('searchInput').value.trim().toLowerCase();inActiveView('.module-card[data-search]').forEach(c=>c.style.display=(!q||c.dataset.search.includes(q))?'':'none')}
 
 async function initEvents(){if(listen){await listen('physical-lab://task-progress',onTask)}}
 
@@ -477,4 +522,5 @@ if(el('compareRuns'))el('compareRuns').onclick=compareSavedRuns;
 if(el('saveSettings'))el('saveSettings').onclick=saveUiSettings;
 if(el('resetSettings'))el('resetSettings').onclick=resetUiSettings;
 
+showView('home');
 initEvents().then(refreshAll);

@@ -236,15 +236,14 @@
           <div>
             <div id="nativeExperimentEyebrow" class="eyebrow">EXPERIMENT</div>
             <h2 id="nativeExperimentTitle">Experiment</h2>
-            <p id="nativeExperimentSubtitle">Configure, run, and review this experiment.</p>
+            <p id="nativeExperimentSubtitle">Configure the complete experiment state, run it, then analyze and verify the result.</p>
           </div>
         </div>
         <div class="experiment-tabs">
           <button class="filter active" data-native-exp-tab="setup">Setup</button>
-          <button class="filter" data-native-exp-tab="advanced">Advanced</button>
           <button class="filter" data-native-exp-tab="tools">Tools & Analysis</button>
           <button class="filter" data-native-exp-tab="results">Results</button>
-          <button class="filter" data-native-exp-tab="verification">Verification</button>
+          <button class="filter" data-native-exp-tab="verification">Verification & Assumptions</button>
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="setup">
@@ -260,9 +259,9 @@
           </article>
         </div>
 
-        <div class="native-exp-tab-panel" data-native-exp-panel="advanced" hidden>
-          <article class="experiment-panel">
-            <div class="panel-heading"><div><h3>Advanced model & solver settings</h3><p>Full experiment controls are preserved here instead of being removed from the UI.</p></div></div>
+        <div class="native-exp-tab-panel setup-subsection" data-native-exp-panel="setup">
+          <article class="experiment-panel setup-secondary-panel">
+            <div class="panel-heading"><div><div class="eyebrow">MODEL / SOLVER DEPTH</div><h3>Advanced model & solver settings</h3><p>These controls are part of Setup, not a separate workflow stage. Full experiment controls remain preserved.</p></div></div>
             <div id="nativeExperimentAdvancedControls" class="native-parameter-grid"></div>
             <div class="advanced-runtime-row">
               <label>Engine mode<select id="nativeExperimentRunMode"><option value="safe">Safe</option><option value="full">Full</option></select></label>
@@ -271,8 +270,19 @@
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="tools" hidden>
-          <div id="nativeExperimentTools" class="experiment-tool-grid"></div>
-          <div id="nativeExperimentToolStatus" class="native-status">Choose a tool to run experiment-specific analysis.</div>
+          <div class="tools-workbench-head">
+            <div><div class="eyebrow">POST-PROCESSING WORKBENCH</div><h3>Tools & Analysis</h3><p>Analysis runs against the current experiment state. Its output stays here and does not overwrite the authoritative primary result.</p></div>
+            <div id="nativeExperimentToolStatus" class="native-status">Run the experiment first, then choose an analysis tool.</div>
+          </div>
+          <div id="nativeExperimentTools" class="professional-tool-groups"></div>
+          <section class="tool-output-workbench">
+            <div class="panel-heading"><div><h3>Analysis output</h3><p>Tool-specific metrics, plots, tables and scientific boundary.</p></div><span id="nativeExperimentToolBackend" class="status-pill">not run</span></div>
+            <div id="nativeExperimentToolMetrics" class="native-result-metrics"></div>
+            <div id="nativeExperimentToolCharts" class="native-result-charts"></div>
+            <div id="nativeExperimentToolTables"></div>
+            <div id="nativeExperimentToolEmpty" class="empty-state compact-empty">Choose a tool after running the experiment.</div>
+            <p id="nativeExperimentToolBoundary" class="boundary-inline"></p>
+          </section>
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="results" hidden>
@@ -283,17 +293,36 @@
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="verification" hidden>
-          <article class="verification-panel">
-            <h3>Verification & assumptions</h3>
-            <p id="nativeExperimentResultBoundary">Run the experiment to view its model assumptions and scientific boundary.</p>
-            <details class="advanced-disclosure">
-              <summary>Execution details</summary>
-              <div class="advanced-body">
-                <p>Computation runs through the experiment's scientific adapter and returns structured results directly to Engineering Lab.</p>
-                <p>Execution backend: <strong id="nativeExperimentBackend">not run</strong></p>
+          <div class="verification-workbench">
+            <article class="verification-panel verification-primary">
+              <div class="eyebrow">MODEL BOUNDARY</div>
+              <h3>Scientific assumptions & limits</h3>
+              <p id="nativeExperimentResultBoundary">Run the experiment to view its model assumptions and scientific boundary.</p>
+            </article>
+            <article class="verification-panel">
+              <div class="eyebrow">EXECUTION & PROVENANCE</div>
+              <h3>Run identity</h3>
+              <p>Primary execution backend: <strong id="nativeExperimentBackend">not run</strong></p>
+            </article>
+            <article class="verification-panel">
+              <div class="eyebrow">NUMERICAL CHECKS</div>
+              <h3>Inspect & challenge the current result</h3>
+              <p>Verification is kept separate from primary Results and from ordinary analysis.</p>
+              <div class="verification-actions">
+                <button class="secondary" data-native-verification-tool="result-inspector">Result Inspector</button>
+                <button class="secondary" data-native-verification-tool="convergence-diagnostics">Convergence diagnostics</button>
               </div>
-            </details>
-          </article>
+              <div id="nativeExperimentVerificationStatus" class="native-status">Run the primary experiment first, then launch a verification check.</div>
+            </article>
+            <article class="verification-panel verification-analysis-output">
+              <div class="panel-heading"><div><h3>Verification output</h3><p>Verification metrics, plots, tables and boundary stay in this tab.</p></div><span id="nativeExperimentVerificationBackend" class="status-pill">not run</span></div>
+              <div id="nativeExperimentVerificationMetrics" class="native-result-metrics"></div>
+              <div id="nativeExperimentVerificationCharts" class="native-result-charts"></div>
+              <div id="nativeExperimentVerificationTables"></div>
+              <div id="nativeExperimentVerificationEmpty" class="empty-state compact-empty">Run a verification check above.</div>
+              <p id="nativeExperimentVerificationBoundary" class="boundary-inline"></p>
+            </article>
+          </div>
         </div>
         <div id="nativeExperimentStatus" class="native-status subtle-status">Ready.</div>
       </section>
@@ -309,10 +338,9 @@
         </div>
         <div class="experiment-tabs">
           <button class="filter active" data-utube-tab="setup">Setup</button>
-          <button class="filter" data-utube-tab="advanced">Advanced</button>
           <button class="filter" data-utube-tab="tools">Tools & Analysis</button>
           <button class="filter" data-utube-tab="results">Results</button>
-          <button class="filter" data-utube-tab="verification">Verification</button>
+          <button class="filter" data-utube-tab="verification">Verification & Assumptions</button>
         </div>
 
         <div class="utube-panel" data-utube-panel="setup">
@@ -332,9 +360,9 @@
           </article>
         </div>
 
-        <div class="utube-panel" data-utube-panel="advanced" hidden>
-          <article class="experiment-panel">
-            <div class="panel-heading"><div><h3>Advanced U-Tube settings</h3><p>Dynamic, uncertainty, sensitivity, and experiment-planning inputs remain directly adjustable.</p></div></div>
+        <div class="utube-panel setup-subsection" data-utube-panel="setup">
+          <article class="experiment-panel setup-secondary-panel">
+            <div class="panel-heading"><div><div class="eyebrow">APPARATUS / UNCERTAINTY DEPTH</div><h3>Advanced U-Tube settings</h3><p>Dynamic, uncertainty, sensitivity and experiment-planning inputs belong to the same Setup stage and remain directly adjustable.</p></div></div>
             <div class="native-control-grid">
               <label>Ramp rate (rpm/s)<input id="utRampRate" type="number" min="0" step="0.5" value="8"></label>
               <label>Response τ (s)<input id="utTau" type="number" min="0" step="0.01" value="0.35"></label>

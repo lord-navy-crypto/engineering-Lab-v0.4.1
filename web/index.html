@@ -299,7 +299,7 @@
         </div>
 
         <div class="native-exp-tab-panel" data-native-exp-panel="results" hidden>
-          <div class="results-workbench-head"><div><div class="eyebrow">PRIMARY EXPERIMENT OUTPUT</div><h3>Results</h3><p>Only the authoritative output from Run Experiment is shown here.</p></div></div>
+          <div class="results-workbench-head"><div><div class="eyebrow">PRIMARY EXPERIMENT OUTPUT</div><h3>Results</h3><p>Only the authoritative output from Run Experiment is shown here.</p></div><div id="nativeExperimentResultsStatus" class="native-status">No primary run yet.</div></div>
           <div id="nativeExperimentMetrics" class="native-result-metrics"></div>
           <div id="nativeExperimentResultCharts" class="native-result-charts"></div>
           <div id="nativeExperimentResultTables"></div>
@@ -333,6 +333,7 @@
                 <button class="secondary" id="nativeExperimentOpenOriginalVerification">Open full original V&V workspace</button>
               </div>
             </article>
+            <div id="nativeExperimentVerificationStatus" class="native-status">Run the primary experiment first, then launch a verification check.</div>
             <article class="verification-panel verification-analysis-output">
               <div class="panel-heading"><div><h3>Verification analysis output</h3><p>Inspector/convergence results appear here.</p></div><span id="nativeExperimentVerificationBackend" class="status-pill">not run</span></div>
               <div id="nativeExperimentVerificationMetrics" class="native-result-metrics"></div>

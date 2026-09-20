@@ -222,6 +222,7 @@ const NATIVE_PARAMETER_SCHEMAS = Object.freeze({
     {name:'driveOmega',label:'Drive ω',type:'number',value:1.6,min:0,max:20,step:.05}
   ],
   'radia-magnet-studio':[
+    {name:'builtInPreset',label:'Built-in preset',type:'select',value:'Planar baseline',options:['Planar baseline','Helical baseline','Elliptical baseline','APPLE-II baseline','High-K wiggler example','Manufacturing-error demonstration']},
     {name:'device',label:'Type',type:'select',value:'Planar',options:['Planar','Helical','Elliptical','APPLE-II','Wiggler']},
     {name:'periodMm',label:'Period λu (mm)',type:'number',value:50,min:1,max:1000,step:1},
     {name:'periods',label:'Number of periods',type:'number',value:20,min:1,max:500,step:1},
@@ -335,6 +336,7 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
   ],
 
   'radiation-platform':[
+    {name:'stage1Model',label:'Saved Stage-1 model used by Stage 2',type:'select',value:'Current Radiation setup',options:['Current Radiation setup','Latest native RADIA run']},
     {name:'fieldModel',label:'Field model',type:'select',value:'radia_generated',options:['radia_generated','analytic','radia_csv']},
     {name:'devicePreset',label:'Insertion device',type:'select',value:'helical',options:['helical','left_helical','planar','elliptical','variable_polarization','apple2','wiggler']},
     {name:'analyticH3',label:'Third-harmonic field coefficient H3/H1',type:'number',value:0,min:-.5,max:.5,step:.001},
@@ -398,6 +400,8 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
     {name:'showEnergy',label:'Energy accounting',type:'checkbox',value:true},
     {name:'showQuantum',label:'Quantum χ monitor',type:'checkbox',value:true},
     {name:'showChaos',label:'Advanced chaos / MLE',type:'checkbox',value:false},
+    {name:'showSingleDevicePreview',label:'Show single-device z-axis field preview',type:'checkbox',value:false},
+    {name:'deepAnalysisScanPoint',label:'Deep-analysis scan point',type:'number',value:0,min:0,max:80,step:1},
     {name:'betaMin',label:'Speed minimum β = v/c',type:'number',value:.6,min:.001,max:.999999999,step:.01},
     {name:'betaMax',label:'Speed maximum β = v/c',type:'number',value:.95,min:.001,max:.999999999,step:.01},
     {name:'gammaMin',label:'γ min',type:'number',value:1.25,min:1.01,max:60000,step:.25},
@@ -539,6 +543,7 @@ const NATIVE_TOOL_SPECS = Object.freeze({
 });
 
 let nativeExperimentResult = null;
+const nativeExperimentResultById = Object.create(null);
 let nativeExperimentToolResult = null;
 let nativeExperimentVerificationResult = null;
 
@@ -618,6 +623,29 @@ function renderNativeParameterSections(fields){
   }).join('');
 }
 
+const RADIA_BUILTIN_PRESETS=Object.freeze({
+  'Planar baseline':{device:'Planar',periodMm:50,periods:20,gapMm:12,blocksPerPeriod:'4',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.2,errorsEnabled:false},
+  'Helical baseline':{device:'Helical',periodMm:50,periods:20,gapMm:12,blocksPerPeriod:'8',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.2,errorsEnabled:false},
+  'Elliptical baseline':{device:'Elliptical',periodMm:50,periods:20,gapMm:12,blocksPerPeriod:'8',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.2,errorsEnabled:false},
+  'APPLE-II baseline':{device:'APPLE-II',periodMm:50,periods:20,gapMm:12,blocksPerPeriod:'4',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.2,errorsEnabled:false},
+  'High-K wiggler example':{device:'Wiggler',periodMm:100,periods:20,gapMm:12,blocksPerPeriod:'4',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.5,errorsEnabled:false},
+  'Manufacturing-error demonstration':{device:'Planar',periodMm:50,periods:20,gapMm:12,blocksPerPeriod:'4',blockWidthMm:10,blockHeightMm:10,longitudinalFill:.9,brT:1.2,errorsEnabled:true}
+});
+
+function applyNativeRadiaPreset(){
+  const presetNode=document.querySelector('#nativeExperimentControls [data-native-param="builtInPreset"]');
+  if(!presetNode)return;
+  const values=RADIA_BUILTIN_PRESETS[presetNode.value];if(!values)return;
+  Object.entries(values).forEach(([key,value])=>{
+    const node=document.querySelector('#nativeExperimentControls [data-native-param="'+key+'"]');
+    if(!node)return;
+    if(node.type==='checkbox')node.checked=Boolean(value); else node.value=String(value);
+    node.dispatchEvent(new Event('input',{bubbles:true}));
+    node.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  uEl('nativeExperimentRunStatus').textContent='Applied pinned RADIA preset: '+presetNode.value+'. Review or fine-tune any parameter before running.';
+}
+
 function renderNativeExperimentControls(spec){
   const primary=NATIVE_PARAMETER_SCHEMAS[spec.id]||[];
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
@@ -627,8 +655,12 @@ function renderNativeExperimentControls(spec){
     seen.add(field.name);return true;
   });
   uEl('nativeExperimentControls').innerHTML=renderNativeParameterSections(fields);
+  if(spec.id==='radia-magnet-studio'){
+    uEl('nativeExperimentControls').insertAdjacentHTML('afterbegin','<div class="preset-apply-strip"><div><strong>Pinned RADIA presets</strong><span>Select a Built-in preset below, then apply it to the complete Setup.</span></div><button id="nativeRadiaApplyPreset" type="button" class="secondary">Apply selected preset</button></div>');
+  }
   uEl('nativeExperimentParameterCount').textContent=String(fields.length);
   bindProfessionalParameterControls();
+  if(uEl('nativeRadiaApplyPreset'))uEl('nativeRadiaApplyPreset').onclick=applyNativeRadiaPreset;
 
   const tools=[...(NATIVE_TOOL_SPECS[spec.id]||[]),...NATIVE_GLOBAL_TOOL_SPECS];
   const toolGroups=[
@@ -723,6 +755,7 @@ function renderNativePayload(payload,targets){
 
 function renderNativeExperimentResult(payload,parameters,mode){
   nativeExperimentResult=payload;
+  if(activeNativeExperimentId)nativeExperimentResultById[activeNativeExperimentId]=payload;
   renderNativePayload(payload,{metrics:'nativeExperimentMetrics',charts:'nativeExperimentResultCharts',tables:'nativeExperimentResultTables',empty:'nativeExperimentEmptyResults'});
   uEl('nativeExperimentResultBoundary').textContent=payload.boundary||'No explicit boundary returned.';
   uEl('nativeExperimentBackend').textContent=payload.backend||'scientific adapter';
@@ -750,6 +783,10 @@ async function runNativeExperiment(){
     button.disabled=true;button.textContent='Running…';
     uEl('nativeExperimentRunStatus').textContent='Running calculation…';
     const parameters=collectNativeExperimentParameters();
+    if(activeNativeExperimentId==='radiation-platform'&&parameters.stage1Model==='Latest native RADIA run'){
+      const stage1=nativeExperimentResultById['radia-magnet-studio'];
+      if(stage1)parameters.stage1Result=stage1;
+    }
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
     renderNativeExperimentResult(payload,parameters,mode);
@@ -774,6 +811,10 @@ async function runNativeExperimentTool(tool){
   try{
     status.textContent='Running '+tool+'…';
     const parameters=collectNativeExperimentParameters();
+    if(activeNativeExperimentId==='radiation-platform'&&parameters.stage1Model==='Latest native RADIA run'){
+      const stage1=nativeExperimentResultById['radia-magnet-studio'];
+      if(stage1)parameters.stage1Result=stage1;
+    }
     parameters.__tool=tool;
     if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';
@@ -805,6 +846,10 @@ async function runNativeVerificationTool(tool){
     globalStatus.textContent='Running verification tool '+tool+'…';
     if(visibleStatus)visibleStatus.textContent='Running '+tool+' against the current primary result…';
     const parameters=collectNativeExperimentParameters();
+    if(activeNativeExperimentId==='radiation-platform'&&parameters.stage1Model==='Latest native RADIA run'){
+      const stage1=nativeExperimentResultById['radia-magnet-studio'];
+      if(stage1)parameters.stage1Result=stage1;
+    }
     parameters.__tool=tool;
     parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';

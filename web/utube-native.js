@@ -248,25 +248,41 @@ function readUtubeInputs(){
   if(!(volume>0&&rpm>0&&rin>0&&a>0&&nq>=12))throw new Error('Use positive geometry/operating values and quadrature ≥ 12.');
   return {volume,rpm,rin,a,nq:Math.round(nq)};
 }
-function renderNativeUtube(){
+function renderUtubePrimaryPayload(payload){
+  const metrics=payload.metrics||{};
+  const set=(id,key,suffix='')=>{const node=uEl(id);if(node)node.textContent=metrics[key]===undefined?'—':Number(metrics[key]).toFixed(3)+suffix};
+  set('utMetricCritical','criticalSpeedRpm',' rpm');
+  set('utMetricThreshold','thresholdRpm',' rpm');
+  set('utMetricMargin','operatingMarginRpm',' rpm');
+  set('utMetricCapacity','capacityTotalMl',' mL');
+  const thresholdSeries=(payload.series||[]).find(row=>row.id==='threshold');
+  if(thresholdSeries){
+    const points=(thresholdSeries.x||[]).map((x,i)=>({x:Number(x),y:Number((thresholdSeries.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+    uEl('utThresholdChart').innerHTML=utubeLineSvg([{label:thresholdSeries.label||'n_g(V)',points}],{xLabel:thresholdSeries.xLabel||'Volume (mL)',yLabel:thresholdSeries.yLabel||'Threshold (rpm)'});
+  }
+  const {rpm,rin,a}=readUtubeInputs();
+  const pot=utubePotential(rpm,rin,a);
+  uEl('utPotentialChart').innerHTML=utubeLineSvg([{label:'Relative effective potential',points:pot.map(r=>({x:r.theta,y:r.u}))}],{xLabel:'Bend angle (deg)',yLabel:'Relative potential (J/kg)'});
+  const total=Math.max(Number(metrics.capacityTotalMl)||0,1e-12);
+  const parts=[{label:'Curved section',value:Number(metrics.capacityArcMl)||0},{label:'Legs',value:Number(metrics.capacityLegsMl)||0}];
+  uEl('utCapacityBars').innerHTML=parts.map(p=>'<div class="ut-cap-row"><span>'+p.label+'</span><div><i style="width:'+Math.max(0,Math.min(100,p.value/total*100))+'%"></i></div><strong>'+p.value.toFixed(4)+' mL</strong></div>').join('');
+  renderNativeUtubeHysteresis(Number(metrics.thresholdRpm)||0);
+}
+
+async function renderNativeUtube(){
+  const status=uEl('utNativeStatus');
   try{
-    const {volume,rpm,rin,a,nq}=readUtubeInputs(),nc=utubeCriticalSpeed(rin,a),ng=utubeThreshold(volume,rin,a,nq),cap=utubeCapacity(rpm,rin,a,nq);
-    uEl('utMetricCritical').textContent=nc.toFixed(3)+' rpm';
-    uEl('utMetricThreshold').textContent=ng.toFixed(3)+' rpm';
-    uEl('utMetricMargin').textContent=(rpm-ng).toFixed(3)+' rpm';
-    uEl('utMetricCapacity').textContent=cap.total.toFixed(4)+' mL';
-    const v0=Math.max(.25,volume*.35),v1=Math.max(6,volume*1.75);
-    const vols=Array.from({length:21},(_,i)=>v0+i*(v1-v0)/20);
-    uEl('utThresholdChart').innerHTML=utubeLineSvg([{label:'n_g(V)',points:vols.map(v=>({x:v,y:utubeThreshold(v,rin,a,nq)}))}],{xLabel:'Volume (mL)',yLabel:'Threshold (rpm)'});
-    const pot=utubePotential(rpm,rin,a);
-    uEl('utPotentialChart').innerHTML=utubeLineSvg([{label:'Relative effective potential',points:pot.map(r=>({x:r.theta,y:r.u}))}],{xLabel:'Bend angle (deg)',yLabel:'Relative potential (J/kg)'});
-    const total=Math.max(cap.total,1e-12),parts=[{label:'Curved section',value:cap.arc},{label:'Legs',value:cap.legs}];
-    uEl('utCapacityBars').innerHTML=parts.map(p=>'<div class="ut-cap-row"><span>'+p.label+'</span><div><i style="width:'+Math.max(0,Math.min(100,p.value/total*100))+'%"></i></div><strong>'+p.value.toFixed(4)+' mL</strong></div>').join('');
-    renderNativeUtubeHysteresis(ng);
-    uEl('utNativeStatus').textContent='Completed.';
+    if(!invoke)throw new Error('U-Tube execution is available in the desktop build.');
+    status.textContent='Running pinned U-Tube scientific core…';
+    const parameters=collectUtubeToolParameters();
+    const payload=await invoke('native_experiment_run',{experimentId:'utube-studio',parameters,mode:'safe'});
+    renderUtubePrimaryPayload(payload);
+    status.textContent='Completed · '+(payload.backend||'physical_lab_utube_experiment')+' · '+Object.keys(payload.metrics||{}).length+' metrics.';
+    document.querySelector('[data-utube-tab="results"]')?.click();
   }catch(e){
-    uEl('utNativeStatus').textContent=String(e);
-    if(typeof toast==='function')toast(String(e),true);
+    const message=String(e);
+    status.textContent='Run failed: '+message;
+    if(typeof toast==='function')toast(message,true);
   }
 }
 function renderNativeUtubeHysteresis(staticThreshold){
@@ -405,9 +421,6 @@ function bindNativeUtube(){
   if(uEl('utVerificationOpenOriginal'))uEl('utVerificationOpenOriginal').onclick=()=>openFullOriginalWorkspace('utube-studio');
   renderUtubeExtendedSetup();
   bindUtubeProfessionalSliders();
-  if(uEl('utRun'))uEl('utRun').onclick=()=>{
-    renderNativeUtube();
-    document.querySelector('[data-utube-tab="results"]')?.click();
-  };
+  if(uEl('utRun'))uEl('utRun').onclick=()=>renderNativeUtube();
   if(uEl('backFromUtube'))uEl('backFromUtube').onclick=()=>showView('labs');
 }

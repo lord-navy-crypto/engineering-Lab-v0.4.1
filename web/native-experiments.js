@@ -335,15 +335,83 @@ const NATIVE_ADVANCED_PARAMETER_SCHEMAS = Object.freeze({
   ],
 
   'radiation-platform':[
-    {name:'useGamma',label:'Use Lorentz γ instead of energy',type:'checkbox',value:false},
-    {name:'gamma',label:'Electron γ',type:'number',value:6000,min:1.01,max:10000000,step:100},
-    {name:'observationAngleMrad',label:'Observation angle θ (mrad)',type:'number',value:0,min:0,max:20,step:.05},
-    {name:'angularGridPoints',label:'Angular grid',type:'select',value:'7',options:['5','7','9','11','13']},
-    {name:'angularExtentGammaTheta',label:'Angular extent (γθ)',type:'number',value:2.5,min:.5,max:5,step:.25},
-    {name:'observerSamplesPerPixel',label:'Observer samples / pixel',type:'select',value:'900',options:['400','600','900','1200','1800']},
-    {name:'trajectoryPointsPerPeriod',label:'Trajectory samples / period',type:'select',value:'48',options:['32','48','64','96']},
-    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:10000,step:10}
+    {name:'fieldModel',label:'Field model',type:'select',value:'radia_generated',options:['radia_generated','analytic','radia_csv']},
+    {name:'devicePreset',label:'Insertion device',type:'select',value:'helical',options:['helical','left_helical','planar','elliptical','variable_polarization','apple2','wiggler']},
+    {name:'analyticH3',label:'Third-harmonic field coefficient H3/H1',type:'number',value:0,min:-.5,max:.5,step:.001},
+    {name:'analyticH5',label:'Fifth-harmonic field coefficient H5/H1',type:'number',value:0,min:-.5,max:.5,step:.001},
+    {name:'generatedTargetMode',label:'Generated field target',type:'select',value:'Preset default',options:['Preset default','Manual B0']},
+    {name:'manualTargetB0T',label:'Manual target central B0 (T)',type:'number',value:.15,min:.001,max:20,step:.01},
+    {name:'radiaGapMm',label:'Gap (mm)',type:'number',value:12,min:.5,max:100,step:.5},
+    {name:'radiaBlockWidthMm',label:'Block tangential width (mm)',type:'number',value:10,min:.1,max:100,step:1},
+    {name:'radiaBlockHeightMm',label:'Block height / radial thickness (mm)',type:'number',value:15,min:.1,max:100,step:1},
+    {name:'radiaEllipticity',label:'Ellipticity',type:'number',value:.5,min:0,max:1,step:.01},
+    {name:'radiaApplePhaseDeg',label:'APPLE-II row phase (deg)',type:'number',value:90,min:-180,max:180,step:1},
+    {name:'radiaAppleShiftMode',label:'APPLE-II shift mode',type:'select',value:'Antiparallel',options:['Antiparallel','Parallel']},
+    {name:'radiaMaterialMode',label:'RADIA magnet model',type:'select',value:'Fixed remanence',options:['Fixed remanence','Linear NdFeB + relaxation']},
+    {name:'radiaMuParallel',label:'μr parallel',type:'number',value:1.05,min:1,max:3,step:.01},
+    {name:'radiaMuPerpendicular',label:'μr perpendicular',type:'number',value:1.05,min:1,max:3,step:.01},
+    {name:'radiaSegmentation',label:'Magnet subdivision',type:'select',value:'1',options:['1','2','3']},
+    {name:'radiaMapHalfMm',label:'Map transverse half-width (mm)',type:'number',value:3,min:.2,max:100,step:.5},
+    {name:'radiaMapNxy',label:'Map Nx = Ny',type:'select',value:'7',options:['3','5','7','9','11']},
+    {name:'radiaSamplesPerPeriod',label:'Map z samples / period',type:'select',value:'24',options:['12','18','24','32','48']},
+    {name:'radiaFieldMarginPeriods',label:'Fringe-field margin (periods)',type:'number',value:1,min:0,max:10,step:.5},
+    {name:'gamma',label:'Electron γ',type:'number',value:100,min:1.01,max:60000,step:1},
+    {name:'observerDistanceM',label:'Observer distance (m)',type:'number',value:100,min:1,max:1000,step:10},
+    {name:'thetaXMrad',label:'Observer θx (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'thetaYMrad',label:'Observer θy (mrad)',type:'number',value:0,min:-20,max:20,step:.05},
+    {name:'scanVariable',label:'Independent scan variable',type:'select',value:'gamma',options:['gamma','velocity','K','N_periods','observer_distance','angle']},
+    {name:'scanPoints',label:'Scalar scan points across selected range',type:'number',value:50,min:7,max:81,step:1},
+    {name:'representativeCount',label:'Representative full-analysis rows',type:'number',value:4,min:3,max:6,step:1},
+    {name:'representativeStrategy',label:'Representative-row strategy',type:'select',value:'Feature-aware',options:['Coverage','Feature-aware']},
+    {name:'scanViewMode',label:'Scan plot set',type:'select',value:'Focused research trends',options:['Focused research trends','Comprehensive available metrics']},
+    {name:'trackingPointsPerPeriod',label:'Tracking resolution',type:'select',value:'64',options:['48','64','96','128']},
+    {name:'errorMode',label:'Error mode',type:'select',value:'Selected errors',options:['Selected errors','All errors','Ideal (no errors)']},
+    {name:'manufacturingSeed',label:'Manufacturing-error seed',type:'number',value:20260820,min:0,max:100000000,step:1},
+    {name:'fieldSigmaPct',label:'Field-amplitude σ (%)',type:'number',value:.2,min:0,max:25,step:.05},
+    {name:'longitudinalSigmaUm',label:'Longitudinal-position σ (µm)',type:'number',value:20,min:0,max:10000,step:1},
+    {name:'transverseSigmaUm',label:'Transverse-position σ (µm)',type:'number',value:10,min:0,max:10000,step:1},
+    {name:'angleSigmaMrad',label:'Magnetization-angle σ (mrad)',type:'number',value:.5,min:0,max:1000,step:.1},
+    {name:'gapAsymmetryUm',label:'Gap asymmetry (µm)',type:'number',value:10,min:0,max:10000,step:1},
+    {name:'bankSigmaPct',label:'Bank imbalance (%)',type:'number',value:.1,min:0,max:25,step:.05},
+    {name:'errField',label:'Field amplitude error',type:'checkbox',value:true},
+    {name:'errLongitudinal',label:'Longitudinal position / phase error',type:'checkbox',value:true},
+    {name:'errTransverse',label:'Transverse placement error',type:'checkbox',value:true},
+    {name:'errAngle',label:'Magnetization angle error',type:'checkbox',value:true},
+    {name:'errGap',label:'Gap / bank asymmetry',type:'checkbox',value:true},
+    {name:'errBank',label:'Bank strength imbalance',type:'checkbox',value:true},
+    {name:'errorSweepSource',label:'Error source to sweep',type:'select',value:'field_amplitude',options:['field_amplitude','longitudinal_position','transverse_position','magnetization_angle','gap_asymmetry','bank_strength_imbalance','all_selected']},
+    {name:'errorSweepPoints',label:'Error-strength scan points',type:'number',value:6,min:3,max:11,step:1},
+    {name:'errorSweepMultiplier',label:'Maximum strength relative to nominal',type:'number',value:3,min:.5,max:5,step:.5},
+    {name:'compareIdeal',label:'Also run ideal baseline',type:'checkbox',value:true},
+    {name:'showCore',label:'Core radiation summary',type:'checkbox',value:true},
+    {name:'showSpectrum',label:'Spectrum + linewidth / Q',type:'checkbox',value:true},
+    {name:'showPolarization',label:'Stokes polarization',type:'checkbox',value:true},
+    {name:'showHarmonics',label:'Radiation harmonics H3/H1, H5/H1',type:'checkbox',value:true},
+    {name:'showTrajectory',label:'3D electron trajectory',type:'checkbox',value:true},
+    {name:'showPhase',label:'Trajectory / phase diagnostics',type:'checkbox',value:true},
+    {name:'showFieldQuality',label:'Field quality diagnostics',type:'checkbox',value:true},
+    {name:'showAngular1d',label:'1D angular scan',type:'checkbox',value:true},
+    {name:'showAngular2d',label:'2D angular map',type:'checkbox',value:false},
+    {name:'showErrorRanking',label:'One-error-at-a-time sensitivity',type:'checkbox',value:false},
+    {name:'showConvergence',label:'Numerical convergence',type:'checkbox',value:false},
+    {name:'showFarfield',label:'Observer-distance validation',type:'checkbox',value:false},
+    {name:'showEnergy',label:'Energy accounting',type:'checkbox',value:true},
+    {name:'showQuantum',label:'Quantum χ monitor',type:'checkbox',value:true},
+    {name:'showChaos',label:'Advanced chaos / MLE',type:'checkbox',value:false},
+    {name:'betaMin',label:'Speed minimum β = v/c',type:'number',value:.6,min:.001,max:.999999999,step:.01},
+    {name:'betaMax',label:'Speed maximum β = v/c',type:'number',value:.95,min:.001,max:.999999999,step:.01},
+    {name:'gammaMin',label:'γ min',type:'number',value:1.25,min:1.01,max:60000,step:.25},
+    {name:'gammaMax',label:'γ max',type:'number',value:60000,min:1.01,max:60000,step:10},
+    {name:'kMin',label:'K min',type:'number',value:.3,min:.05,max:10,step:.05},
+    {name:'kMax',label:'K max',type:'number',value:1.2,min:.05,max:10,step:.05},
+    {name:'nMin',label:'N min',type:'number',value:5,min:2,max:100,step:1},
+    {name:'nMax',label:'N max',type:'number',value:20,min:2,max:100,step:1},
+    {name:'rMinM',label:'R min (m)',type:'number',value:20,min:1,max:1000,step:1},
+    {name:'rMaxM',label:'R max (m)',type:'number',value:200,min:1,max:1000,step:1},
+    {name:'thetaXMinMrad',label:'θx min (mrad)',type:'number',value:-2,min:-20,max:20,step:.1},
+    {name:'thetaXMaxMrad',label:'θx max (mrad)',type:'number',value:2,min:-20,max:20,step:.1}
   ],
+
   'kerr-geodesics':[
     {name:'comparisonSpin',label:'Comparison spin a/M',type:'number',value:.6,min:0,max:.98,step:.01},
     {name:'comparisonInclinationDeg',label:'Comparison inclination (deg)',type:'number',value:60,min:0,max:80,step:1},
@@ -476,9 +544,11 @@ let nativeExperimentVerificationResult = null;
 
 function nativeParameterGroup(field){
   const name=String(field.name||'').toLowerCase();
-  if(/seed|uncert|spread|divergence|stochastic|langevin|temperature/.test(name))return 'Stochastic / uncertainty';
-  if(/rtol|atol|maxstep|samples|points|bins|grid|order|cycles|dt|duration|lambdamax|segment|maxyears/.test(name))return 'Numerical / solver';
-  if(/drive|force|damping|zeta|omega|stiff|alpha|beta|drag|backreaction|1pn|strain/.test(name))return 'Driving / physics';
+  if(/error|manufactur|sigma|seed|uncert|spread|divergence|stochastic|langevin|temperature|compareideal/.test(name))return 'Manufacturing / uncertainty';
+  if(/observer|theta|angular|radiation|showcore|showspectrum|showpolarization|showharmonics|showtrajectory|showphase|showfieldquality|showenergy|showquantum|showchaos/.test(name))return 'Radiation / observer';
+  if(/scan|representative|betamin|betamax|gammamin|gammamax|kmin|kmax|nmin|nmax|rmin|rmax/.test(name))return 'Scan / analysis design';
+  if(/rtol|atol|maxstep|samples|points|bins|grid|order|cycles|dt|duration|lambdamax|segment|maxyears|tracking|precision|iter|subdivision/.test(name))return 'Numerical / solver';
+  if(/drive|force|damping|zeta|omega|stiff|alpha|beta|drag|backreaction|1pn|strain|gamma/.test(name))return 'Driving / physics';
   return 'Model / geometry';
 }
 
@@ -539,7 +609,7 @@ function bindProfessionalParameterControls(){
 }
 
 function renderNativeParameterSections(fields){
-  const order=['Model / geometry','Driving / physics','Numerical / solver','Stochastic / uncertainty'];
+  const order=['Model / geometry','Driving / physics','Manufacturing / uncertainty','Radiation / observer','Scan / analysis design','Numerical / solver','Stochastic / uncertainty'];
   const groups=new Map(order.map(x=>[x,[]]));
   fields.forEach(field=>groups.get(nativeParameterGroup(field))?.push(field));
   return order.filter(name=>groups.get(name).length).map((name,index)=>{

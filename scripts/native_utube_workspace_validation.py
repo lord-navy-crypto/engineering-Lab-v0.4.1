@@ -277,3 +277,12 @@ for action_label in (
 ):
     assert action_label in native, action_label
 print("Exact native legacy-action routing validation: PASS")
+
+assert 'id="actionStageNav"' in html
+assert 'id="actionGroups"' in html
+assert "ACTION_WORKFLOW_STAGES" in native
+assert "action-capability-group" in native
+assert "native-tool-group" in native
+assert "actionCard(" not in native
+assert len(action_catalog["actions"]) == 1232, len(action_catalog["actions"])
+print("Workflow-first action visualization validation: PASS 1232 actions preserved, grouped instead of flattened")

@@ -350,49 +350,480 @@ def oscillation(p: dict[str, Any], mode: str) -> dict[str, Any]:
 
 def radia_magnet(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)
-    b0 = f(p, "b0T", 0.15, 0.0, 20.0)
     periods = i(p, "periods", 20, 1, 500)
-    samples = i(p, "samples", 401, 81, 3001)
-    z = np.linspace(-period_mm, period_mm, samples)
-    by = b0 * np.sin(2 * math.pi * z / period_mm)
-    k = 0.934 * b0 * (period_mm / 10.0)
-    return result(
-        "radia-magnet-studio",
-        "native-analytic-safe" if mode != "full" else "native-analytic-full-fallback",
-        {"periodMm": period_mm, "b0T": b0, "periods": periods, "samples": samples, "requestedMode": mode},
-        {"undulatorK": k, "magneticLengthM": period_mm / 1000 * periods, "peakFieldT": b0},
-        [xy_series("field", "ideal on-axis B_y", z, by, x_label="z (mm)", y_label="B_y (T)")],
-        "Ideal planar-undulator analytical adapter. It preserves a native no-server workflow but does not replace finite RADIA geometry, material relaxation, fringe fields, manufacturing errors or a 3-D field solve. Full RADIA remains an authoritative backend to be invoked through its solver adapter when available.",
-    )
+    device = str(p.get("device", "Planar"))
+    if device not in {"Planar", "Helical", "Elliptical", "APPLE-II", "Wiggler"}:
+        device = "Planar"
+
+    params = {
+        "device": device,
+        "period_mm": period_mm,
+        "periods": periods,
+        "gap_mm": f(p, "gapMm", 12.0, 0.5, 100.0),
+        "blocks_per_period": i(p, "blocksPerPeriod", 4, 4, 16),
+        "block_width_mm": f(p, "blockWidthMm", 10.0, 0.1, 100.0),
+        "block_height_mm": f(p, "blockHeightMm", 10.0, 0.1, 100.0),
+        "longitudinal_fill": f(p, "longitudinalFill", 0.90, 0.50, 0.99),
+        "br_t": f(p, "brT", 1.20, 0.01, 3.0),
+        "material_mode": str(p.get("materialMode", "Fixed remanence")),
+        "mu_parallel": f(p, "muParallel", 1.05, 1.0, 3.0),
+        "mu_perpendicular": f(p, "muPerpendicular", 1.05, 1.0, 3.0),
+        "segmentation": (i(p, "segmentation", 1, 1, 3),) * 3,
+        "ellipticity": f(p, "ellipticity", 0.5, 0.0, 1.0),
+        "apple_phase_deg": f(p, "applePhaseDeg", 90.0, -180.0, 180.0),
+        "apple_shift_mode": str(p.get("appleShiftMode", "Antiparallel")),
+        "errors_enabled": b(p, "errorsEnabled", False),
+        "field_error_pct": f(p, "fieldErrorPct", 1.0, 0.0, 25.0),
+        "longitudinal_error_mm": f(p, "longitudinalErrorMm", 0.05, 0.0, 10.0),
+        "transverse_error_mm": f(p, "transverseErrorMm", 0.05, 0.0, 10.0),
+        "angle_error_deg": f(p, "angleErrorDeg", 0.5, 0.0, 10.0),
+        "gap_asymmetry_mm": f(p, "gapAsymmetryMm", 0.0, -10.0, 10.0),
+        "bank_imbalance_pct": f(p, "bankImbalancePct", 0.0, -25.0, 25.0),
+        "error_seed": i(p, "errorSeed", 12345, 0, 100000000),
+        "target_b0_enabled": b(p, "targetB0Enabled", False),
+        "target_b0_t": f(p, "targetB0T", 0.15, 0.001, 20.0),
+        "b0_definition": str(p.get("b0Definition", "Central-period peak B⊥")),
+    }
+    settings = {
+        "axis_samples": i(p, "axisSamples", 1000, 100, 4000),
+        "field_margin_periods": f(p, "fieldMarginPeriods", 1.0, 0.0, 10.0),
+        "electron_energy_GeV": f(p, "electronEnergyGeV", 3.0, 0.01, 1000.0),
+        "relax": b(p, "relax", False),
+        "precision": f(p, "precision", 1e-4, 1e-7, 1e-2),
+        "max_iter": i(p, "maxIter", 1000, 1, 10000),
+        "calculate_2d": b(p, "calculate2d", True),
+        "calculate_3d": b(p, "calculate3d", True),
+        "transverse_half_width_mm": f(p, "transverseHalfWidthMm", 5.0, 0.1, 100.0),
+        "geometry_limit": i(p, "geometryLimit", 600, 100, 1200),
+        "compare_ideal": b(p, "compareIdeal", True),
+    }
+
+    if mode != "full":
+        reference_b0 = params["target_b0_t"] if params["target_b0_enabled"] else 0.15
+        samples = settings["axis_samples"]
+        z = np.linspace(-period_mm, period_mm, samples)
+        by = reference_b0 * np.sin(2 * math.pi * z / period_mm)
+        k = 0.934 * reference_b0 * (period_mm / 10.0)
+        configured_errors = {key: params[key] for key in (
+            "field_error_pct","longitudinal_error_mm","transverse_error_mm",
+            "angle_error_deg","gap_asymmetry_mm","bank_imbalance_pct","error_seed"
+        )}
+        return result(
+            "radia-magnet-studio",
+            "native-analytic-safe",
+            {**clean(params), **clean(settings), "requestedMode": mode},
+            {
+                "undulatorKReference": k,
+                "magneticLengthM": period_mm / 1000 * periods,
+                "referencePeakFieldT": reference_b0,
+                "manufacturingErrorsConfigured": bool(params["errors_enabled"]),
+            },
+            [xy_series("field", "safe-mode ideal reference B_y", z, by, x_label="z (mm)", y_label="B_y (T)")],
+            "Safe mode preserves the complete pinned RADIA setup state but computes only an ideal analytical reference. Manufacturing errors, finite geometry, material relaxation, target-B0 calibration, 2-D/3-D field maps and realized field metrics require Full mode.",
+            [{"id":"configured-errors","label":"Configured manufacturing-error state","rows":[configured_errors]}],
+        )
+
+    from radia_support import load_radia
+    from devices.factory import build_device
+    from solver.pipeline import solve_model, sample_on_axis, sample_slice_xz, sample_slice_yz, sample_3d
+    from analysis.metrics import analyze, compare_metrics, classify_k
+    from analysis.geometry_bounds import union_field_range
+    from calibration.target_b0 import calibrate_br
+
+    rad = load_radia()
+    try:
+        if hasattr(rad, "UtiDelAll"):
+            rad.UtiDelAll()
+
+        full_params = dict(params)
+        calibration_history = []
+        if params["target_b0_enabled"]:
+            calibrated_br, calibration_history = calibrate_br(
+                rad, device, full_params, params["target_b0_t"],
+                mode=params["b0_definition"], relax=settings["relax"],
+                precision=settings["precision"], max_iter=settings["max_iter"],
+            )
+            full_params["br_t"] = float(calibrated_br)
+            if hasattr(rad, "UtiDelAll"):
+                rad.UtiDelAll()
+
+        ideal_model = None
+        if params["errors_enabled"] and settings["compare_ideal"]:
+            p_ideal = dict(full_params)
+            p_ideal["errors_enabled"] = False
+            ideal_model = build_device(rad, device, p_ideal)
+
+        model = build_device(rad, device, full_params)
+        ideal_relax = None
+        if ideal_model is not None:
+            ideal_relax = solve_model(
+                rad, ideal_model, relax=settings["relax"],
+                precision=settings["precision"], max_iter=settings["max_iter"], method=4,
+            )
+        relaxation = solve_model(
+            rad, model, relax=settings["relax"],
+            precision=settings["precision"], max_iter=settings["max_iter"], method=4,
+        )
+
+        range_models = [model] + ([ideal_model] if ideal_model is not None else [])
+        z_lo, z_hi = union_field_range(range_models, period_mm, settings["field_margin_periods"])
+        z = np.linspace(float(z_lo), float(z_hi), settings["axis_samples"])
+        B = np.asarray(sample_on_axis(rad, model["obj"], z), dtype=float)
+        metrics = analyze(z, B, period_mm, settings["electron_energy_GeV"])
+
+        Bideal = None
+        ideal_metrics = None
+        comparison = None
+        if ideal_model is not None:
+            Bideal = np.asarray(sample_on_axis(rad, ideal_model["obj"], z), dtype=float)
+            ideal_metrics = analyze(z, Bideal, period_mm, settings["electron_energy_GeV"])
+            comparison = compare_metrics(ideal_metrics, metrics)
+
+        series = [
+            xy_series("Bx","B_x",z,B[:,0],x_label="z (mm)",y_label="B_x (T)"),
+            xy_series("By","B_y",z,B[:,1],x_label="z (mm)",y_label="B_y (T)"),
+            xy_series("Bz","B_z",z,B[:,2],x_label="z (mm)",y_label="B_z (T)"),
+        ]
+        if Bideal is not None:
+            series.append(xy_series("By-ideal","ideal B_y",z,Bideal[:,1],x_label="z (mm)",y_label="B_y (T)"))
+
+        tables = []
+        if calibration_history:
+            tables.append({"id":"b0-calibration","label":"Target-B0 calibration history","rows":clean(calibration_history)})
+        if comparison is not None:
+            rows=[]
+            if isinstance(comparison, dict):
+                for key,value in comparison.items():
+                    rows.append({"metric":key,"difference":clean(value)})
+            tables.append({"id":"ideal-error-comparison","label":"Ideal vs manufacturing-error comparison","rows":rows})
+
+        if settings["calculate_2d"]:
+            transverse = np.linspace(-settings["transverse_half_width_mm"], settings["transverse_half_width_mm"], 31)
+            z2 = np.linspace(float(z_lo), float(z_hi), min(181, max(61, settings["axis_samples"] // 5)))
+            if abs(float(metrics.get("By_peak_T",0.0))) >= abs(float(metrics.get("Bx_peak_T",0.0))):
+                slice_data = np.asarray(sample_slice_xz(rad, model["obj"], transverse, z2, 0.0), dtype=float)
+                plane = "XZ"
+            else:
+                slice_data = np.asarray(sample_slice_yz(rad, model["obj"], transverse, z2, 0.0), dtype=float)
+                plane = "YZ"
+            tables.append({"id":"field-slice","label":"2-D field slice metadata","rows":[{"plane":plane,"transversePoints":len(transverse),"zPoints":len(z2),"shape":list(slice_data.shape)}]})
+
+        if settings["calculate_3d"]:
+            x3=np.linspace(-settings["transverse_half_width_mm"],settings["transverse_half_width_mm"],5)
+            y3=x3.copy(); z3=np.linspace(float(z_lo),float(z_hi),17)
+            field3=np.asarray(sample_3d(rad,model["obj"],x3,y3,z3),dtype=float)
+            tables.append({"id":"field-3d","label":"Sparse 3-D field map metadata","rows":[{"nx":len(x3),"ny":len(y3),"nz":len(z3),"shape":list(field3.shape)}]})
+
+        scalar_metrics={}
+        for key,value in metrics.items():
+            if isinstance(value,(int,float,np.integer,np.floating)) and np.isfinite(float(value)):
+                scalar_metrics[key]=float(value)
+        scalar_metrics.update({
+            "generatedBlocks": len(model.get("blocks") or []),
+            "fieldRangeMinMm": float(z_lo),
+            "fieldRangeMaxMm": float(z_hi),
+            "magneticRegime": classify_k(float(metrics.get("K_peak",0.0))),
+            "usedBrT": float(full_params["br_t"]),
+            "manufacturingErrorsEnabled": bool(params["errors_enabled"]),
+            "idealComparisonComputed": bool(comparison is not None),
+        })
+        if isinstance(relaxation, dict):
+            for key,value in relaxation.items():
+                if isinstance(value,(int,float,bool,str)):
+                    scalar_metrics[f"relaxation_{key}"]=value
+        if isinstance(ideal_relax, dict):
+            scalar_metrics["idealRelaxationAvailable"]=True
+
+        return result(
+            "radia-magnet-studio",
+            "pinned-radia-magnet-studio-full-core",
+            {**clean(full_params), **clean(settings), "requestedMode": mode},
+            scalar_metrics,
+            series,
+            "Full mode directly reuses the pinned RADIA Magnet Studio build_device, target-B0 calibration, solve_model, geometry-derived field range, field sampling and analyze cores. Manufacturing-error results are realized RADIA fields, not an analytical surrogate.",
+            tables,
+        )
+    finally:
+        try:
+            if hasattr(rad, "UtiDelAll"):
+                rad.UtiDelAll()
+        except Exception:
+            pass
+
 
 
 def radiation_platform(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)
     K = f(p, "K", 0.7003, 0.0, 50.0)
     energy_gev = f(p, "energyGeV", 3.0, 0.001, 1000.0)
+    use_gamma = b(p, "useGamma", False)
+    gamma = f(p, "gamma", energy_gev / E_REST_GEV, 1.01, 1e7) if use_gamma or "gamma" in p else energy_gev / E_REST_GEV
     harmonic = i(p, "harmonic", 1, 1, 99)
     periods = i(p, "periods", 20, 2, 500)
-    gamma = energy_gev / E_REST_GEV
     period_m = period_mm / 1000.0
-    theta = np.linspace(0.0, max(0.5, 2.0 / gamma * 1000), 201)
-    theta_rad = theta / 1000.0
-    lam = period_m * (1 + K * K / 2 + (gamma * theta_rad) ** 2) / (2 * gamma * gamma * harmonic)
-    photon = HC_EV_M / lam
-    center = float(photon[0])
-    ef = np.linspace(center * 0.82, center * 1.18, 801)
-    detune = periods * (ef / center - 1.0)
-    intensity = np.sinc(detune) ** 2
+    observer_distance = f(p, "observerDistanceM", 100.0, 1.0, 10000.0)
+    theta_x_mrad = f(p, "thetaXMrad", f(p, "observationAngleMrad", 0.0, -20.0, 20.0), -20.0, 20.0)
+    theta_y_mrad = f(p, "thetaYMrad", 0.0, -20.0, 20.0)
+    tracking_ppp = i(p, "trackingPointsPerPeriod", i(p, "trajectoryPointsPerPeriod", 64, 16, 256), 16, 256)
+
+    if mode != "full":
+        observation_mrad = math.hypot(theta_x_mrad, theta_y_mrad)
+        extent_gamma_theta = f(p, "angularExtentGammaTheta", 2.5, 0.5, 5.0)
+        theta_span_mrad = max(0.25, extent_gamma_theta / gamma * 1000.0)
+        theta = np.linspace(max(0.0, observation_mrad - theta_span_mrad), observation_mrad + theta_span_mrad, 201)
+        theta_rad = theta / 1000.0
+        lam = period_m * (1 + K * K / 2 + (gamma * theta_rad) ** 2) / (2 * gamma * gamma * harmonic)
+        photon = HC_EV_M / lam
+        obs_lam = period_m * (1 + K * K / 2 + (gamma * observation_mrad / 1000.0) ** 2) / (2 * gamma * gamma * harmonic)
+        center = float(HC_EV_M / obs_lam)
+        ef = np.linspace(center * 0.82, center * 1.18, 801)
+        detune = periods * (ef / center - 1.0)
+        intensity = np.sinc(detune) ** 2
+        return result(
+            "radiation-platform",
+            "native-analytic-resonance-safe",
+            {
+                "periodMm": period_mm, "K": K, "energyGeV": energy_gev, "gamma": gamma,
+                "harmonic": harmonic, "periods": periods, "thetaXMrad": theta_x_mrad,
+                "thetaYMrad": theta_y_mrad, "observerDistanceM": observer_distance,
+                "fieldModel": str(p.get("fieldModel", "analytic")), "requestedMode": mode,
+            },
+            {
+                "lorentzGamma": gamma,
+                "observationPhotonEnergyEV": center,
+                "observationWavelengthNm": HC_EV_M / center * 1e9,
+                "finiteNRelativeWidth": 1.0 / periods,
+            },
+            [
+                xy_series("angle", "resonance energy vs angle", theta, photon, x_label="observation angle (mrad)", y_label="photon energy (eV)"),
+                xy_series("spectrum", "finite-N resonance envelope", ef, intensity, x_label="photon energy (eV)", y_label="relative intensity"),
+            ],
+            "Safe mode is the ideal planar-undulator resonance/interference reference only. The complete configured RADIA field model, manufacturing-error model, Lorentz trajectory and retarded radiation solver are executed only in Full mode.",
+        )
+
+    import undulator_v11_radia_integrated_v9 as v11
+
+    field_model = str(p.get("fieldModel", "radia_generated"))
+    device_preset = str(p.get("devicePreset", "helical"))
+    stage1_result = p.get("stage1Result")
+    stage1_parameters = {}
+    if isinstance(stage1_result, dict) and stage1_result.get("experimentId") == "radia-magnet-studio":
+        candidate = stage1_result.get("parameters")
+        if isinstance(candidate, dict):
+            stage1_parameters = dict(candidate)
+            field_model = "radia_generated"
+            device_map = {
+                "Planar": "planar", "Helical": "helical", "Elliptical": "elliptical",
+                "APPLE-II": "apple2", "Wiggler": "wiggler",
+            }
+            mapped = device_map.get(str(stage1_parameters.get("device") or ""))
+            if mapped:
+                device_preset = mapped
+            period_mm = float(stage1_parameters.get("period_mm", stage1_parameters.get("periodMm", period_mm)))
+            period_m = period_mm / 1000.0
+            periods = int(stage1_parameters.get("periods", periods))
+
+    if device_preset not in set(v11.list_device_presets()):
+        raise ValueError(f"Unknown Radiation Platform device preset: {device_preset}")
+    if field_model == "radia_csv":
+        raise ValueError("RADIA CSV mode requires an explicitly imported field-map file. Use the Original Data Bridge/import workflow first, or choose RADIA generated 3D field / analytic field.")
+
+    error_mode = str(p.get("errorMode", "Selected errors"))
+    switches = {
+        "field_amplitude": b(p, "errField", True),
+        "longitudinal_position": b(p, "errLongitudinal", True),
+        "transverse_position": b(p, "errTransverse", True),
+        "magnetization_angle": b(p, "errAngle", True),
+        "gap_asymmetry": b(p, "errGap", True),
+        "bank_strength_imbalance": b(p, "errBank", True),
+    }
+    if error_mode == "All errors":
+        switches = {key: True for key in switches}
+    elif error_mode == "Ideal (no errors)":
+        switches = {key: False for key in switches}
+
+    error_config = {
+        "field_amplitude": {"enabled": switches["field_amplitude"], "rms_fraction": f(p, "fieldSigmaPct", 0.2, 0.0, 25.0) / 100.0},
+        "longitudinal_position": {"enabled": switches["longitudinal_position"], "rms_m": f(p, "longitudinalSigmaUm", 20.0, 0.0, 10000.0) * 1e-6},
+        "transverse_position": {"enabled": switches["transverse_position"], "rms_m": f(p, "transverseSigmaUm", 10.0, 0.0, 10000.0) * 1e-6},
+        "magnetization_angle": {"enabled": switches["magnetization_angle"], "rms_rad": f(p, "angleSigmaMrad", 0.5, 0.0, 1000.0) * 1e-3},
+        "gap_asymmetry": {"enabled": switches["gap_asymmetry"], "rms_m": f(p, "gapAsymmetryUm", 10.0, 0.0, 10000.0) * 1e-6},
+        "bank_strength_imbalance": {"enabled": switches["bank_strength_imbalance"], "rms_fraction": f(p, "bankSigmaPct", 0.1, 0.0, 25.0) / 100.0},
+    }
+
+    if field_model == "radia_generated":
+        preset = v11.get_device_preset(device_preset)
+        manual_target = f(p, "manualTargetB0T", 0.15, 0.001, 20.0)
+        if str(p.get("generatedTargetMode", "Preset default")) == "Manual B0":
+            target_b0 = manual_target
+        elif preset.get("wiggler_K") is not None:
+            target_b0 = v11.B0_from_K(float(preset["wiggler_K"]), period_m)
+        else:
+            target_b0 = float(getattr(v11, "RADIA_TARGET_B0_T", 0.15))
+        radia_options = {
+            "lambda_u_m": period_m,
+            "target_B0_T": target_b0,
+            "gap_m": f(p, "radiaGapMm", 12.0, 0.5, 100.0) * 1e-3,
+            "block_width_m": f(p, "radiaBlockWidthMm", 10.0, 0.1, 100.0) * 1e-3,
+            "block_height_m": f(p, "radiaBlockHeightMm", 15.0, 0.1, 100.0) * 1e-3,
+            "x_half_m": f(p, "radiaMapHalfMm", 3.0, 0.2, 100.0) * 1e-3,
+            "y_half_m": f(p, "radiaMapHalfMm", 3.0, 0.2, 100.0) * 1e-3,
+            "nx": i(p, "radiaMapNxy", 7, 3, 11),
+            "ny": i(p, "radiaMapNxy", 7, 3, 11),
+            "samples_per_period": i(p, "radiaSamplesPerPeriod", 24, 8, 64),
+            "field_margin_periods": f(p, "radiaFieldMarginPeriods", 1.0, 0.0, 10.0),
+            "error_config": error_config,
+            "error_seed": i(p, "manufacturingSeed", 20260820, 0, 100000000),
+            "material_mode": str(p.get("radiaMaterialMode", "Fixed remanence")),
+            "mu_parallel": f(p, "radiaMuParallel", 1.05, 1.0, 3.0),
+            "mu_perpendicular": f(p, "radiaMuPerpendicular", 1.05, 1.0, 3.0),
+            "segmentation": (i(p, "radiaSegmentation", 1, 1, 3),) * 3,
+            "ellipticity": f(p, "radiaEllipticity", 0.5, 0.0, 1.0),
+            "apple_phase_deg": f(p, "radiaApplePhaseDeg", 90.0, -180.0, 180.0),
+            "apple_shift_mode": str(p.get("radiaAppleShiftMode", "Antiparallel")),
+        }
+        if stage1_parameters:
+            radia_options.update({
+                "lambda_u_m": float(stage1_parameters.get("period_mm", period_mm)) * 1e-3,
+                "gap_m": float(stage1_parameters.get("gap_mm", radia_options["gap_m"] * 1e3)) * 1e-3,
+                "block_width_m": float(stage1_parameters.get("block_width_mm", radia_options["block_width_m"] * 1e3)) * 1e-3,
+                "block_height_m": float(stage1_parameters.get("block_height_mm", radia_options["block_height_m"] * 1e3)) * 1e-3,
+                "x_half_m": float(stage1_parameters.get("transverse_half_width_mm", radia_options["x_half_m"] * 1e3)) * 1e-3,
+                "y_half_m": float(stage1_parameters.get("transverse_half_width_mm", radia_options["y_half_m"] * 1e3)) * 1e-3,
+                "field_margin_periods": float(stage1_parameters.get("field_margin_periods", radia_options["field_margin_periods"])),
+                "error_seed": int(stage1_parameters.get("error_seed", radia_options["error_seed"])),
+                "material_mode": str(stage1_parameters.get("material_mode", radia_options["material_mode"])),
+                "mu_parallel": float(stage1_parameters.get("mu_parallel", radia_options["mu_parallel"])),
+                "mu_perpendicular": float(stage1_parameters.get("mu_perpendicular", radia_options["mu_perpendicular"])),
+                "segmentation": tuple(stage1_parameters.get("segmentation", radia_options["segmentation"])),
+                "ellipticity": float(stage1_parameters.get("ellipticity", radia_options["ellipticity"])),
+                "apple_phase_deg": float(stage1_parameters.get("apple_phase_deg", radia_options["apple_phase_deg"])),
+                "apple_shift_mode": str(stage1_parameters.get("apple_shift_mode", radia_options["apple_shift_mode"])),
+            })
+            switches = {
+                "field_amplitude": bool(stage1_parameters.get("errors_enabled", False)),
+                "longitudinal_position": bool(stage1_parameters.get("errors_enabled", False)),
+                "transverse_position": bool(stage1_parameters.get("errors_enabled", False)),
+                "magnetization_angle": bool(stage1_parameters.get("errors_enabled", False)),
+                "gap_asymmetry": bool(stage1_parameters.get("errors_enabled", False)),
+                "bank_strength_imbalance": bool(stage1_parameters.get("errors_enabled", False)),
+            }
+            radia_options["error_config"] = {
+                "field_amplitude": {"enabled": switches["field_amplitude"], "rms_fraction": float(stage1_parameters.get("field_error_pct", 0.0)) / 100.0},
+                "longitudinal_position": {"enabled": switches["longitudinal_position"], "rms_m": float(stage1_parameters.get("longitudinal_error_mm", 0.0)) * 1e-3},
+                "transverse_position": {"enabled": switches["transverse_position"], "rms_m": float(stage1_parameters.get("transverse_error_mm", 0.0)) * 1e-3},
+                "magnetization_angle": {"enabled": switches["magnetization_angle"], "rms_rad": math.radians(float(stage1_parameters.get("angle_error_deg", 0.0)))},
+                "gap_asymmetry": {"enabled": switches["gap_asymmetry"], "rms_m": abs(float(stage1_parameters.get("gap_asymmetry_mm", 0.0))) * 1e-3},
+                "bank_strength_imbalance": {"enabled": switches["bank_strength_imbalance"], "rms_fraction": abs(float(stage1_parameters.get("bank_imbalance_pct", 0.0))) / 100.0},
+            }
+            if stage1_parameters.get("target_b0_enabled"):
+                radia_options["target_B0_T"] = float(stage1_parameters.get("target_b0_t", radia_options["target_B0_T"]))
+        und = v11.make_default_undulator(
+            preset=device_preset,
+            field_model="radia_generated",
+            n_periods=periods,
+            error_switches=switches,
+            radia_options=radia_options,
+        )
+    else:
+        und = v11.make_default_undulator(
+            preset=device_preset,
+            field_model="analytic",
+            n_periods=periods,
+            analytic_h3=f(p, "analyticH3", 0.0, -0.5, 0.5),
+            analytic_h5=f(p, "analyticH5", 0.0, -0.5, 0.5),
+        )
+        if hasattr(und, "B0") and K >= 0:
+            try:
+                und.B0 = v11.B0_from_K(K, float(und.lambda_u))
+            except Exception:
+                pass
+
+    theta_x = theta_x_mrad * 1e-3
+    theta_y = theta_y_mrad * 1e-3
+    observer = np.array([
+        observer_distance * math.tan(theta_x),
+        observer_distance * math.tan(theta_y),
+        observer_distance,
+    ], dtype=float)
+    span = v11.simulation_span_for_device(gamma, und, n_periods=periods)
+    n_base = v11.samples_for_periods(
+        periods,
+        pts_per_period=tracking_ppp,
+        min_pts=max(1000, periods * tracking_ppp),
+        max_pts=max(4000, periods * tracking_ppp + 1),
+    )
+    full = v11.run_sim_scalar(
+        und, None, span, observer,
+        n_base=n_base, gamma0_input=gamma,
+    )
+    if not isinstance(full, dict):
+        raise RuntimeError("Pinned Radiation Platform full solver returned no valid result for this configuration.")
+
+    metrics = {}
+    for key, value in full.items():
+        if isinstance(value, (bool, str)):
+            metrics[key] = value
+        elif isinstance(value, (int, float, np.integer, np.floating)):
+            try:
+                if np.isfinite(float(value)):
+                    metrics[key] = float(value)
+            except Exception:
+                pass
+
+    inputs = {
+        "fieldModel": field_model,
+        "devicePreset": device_preset,
+        "periodMm": period_mm,
+        "K": K,
+        "gamma": gamma,
+        "periods": periods,
+        "observerDistanceM": observer_distance,
+        "thetaXMrad": theta_x_mrad,
+        "thetaYMrad": theta_y_mrad,
+        "trackingPointsPerPeriod": tracking_ppp,
+        "errorMode": error_mode,
+        "errorSwitches": switches,
+        "errorConfig": error_config,
+        "requestedMode": mode,
+        "stage1Source": "Latest native RADIA run" if stage1_parameters else "Current Radiation setup",
+    }
+    if field_model == "radia_generated":
+        inputs["radiaOptions"] = radia_options
+
+    series = []
+    if b(p, "showSingleDevicePreview", False) and hasattr(und, "z_grid") and hasattr(und, "_by_arr"):
+        try:
+            ix = int(np.argmin(np.abs(np.asarray(und.x_grid, dtype=float))))
+            iy = int(np.argmin(np.abs(np.asarray(und.y_grid, dtype=float))))
+            z_axis = np.asarray(und.z_grid, dtype=float)
+            by_axis = np.asarray(und._by_arr[ix, iy, :], dtype=float)
+            series.append(xy_series("stage1-z-field", "single-device z-axis B_y preview", z_axis, by_axis, x_label="z (m)", y_label="B_y (T)"))
+        except Exception:
+            pass
+
+    tables = [
+        {
+            "id": "full-solver-summary",
+            "label": "Pinned V11/RADIA full-solver observables",
+            "rows": [{key: clean(value) for key, value in full.items() if not isinstance(value, (np.ndarray, list, tuple, dict))}],
+        },
+        {
+            "id": "error-configuration",
+            "label": "Manufacturing error configuration",
+            "rows": [{"error": key, **clean(value)} for key, value in error_config.items()],
+        },
+    ]
     return result(
         "radiation-platform",
-        "native-analytic-resonance",
-        {"periodMm": period_mm, "K": K, "energyGeV": energy_gev, "harmonic": harmonic, "periods": periods, "requestedMode": mode},
-        {"lorentzGamma": gamma, "onAxisPhotonEnergyEV": center, "onAxisWavelengthNm": HC_EV_M / center * 1e9, "finiteNRelativeWidth": 1.0 / periods},
-        [
-            xy_series("angle", "resonance energy vs angle", theta, photon, x_label="observation angle (mrad)", y_label="photon energy (eV)"),
-            xy_series("spectrum", "finite-N resonance envelope", ef, intensity, x_label="photon energy (eV)", y_label="relative intensity"),
-        ],
-        "Ideal planar-undulator resonance/interference adapter. It does not replace the full field-map → trajectory → Liénard-Wiechert radiation workflow, beam effects, optics or detector response.",
+        "pinned-radiation-platform-full-core",
+        clean(inputs),
+        metrics,
+        series,
+        "Full mode directly reuses the pinned Radiation Platform field-device builder, Lorentz trajectory integration, retarded Liénard-Wiechert observer signal, spectrum/Stokes analysis, trajectory/phase diagnostics, energy accounting and radiation observables. RADIA-generated mode additionally uses the pinned strict 3-D RADIA field-map backend with the configured manufacturing-error model.",
+        tables,
     )
+
 
 
 def kerr_geodesics(p: dict[str, Any], mode: str) -> dict[str, Any]:
@@ -571,21 +1002,53 @@ def kerr_shadow(p: dict[str, Any], mode: str) -> dict[str, Any]:
 
 
 def undulator_spectrum(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    from physical_lab_undulator_spectrum import harmonic_spectrum, angular_harmonic_map
+    from physical_lab_undulator_spectrum import harmonic_spectrum, angular_harmonic_map, resonance_energy_eV
     period_m = f(p, "periodMm", 50.0, 1.0, 1000.0) / 1000.0
     gamma = f(p, "gamma", 6000.0, 2.0, 1e7)
     K = f(p, "K", 0.7, 0.0, 20.0)
     periods = i(p, "periods", 20, 2, 500)
     harmonic = i(p, "harmonic", 1, 1, 15)
-    spec = harmonic_spectrum(period_m=period_m, gamma=gamma, K=K, n_periods=periods, harmonics=(1, 3, 5, 7), points=1200)
-    amap = angular_harmonic_map(period_m=period_m, gamma=gamma, K=K, harmonic=harmonic, theta_max_mrad=f(p, "thetaMaxMrad", 1.0, 0.05, 10.0), points=51)
+    observation_angle = f(p, "observationAngleMrad", 0.0, 0.0, 20.0)
+    raw_harmonics = str(p.get("harmonicsText", "1,3,5,7"))
+    harmonics = []
+    for token in raw_harmonics.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            value = int(token)
+        except Exception:
+            continue
+        if value > 0 and value % 2 == 1 and value not in harmonics:
+            harmonics.append(value)
+    if not harmonics:
+        harmonics = [1, 3, 5, 7]
+    harmonics = tuple(harmonics[:12])
+    spec = harmonic_spectrum(period_m=period_m, gamma=gamma, K=K, n_periods=periods, theta_mrad=observation_angle, harmonics=harmonics, points=1200)
+    amap = angular_harmonic_map(
+        period_m=period_m, gamma=gamma, K=K, harmonic=harmonic,
+        theta_max_mrad=f(p, "thetaMaxMrad", 1.0, 0.05, 20.0),
+        points=i(p, "angularPoints", 61, 21, 181),
+    )
     axis = np.asarray(amap["theta_axis_mrad"])
     center_line = np.asarray(amap["resonance_energy_eV"])[len(axis)//2]
+    selected_energy = resonance_energy_eV(period_m=period_m, gamma=gamma, K=K, harmonic=harmonic, theta_rad=observation_angle / 1000.0)
     return result(
         "undulator-spectrum",
         "physical_lab_undulator_spectrum",
-        {"periodMm": period_m * 1000, "gamma": gamma, "K": K, "periods": periods, "harmonic": harmonic},
-        {"onAxisEnergyEV": amap["on_axis_energy_eV"], "edgeEnergyEV": amap["edge_energy_eV"], "minimumEnergyEV": amap["minimum_energy_eV"], "maximumEnergyEV": amap["maximum_energy_eV"]},
+        {
+            "periodMm": period_m * 1000, "gamma": gamma, "K": K, "periods": periods,
+            "harmonic": harmonic, "harmonics": list(harmonics), "observationAngleMrad": observation_angle,
+            "thetaMaxMrad": f(p, "thetaMaxMrad", 1.0, 0.05, 20.0),
+            "angularPoints": i(p, "angularPoints", 61, 21, 181),
+        },
+        {
+            "onAxisEnergyEV": amap["on_axis_energy_eV"],
+            "selectedObservationEnergyEV": selected_energy,
+            "edgeEnergyEV": amap["edge_energy_eV"],
+            "minimumEnergyEV": amap["minimum_energy_eV"],
+            "maximumEnergyEV": amap["maximum_energy_eV"],
+        },
         [
             xy_series("spectrum", "harmonic spectrum", spec["energy_eV"], spec["relative_intensity"], x_label="photon energy (eV)", y_label="relative intensity"),
             xy_series("angle-cut", "angular resonance cut", axis, center_line, x_label="θ_x (mrad)", y_label="resonance energy (eV)"),
@@ -595,25 +1058,49 @@ def undulator_spectrum(p: dict[str, Any], mode: str) -> dict[str, Any]:
     )
 
 
+
+def _sweep_quality(name: str, *, nonlinear: bool = False) -> dict[str, int]:
+    key = str(name or "Standard").strip().lower()
+    if nonlinear:
+        table = {
+            "fast": {"points": 13, "settle": 22, "observe": 5, "ppc": 48},
+            "standard": {"points": 21, "settle": 35, "observe": 8, "ppc": 60},
+            "deep": {"points": 31, "settle": 50, "observe": 10, "ppc": 84},
+        }
+    else:
+        table = {
+            "fast": {"points": 13, "settle": 16, "observe": 5, "ppc": 48},
+            "standard": {"points": 21, "settle": 26, "observe": 7, "ppc": 64},
+            "deep": {"points": 31, "settle": 40, "observe": 10, "ppc": 84},
+        }
+    return table.get(key, table["standard"])
+
+
 def frequency_response(p: dict[str, Any], mode: str) -> dict[str, Any]:
     from physical_lab_frequency_response import linear_forced_response_sweep
+    omega_n = f(p, "omegaN", 2.0, 0.1, 30.0)
+    start_ratio = f(p, "linearStartRatio", 0.30, 0.1, 3.0)
+    stop_ratio = f(p, "linearStopRatio", 1.60, 0.2, 5.0)
+    if stop_ratio <= start_ratio:
+        raise ValueError("Linear stop frequency ratio must exceed start ratio")
+    quality = _sweep_quality(str(p.get("linearSweepQuality", "Standard")))
     out = linear_forced_response_sweep(
-        omega_n=f(p, "omegaN", 2.0, 0.1, 20.0),
-        zeta=f(p, "zeta", 0.05, 0.0, 1.0),
+        omega_n=omega_n,
+        zeta=f(p, "zeta", 0.05, 0.0, 1.5),
         force_amplitude=f(p, "force", 1.0, 0.0, 20.0),
-        frequency_start=f(p, "frequencyStart", 0.6, 0.05, 20.0),
-        frequency_stop=f(p, "frequencyStop", 3.2, 0.1, 30.0),
-        frequency_points=i(p, "frequencyPoints", 17, 7, 41),
-        settle_cycles=i(p, "settleCycles", 12, 4, 40),
-        observe_cycles=i(p, "observeCycles", 5, 3, 20),
-        points_per_cycle=i(p, "pointsPerCycle", 48, 32, 120),
+        frequency_start=start_ratio * omega_n,
+        frequency_stop=stop_ratio * omega_n,
+        frequency_points=quality["points"],
+        settle_cycles=quality["settle"],
+        observe_cycles=quality["observe"],
+        points_per_cycle=quality["ppc"],
     )
     rows = out["rows"]
     omega = [r["omega_rad_s"] for r in rows]
     return result(
         "frequency-response",
         "physical_lab_frequency_response.linear_forced_response_sweep",
-        out["inputs"],
+        {**out["inputs"], "startRatio": start_ratio, "stopRatio": stop_ratio, "sweepQuality": str(p.get("linearSweepQuality", "Standard"))},
         {
             "numericalPeakFrequencyRadS": out["numerical_peak_frequency_rad_s"],
             "numericalPeakAmplitude": out["numerical_peak_amplitude"],
@@ -1014,7 +1501,34 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
     if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity", "polynomial-regression", "monte-carlo-propagation", "doe-design", "parameter-estimation", "polynomial-cv", "pca-svd", "conditioning-diagnostics", "tikhonov", "tsvd", "correlation-matrix", "pareto-frontier", "robust-sensitivity", "run-comparison", "morris-design"}:
         return run_global_analysis_tool(experiment_id, tool, p)
-    if experiment_id == "kerr-geodesics" and tool == "refinement":
+    if experiment_id == "kerr-geodesics" and tool in {"refinement","comparison","spin-sweep"}:
+        if tool == "comparison":
+            from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary
+            spin=f(p,"comparisonSpin",.6,0.0,.98); incl=f(p,"comparisonInclinationDeg",60.0,0.0,80.0)
+            massive=integrate_case(KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type="massive",periapsis=6.5,apoapsis=10.0,lam_max=10.0,samples=1500))
+            photon=integrate_case(KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type="photon",lam_max=3.0,samples=1000))
+            ms=result_summary(massive); ps=result_summary(photon)
+            rows=[{"particle":"massive",**ms},{"particle":"photon",**ps}]
+            return result(experiment_id,"physical_lab_kerr_geodesics.integrate_case comparison",p,{"massiveResidual":ms["first_integral_residual_max"],"photonResidual":ps["first_integral_residual_max"]},[],"Massive/photon comparison uses independent Mino-time spans; compare geometry and invariants rather than synchronized physical time.",[{"id":"comparison","label":"Massive ↔ photon comparison","rows":rows}])
+        if tool == "spin-sweep":
+            from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary
+            particle=str(p.get("sweepParticle","massive")).lower()
+            if particle not in {"massive","photon"}: particle="massive"
+            incl=f(p,"sweepInclinationDeg",60.0,0.0,80.0)
+            values=[]
+            for token in str(p.get("sweepSpinsText","0,0.15,0.30,0.45,0.60,0.75,0.90")).split(","):
+                token=token.strip()
+                if not token: continue
+                value=float(token)
+                if value < 0 or value >= 1: raise ValueError("Kerr sweep spins must be in [0,1)")
+                if value not in values: values.append(value)
+            if not values: raise ValueError("Enter at least one Kerr spin for the sweep")
+            rows=[]
+            for spin in sorted(values):
+                cfg=KerrOrbitConfig(spin=spin,inclination_deg=incl,particle_type=particle,periapsis=6.5,apoapsis=10.0,lam_max=8.0 if particle=="massive" else 2.5,samples=900)
+                rows.append(result_summary(integrate_case(cfg)))
+            return result(experiment_id,"physical_lab_kerr_geodesics spin sweep",p,{"cases":len(rows),"particle":particle},[xy_series("r-min","r min",[r["spin"] for r in rows],[r["r_min"] for r in rows],x_label="a/M",y_label="r/M"),xy_series("r-max","r max",[r["spin"] for r in rows],[r["r_max"] for r in rows],x_label="a/M",y_label="r/M")],"Bounded Kerr spin sweep reuses the original integrate_case/result_summary core.",[{"id":"spin-sweep","label":"Kerr spin sweep","rows":rows}])
+
         from physical_lab_kerr_geodesics import run_refinement_pair
         out = run_refinement_pair(_kerr_config_from_params(p))
         tight = out["tight"]
@@ -1078,7 +1592,11 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
 
     if experiment_id == "frequency-response" and tool == "duffing":
         from physical_lab_frequency_response import duffing_frequency_sweep
-        out=duffing_frequency_sweep(omega_0=f(p,"omega0",1.0,.1,20.0),zeta=f(p,"zeta",.05,0.0,1.0),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=f(p,"frequencyStart",.7,.05,20.0),frequency_stop=f(p,"frequencyStop",1.6,.1,30.0),frequency_points=i(p,"frequencyPoints",17,7,41),settle_cycles=i(p,"settleCycles",16,4,120),observe_cycles=i(p,"observeCycles",5,3,40),points_per_cycle=i(p,"pointsPerCycle",48,32,240))
+        omega0=f(p,"omega0",1.0,.1,20.0)
+        start_ratio=f(p,"duffingStartRatio",.7,.1,3.0); stop_ratio=f(p,"duffingStopRatio",1.6,.2,5.0)
+        if stop_ratio <= start_ratio: raise ValueError("Duffing stop frequency ratio must exceed start ratio")
+        q=_sweep_quality(str(p.get("duffingSweepQuality","Standard")),nonlinear=True)
+        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
         rows=out["rows"]; omega=[r["omega_rad_s"] for r in rows]
         return result(experiment_id,"physical_lab_frequency_response.duffing_frequency_sweep",p,{
             "forwardPeakFrequencyRadS":out["forward_peak_frequency_rad_s"],"forwardPeakAmplitude":out["forward_peak_amplitude"],"reversePeakFrequencyRadS":out["reverse_peak_frequency_rad_s"],"reversePeakAmplitude":out["reverse_peak_amplitude"],"maxBranchAmplitudeGap":out["max_branch_amplitude_gap"]

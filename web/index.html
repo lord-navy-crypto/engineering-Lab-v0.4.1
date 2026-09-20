@@ -513,11 +513,19 @@
               <div class="eyebrow">NUMERICAL & UNCERTAINTY CHECKS</div>
               <h3>Verification tools</h3>
               <div class="verification-actions">
-                <button class="secondary" data-utube-tool="verification-requirements">Generate requirements</button>
-                <button class="secondary" data-utube-tool="uncertainty-budget">Run uncertainty budget</button>
-                <button class="secondary" data-utube-tool="operating-state">Run operating-state check</button>
+                <button class="secondary" data-utube-verification-tool="verification-requirements">Generate requirements</button>
+                <button class="secondary" data-utube-verification-tool="uncertainty-budget">Run uncertainty budget</button>
+                <button class="secondary" data-utube-verification-tool="operating-state">Run operating-state check</button>
                 <button class="secondary" id="utVerificationOpenOriginal">Open full original V&V workspace</button>
               </div>
+            </article>
+            <article class="verification-panel verification-analysis-output">
+              <div class="panel-heading"><div><h3>Verification analysis output</h3><p>Verification metrics, tables and boundaries stay in this tab.</p></div><span id="utVerificationBackend" class="status-pill">not run</span></div>
+              <div id="utVerificationMetrics" class="native-result-metrics"></div>
+              <div id="utVerificationCharts" class="native-result-charts"></div>
+              <div id="utVerificationTables"></div>
+              <div id="utVerificationEmpty" class="empty-state compact-empty">Run a verification check above.</div>
+              <p id="utVerificationBoundary" class="boundary-inline"></p>
             </article>
           </div>
         </div>

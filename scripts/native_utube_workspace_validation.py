@@ -110,12 +110,31 @@ assert guard in app, "openModule does not guard native experiments before legacy
 
 print("Native experiment workspace validation: PASS (14/14 registered)")
 
-assert 'id="nativeExperimentAdvancedControls"' in html
 assert 'id="nativeExperimentTools"' in html
-assert 'data-native-exp-panel="advanced"' in html
+assert 'data-native-exp-panel="advanced"' not in html
+assert 'data-native-exp-tab="advanced"' not in html
 assert 'data-native-exp-panel="tools"' in html
-assert 'data-utube-panel="advanced"' in html
+assert 'data-utube-panel="advanced"' not in html
+assert 'data-utube-tab="advanced"' not in html
 assert 'data-utube-panel="tools"' in html
+assert 'id="nativeExperimentParameterCount"' in html
+assert 'id="nativeExperimentToolMetrics"' in html
+assert 'id="nativeExperimentVerificationMetrics"' in html
+assert 'id="utVerificationMetrics"' in html
+assert "const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[]" in native
+assert "const fields=[...primary,...advanced]" in native
+assert "renderNativeParameterSections" in native
+assert "bindProfessionalParameterControls" in native
+assert "data-param-range" in native
+assert "renderNativeToolResult" in native
+assert "renderNativeVerificationResult" in native
+tool_runner = native[native.index("async function runNativeExperimentTool"):native.index("async function runNativeVerificationTool")]
+assert 'data-native-exp-tab="results"' not in tool_runner, "analysis tool still forces navigation to Results"
+assert "renderNativeToolResult(payload)" in tool_runner
+assert "contextResult=nativeExperimentResult" in tool_runner
+assert "bindUtubeProfessionalSliders" in utube
+assert "runUtubeVerificationTool" in utube
+print("Professional experiment workspace validation: PASS setup+advanced merged, sliders linked, tool/primary/verification outputs separated")
 for tool_marker in ("refinement","ftle","phonon-dispersion","phonon-dos","beam-broadening","duffing"):
     assert tool_marker in native, f"missing restored native tool marker: {tool_marker}"
 for tool_marker in ("operating-state","elasticity","scan-plan","uncertainty"):

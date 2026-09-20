@@ -89,20 +89,28 @@
       </section>
 
       <section id="actionsView" class="view">
-        <div class="capability-hero">
+        <div class="action-hero">
           <div>
-            <div class="eyebrow">ACTION-LEVEL ZERO-LOSS CATALOG</div>
-            <h2>All legacy tools & actions</h2>
-            <p>Search the actual controls preserved from the pre-redesign Engineering Lab: audits, find/search, compare, validate, inspect, export, register, queue, diagnostics, analysis, and every other indexed user action.</p>
+            <div class="eyebrow">ENGINEERING LAB WORKFLOW</div>
+            <h2>Tools & Actions</h2>
+            <p>All preserved actions remain intact, but they are organized as a scientific workflow instead of a wall of cards.</p>
           </div>
-          <div class="capability-count"><strong id="actionCount">—</strong><span>indexed actions</span></div>
+          <div class="action-count-stack"><strong id="actionCount">—</strong><span>preserved actions</span><small id="actionParityStatus">Loading parity…</small></div>
         </div>
-        <div class="capability-toolbar">
-          <div id="actionFilters" class="filters"></div>
-          <input id="actionSearch" class="capability-search" placeholder="Search audit, find, compare, validate, inspect, export, reliability…" />
+        <div class="action-search-row">
+          <input id="actionSearch" class="capability-search action-search" placeholder="Search all 1,232 actions: audit, compare, calibration, reliability, export…" />
+          <button id="actionClearSearch" class="secondary small">Clear</button>
         </div>
-        <div id="actionParityStatus" class="native-status subtle-status">Loading action-level parity catalog…</div>
-        <div id="actionGrid" class="card-grid capability-grid"></div>
+        <div id="actionStageNav" class="workflow-stage-nav" aria-label="Scientific workflow stages"></div>
+        <div class="workflow-context-row">
+          <div>
+            <span class="eyebrow">CURRENT STAGE</span>
+            <h3 id="actionStageTitle">Experiments & Physics</h3>
+            <p id="actionStageDescription">Build, run and inspect physical experiments and models.</p>
+          </div>
+          <div id="actionStageCount" class="workflow-stage-count"></div>
+        </div>
+        <div id="actionGroups" class="action-groups"></div>
       </section>
 
       <section id="actionWorkspaceView" class="view">

@@ -199,10 +199,11 @@ for surface_id in canonical_surface_ids:
     assert f'"{surface_id}"' in surface_block, f"canonical surface disappeared from registry: {surface_id}"
 assert len(canonical_surface_ids) == 53
 assert "surfaces_for_catalog(profile)" in Path("src-tauri/resources/ui/physical_lab_project_surface_patch.py").read_text(encoding="utf-8")
-assert "Full Original Workspace" in native
 assert "openFullOriginalWorkspace(" in native
-assert 'id="utOpenFullOriginal"' in html
-print("Zero-loss full capability catalog validation: PASS 53/53 registry surfaces")
+assert 'id="utOpenFullOriginal"' not in html
+assert 'id="utVerificationOpenOriginal"' not in html
+assert 'class="full-original-strip"' not in html
+print("Zero-loss full capability catalog validation: PASS 53/53 registry surfaces; experiment fallback UI removed")
 
 import json
 import re

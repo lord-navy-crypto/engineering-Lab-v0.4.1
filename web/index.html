@@ -327,11 +327,7 @@
               <div class="eyebrow">NUMERICAL CHECKS</div>
               <h3>Inspect & challenge the result</h3>
               <p>Run the original Result Inspector and convergence diagnostics against the current result without replacing it.</p>
-              <div class="verification-actions">
-                <button class="secondary" data-native-verification-tool="result-inspector">Run result inspector</button>
-                <button class="secondary" data-native-verification-tool="convergence-diagnostics">Run convergence diagnostics</button>
-                <button class="secondary" id="nativeExperimentOpenOriginalVerification">Open full original V&V workspace</button>
-              </div>
+              <div id="nativeExperimentVerificationActions" class="verification-actions"></div>
             </article>
             <div id="nativeExperimentVerificationStatus" class="native-status">Run the primary experiment first, then launch a verification check.</div>
             <article class="verification-panel verification-analysis-output">
@@ -476,7 +472,7 @@
                 <button class="native-tool-row" data-utube-tool="research-questions"><span><strong>Research questions</strong><small>Show the mature U-Tube research-question set.</small></span><b>Run →</b></button>
               </div>
             </details>
-            <div class="full-original-strip"><div><strong>Full Original Workspace</strong><span>Every pre-redesign U-Tube capability remains available.</span></div><button class="secondary" id="utOpenFullOriginal">Open original workspace</button></div>
+
           </div>
           <section class="tool-output-workbench">
             <div class="panel-heading"><div><h3>Analysis output</h3><p>Tool metrics, plots, tables and scientific boundary stay here.</p></div></div>
@@ -519,7 +515,6 @@
                 <button class="secondary" data-utube-verification-tool="verification-requirements">Generate requirements</button>
                 <button class="secondary" data-utube-verification-tool="uncertainty-budget">Run uncertainty budget</button>
                 <button class="secondary" data-utube-verification-tool="operating-state">Run operating-state check</button>
-                <button class="secondary" id="utVerificationOpenOriginal">Open full original V&V workspace</button>
               </div>
             </article>
             <article class="verification-panel verification-analysis-output">

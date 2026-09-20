@@ -103,6 +103,7 @@ function bindNativeExperimentShell(){
   document.querySelectorAll('[data-open-native-experiment]').forEach(b=>b.onclick=()=>openNativeExperiment(b.dataset.openNativeExperiment));
   if(uEl('backFromNativeExperiment'))uEl('backFromNativeExperiment').onclick=()=>showView('labs');
   if(uEl('nativeExperimentRun'))uEl('nativeExperimentRun').onclick=runNativeExperiment;
+  document.querySelectorAll('[data-native-verification-tool]').forEach(b=>b.onclick=()=>runNativeVerificationTool(b.dataset.nativeVerificationTool));
   document.querySelectorAll('[data-native-exp-tab]').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('[data-native-exp-tab]').forEach(x=>x.classList.toggle('active',x===b));
     document.querySelectorAll('.native-exp-tab-panel').forEach(p=>p.hidden=p.dataset.nativeExpPanel!==b.dataset.nativeExpTab);
@@ -397,6 +398,8 @@ const NATIVE_TOOL_SPECS = Object.freeze({
 });
 
 let nativeExperimentResult = null;
+let nativeExperimentToolResult = null;
+let nativeExperimentVerificationResult = null;
 
 function nativeParameterHtml(field){
   const name=uEsc(field.name),label=uEsc(field.label);
@@ -410,18 +413,44 @@ function renderNativeExperimentControls(spec){
   const advanced=NATIVE_ADVANCED_PARAMETER_SCHEMAS[spec.id]||[];
   uEl('nativeExperimentAdvancedControls').innerHTML=advanced.length?advanced.map(nativeParameterHtml).join(''):'<div class="empty-state compact-empty">No additional advanced parameters for this experiment.</div>';
   const tools=[...(NATIVE_TOOL_SPECS[spec.id]||[]),...NATIVE_GLOBAL_TOOL_SPECS];
+  const experimentSpecific=NATIVE_TOOL_SPECS[spec.id]||[];
+  const toolGroups=[
+    ['Experiment-specific',tools.filter(t=>experimentSpecific.some(x=>x.id===t.id))],
+    ['Inspect & verify',tools.filter(t=>['result-inspector','convergence-diagnostics','visualization-summary'].includes(t.id))],
+    ['Uncertainty & sensitivity',tools.filter(t=>['bootstrap','monte-carlo-propagation','local-sensitivity','elasticity-sensitivity','standardized-sensitivity','robust-sensitivity'].includes(t.id))],
+    ['Fit & model selection',tools.filter(t=>['regression','robust-regression','polynomial-regression','parameter-estimation','polynomial-cv'].includes(t.id))],
+    ['Experimental design',tools.filter(t=>['doe-design','morris-design'].includes(t.id))],
+    ['Deep numerical analysis',tools.filter(t=>['pca-svd','conditioning-diagnostics','tikhonov','tsvd'].includes(t.id))],
+    ['Compare & transform',tools.filter(t=>['visualization-transform','correlation-matrix','pareto-frontier','run-comparison'].includes(t.id))]
+  ].filter(([,items])=>items.length);
   const fullCard='<article class="experiment-tool-card zero-loss-card"><h3>Full Original Workspace</h3><p>Open the complete pre-redesign Research Workbench and its registry-backed All Workspaces catalog. Use this whenever a function has not yet been migrated into the new native layout.</p><button class="primary" data-open-full-original="'+uEsc(spec.id)+'">Open full original workspace</button></article>';
-  const toolCards=tools.map(t=>'<article class="experiment-tool-card"><h3>'+uEsc(t.name)+'</h3><p>'+uEsc(t.description)+'</p><button class="secondary" data-native-tool="'+uEsc(t.id)+'">Run tool</button></article>').join('');
-  uEl('nativeExperimentTools').innerHTML=fullCard+toolCards;
+  const grouped=toolGroups.map(([name,items],index)=>'<details class="native-tool-group" '+(index===0?'open':'')+'><summary><strong>'+uEsc(name)+'</strong><span>'+items.length+' tools</span></summary><div class="native-tool-list">'+items.map(t=>'<button type="button" class="native-tool-row" data-native-tool="'+uEsc(t.id)+'"><span><strong>'+uEsc(t.name)+'</strong><small>'+uEsc(t.description)+'</small></span><b>Run →</b></button>').join('')+'</div></details>').join('');
+  uEl('nativeExperimentTools').innerHTML=fullCard+grouped;
   document.querySelectorAll('[data-open-full-original]').forEach(b=>b.onclick=()=>openFullOriginalWorkspace(b.dataset.openFullOriginal));
   document.querySelectorAll('[data-native-tool]').forEach(b=>b.onclick=()=>runNativeExperimentTool(b.dataset.nativeTool));
+  document.querySelectorAll('[data-native-verification-tool]').forEach(b=>b.onclick=()=>runNativeVerificationTool(b.dataset.nativeVerificationTool));
   uEl('nativeExperimentRunMode').value='safe';
   nativeExperimentResult=null;
+  nativeExperimentToolResult=null;
+  nativeExperimentVerificationResult=null;
   uEl('nativeExperimentMetrics').innerHTML='';
   uEl('nativeExperimentResultCharts').innerHTML='';
   uEl('nativeExperimentResultTables').innerHTML='';
+  if(uEl('nativeExperimentToolMetrics'))uEl('nativeExperimentToolMetrics').innerHTML='';
+  if(uEl('nativeExperimentToolCharts'))uEl('nativeExperimentToolCharts').innerHTML='';
+  if(uEl('nativeExperimentToolTables'))uEl('nativeExperimentToolTables').innerHTML='';
+  if(uEl('nativeExperimentVerificationMetrics'))uEl('nativeExperimentVerificationMetrics').innerHTML='';
+  if(uEl('nativeExperimentVerificationCharts'))uEl('nativeExperimentVerificationCharts').innerHTML='';
+  if(uEl('nativeExperimentVerificationTables'))uEl('nativeExperimentVerificationTables').innerHTML='';
+  if(uEl('nativeExperimentToolBoundary'))uEl('nativeExperimentToolBoundary').textContent='';
+  if(uEl('nativeExperimentVerificationBoundary'))uEl('nativeExperimentVerificationBoundary').textContent='';
+  if(uEl('nativeExperimentToolBackend'))uEl('nativeExperimentToolBackend').textContent='not run';
+  if(uEl('nativeExperimentVerificationBackend'))uEl('nativeExperimentVerificationBackend').textContent='not run';
+  if(uEl('nativeExperimentVerificationStatus'))uEl('nativeExperimentVerificationStatus').textContent='Run the primary experiment first, then launch a verification check.';
   uEl('nativeExperimentResultBoundary').textContent='Run the experiment to view its model assumptions and scientific boundary.';
   if(uEl('nativeExperimentEmptyResults'))uEl('nativeExperimentEmptyResults').hidden=false;
+  if(uEl('nativeExperimentToolEmpty'))uEl('nativeExperimentToolEmpty').hidden=false;
+  if(uEl('nativeExperimentVerificationEmpty'))uEl('nativeExperimentVerificationEmpty').hidden=false;
 }
 function collectNativeExperimentParameters(){
   const values={};
@@ -444,6 +473,38 @@ function nativeMetricText(value){
   if(typeof value==='object')return JSON.stringify(value);
   return String(value);
 }
+function renderNativePayload(payload,targets){
+  const metrics=payload.metrics||{};
+  const entries=Object.entries(metrics).filter(([,v])=>typeof v!=='object'||v===null||Array.isArray(v));
+  const metricsHost=uEl(targets.metrics);
+  if(metricsHost)metricsHost.innerHTML=entries.length?entries.slice(0,20).map(([k,v])=>'<div class="native-result-metric"><span>'+uEsc(k.replace(/([A-Z])/g,' $1'))+'</span><strong>'+uEsc(nativeMetricText(v))+'</strong></div>').join(''):'<div class="empty-state compact-empty">No scalar metrics returned.</div>';
+  const series=Array.isArray(payload.series)?payload.series:[];
+  const chartHost=uEl(targets.charts);
+  if(chartHost)chartHost.innerHTML=series.map((row,idx)=>{
+    const points=(row.x||[]).map((x,i)=>({x:Number(x),y:Number((row.y||[])[i])})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+    const graph=row.chart==='scatter'?nativeScatterSvg([{label:row.label||row.id,points}],{xLabel:row.xLabel||'x',yLabel:row.yLabel||'y'}):utubeLineSvg([{label:row.label||row.id,points}],{xLabel:row.xLabel||'x',yLabel:row.yLabel||'y',height:280});
+    return '<article class="native-viz-panel"><div class="native-viz-title"><span>'+uEsc(row.label||row.id||('Series '+(idx+1)))+'</span><small>'+uEsc(row.chart||'line')+'</small></div>'+graph+'</article>';
+  }).join('');
+  const tables=Array.isArray(payload.tables)?payload.tables:[];
+  const tableHost=uEl(targets.tables);
+  if(tableHost)tableHost.innerHTML=tables.map(t=>{
+    const rows=Array.isArray(t.rows)?t.rows:[];if(!rows.length)return '';
+    const keys=Object.keys(rows[0]).slice(0,12);
+    return '<article class="native-table-panel"><div class="native-viz-title"><span>'+uEsc(t.label||t.id||'Result table')+'</span><small>'+rows.length+' rows</small></div><div class="table-wrap"><table class="research-table"><thead><tr>'+keys.map(k=>'<th>'+uEsc(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,120).map(row=>'<tr>'+keys.map(k=>'<td>'+uEsc(nativeMetricText(row[k]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></article>';
+  }).join('');
+  if(targets.boundary&&uEl(targets.boundary))uEl(targets.boundary).textContent=payload.boundary||'';
+  if(targets.backend&&uEl(targets.backend))uEl(targets.backend).textContent=payload.backend||'scientific adapter';
+  if(targets.empty&&uEl(targets.empty))uEl(targets.empty).hidden=true;
+}
+function renderNativeToolResult(payload){
+  nativeExperimentToolResult=payload;
+  renderNativePayload(payload,{metrics:'nativeExperimentToolMetrics',charts:'nativeExperimentToolCharts',tables:'nativeExperimentToolTables',boundary:'nativeExperimentToolBoundary',backend:'nativeExperimentToolBackend',empty:'nativeExperimentToolEmpty'});
+}
+function renderNativeVerificationResult(payload){
+  nativeExperimentVerificationResult=payload;
+  renderNativePayload(payload,{metrics:'nativeExperimentVerificationMetrics',charts:'nativeExperimentVerificationCharts',tables:'nativeExperimentVerificationTables',boundary:'nativeExperimentVerificationBoundary',backend:'nativeExperimentVerificationBackend',empty:'nativeExperimentVerificationEmpty'});
+}
+
 function renderNativeExperimentResult(payload){
   nativeExperimentResult=payload;
   const metrics=payload.metrics||{};
@@ -497,12 +558,37 @@ async function runNativeExperimentTool(tool){
     if(nativeExperimentResult)parameters.contextResult=nativeExperimentResult;
     const mode=uEl('nativeExperimentRunMode').value||'safe';
     const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
-    renderNativeExperimentResult(payload);
-    status.textContent='Completed '+tool+'. Results are available in Results and Verification.';
-    document.querySelector('[data-native-exp-tab="results"]')?.click();
+    renderNativeToolResult(payload);
+    status.textContent='Completed '+tool+'. Analysis output remains in Tools & Analysis.';
   }catch(e){
-    status.textContent=String(e);
-    toast(String(e),true);
+    const message=String(e);
+    status.textContent='Analysis failed: '+message;
+    if(uEl('nativeExperimentToolBoundary'))uEl('nativeExperimentToolBoundary').textContent='Analysis failed: '+message;
+    toast(message,true);
+  }
+}
+
+async function runNativeVerificationTool(tool){
+  if(!activeNativeExperimentId||!invoke)return;
+  const status=uEl('nativeExperimentVerificationStatus');
+  try{
+    if(!nativeExperimentResult){
+      status.textContent='Run Experiment first. Verification is defined against the current primary structured result.';
+      return;
+    }
+    status.textContent='Running '+tool+' against the current primary result…';
+    const parameters=collectNativeExperimentParameters();
+    parameters.__tool=tool;
+    parameters.contextResult=nativeExperimentResult;
+    const mode=uEl('nativeExperimentRunMode').value||'safe';
+    const payload=await invoke('native_experiment_run',{experimentId:activeNativeExperimentId,parameters,mode});
+    renderNativeVerificationResult(payload);
+    status.textContent='Completed '+tool+'. Verification output is shown below.';
+  }catch(e){
+    const message=String(e);
+    status.textContent='Verification failed: '+message;
+    if(uEl('nativeExperimentVerificationBoundary'))uEl('nativeExperimentVerificationBoundary').textContent='Verification failed: '+message;
+    toast(message,true);
   }
 }
 

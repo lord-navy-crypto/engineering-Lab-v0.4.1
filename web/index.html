@@ -327,11 +327,7 @@
               <div class="eyebrow">NUMERICAL CHECKS</div>
               <h3>Inspect & challenge the result</h3>
               <p>Run the original Result Inspector and convergence diagnostics against the current result without replacing it.</p>
-              <div class="verification-actions">
-                <button class="secondary" data-native-verification-tool="result-inspector">Run result inspector</button>
-                <button class="secondary" data-native-verification-tool="convergence-diagnostics">Run convergence diagnostics</button>
-                <button class="secondary" id="nativeExperimentOpenOriginalVerification">Open full original V&V workspace</button>
-              </div>
+              <div id="nativeExperimentVerificationActions" class="verification-actions"></div>
             </article>
             <div id="nativeExperimentVerificationStatus" class="native-status">Run the primary experiment first, then launch a verification check.</div>
             <article class="verification-panel verification-analysis-output">
@@ -368,7 +364,7 @@
           <article class="experiment-panel professional-setup-panel">
             <div class="panel-heading">
               <div><div class="eyebrow">COMPLETE APPARATUS STATE</div><h3>Setup</h3><p>Geometry, fluid properties, dynamic response, uncertainty and scan-planning controls are all exposed here.</p></div>
-              <div class="setup-parameter-count"><strong>22</strong><span>adjustable controls</span></div>
+              <div class="setup-parameter-count"><strong id="utubeSetupCount">—</strong><span>adjustable controls</span></div>
             </div>
 
             <section class="parameter-section">
@@ -416,6 +412,8 @@
                 <label>Fine step (rpm)<input id="utFineStep" type="number" min="0.1" max="20" step="0.1" value="2"></label>
               </div>
             </section>
+
+            <div id="utubeExtendedSetup" class="professional-parameter-sections"></div>
 
             <div class="primary-run-row">
               <button id="utRun" class="primary prominent-run">Run Experiment</button>
@@ -474,7 +472,7 @@
                 <button class="native-tool-row" data-utube-tool="research-questions"><span><strong>Research questions</strong><small>Show the mature U-Tube research-question set.</small></span><b>Run →</b></button>
               </div>
             </details>
-            <div class="full-original-strip"><div><strong>Full Original Workspace</strong><span>Every pre-redesign U-Tube capability remains available.</span></div><button class="secondary" id="utOpenFullOriginal">Open original workspace</button></div>
+
           </div>
           <section class="tool-output-workbench">
             <div class="panel-heading"><div><h3>Analysis output</h3><p>Tool metrics, plots, tables and scientific boundary stay here.</p></div></div>
@@ -517,7 +515,6 @@
                 <button class="secondary" data-utube-verification-tool="verification-requirements">Generate requirements</button>
                 <button class="secondary" data-utube-verification-tool="uncertainty-budget">Run uncertainty budget</button>
                 <button class="secondary" data-utube-verification-tool="operating-state">Run operating-state check</button>
-                <button class="secondary" id="utVerificationOpenOriginal">Open full original V&V workspace</button>
               </div>
             </article>
             <article class="verification-panel verification-analysis-output">

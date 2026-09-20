@@ -39,7 +39,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install --disable-pip-version-check numpy scipy pandas
+      - run: python -m pip install --disable-pip-version-check numpy scipy pandas mpmath
+      - name: Prepare pinned external scientific cores
+        run: |
+          mkdir -p .ci-pinned
+          git clone https://github.com/lord-navy-crypto/numerical-methods.git .ci-pinned/numerical-methods
+          git -C .ci-pinned/numerical-methods checkout 37275bab5c1918b2dc991de12bfd03c8fd6286b1
+          git clone https://github.com/lord-navy-crypto/Ising-Monte-Carlo-Lab.git .ci-pinned/ising-monte-carlo
+          git -C .ci-pinned/ising-monte-carlo checkout ebd79c89ce4d1d621b0ca0d06da9fc6072b9026d
+          git clone https://github.com/lord-navy-crypto/Random_Walk_Monte_Carlo_Studio.git .ci-pinned/random-walk-monte-carlo
+          git -C .ci-pinned/random-walk-monte-carlo checkout fc7fb190520ca5588daa1b1260a55a040b7e95ea
+          git clone https://github.com/lord-navy-crypto/NONLINEAR_DYNAMICS_CHAOS_LAB_.git .ci-pinned/nonlinear-chaos
+          git -C .ci-pinned/nonlinear-chaos checkout 2ef9e4f0180aa0af31afa660e5e60899193fdd28
+          git clone https://github.com/lord-navy-crypto/OSCILLATION_NUMERICAL_INTEGRATION_LAB.git .ci-pinned/oscillation-integration
+          git -C .ci-pinned/oscillation-integration checkout 4981df60353ae32639535c8e5d1bacf73c296f1e
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.ci-pinned/numerical-methods:$GITHUB_WORKSPACE/.ci-pinned/ising-monte-carlo:$GITHUB_WORKSPACE/.ci-pinned/random-walk-monte-carlo:$GITHUB_WORKSPACE/.ci-pinned/nonlinear-chaos:$GITHUB_WORKSPACE/.ci-pinned/oscillation-integration:$GITHUB_WORKSPACE/src-tauri/resources/ui" >> "$GITHUB_ENV"
       - run: node --check web/utube-native.js
       - run: node --check web/action-catalog.js
       - run: node --check web/native-experiments.js
@@ -50,8 +64,9 @@ jobs:
       - run: node --check dist/native-experiments.js
       - run: node --check dist/utube-native.js
       - run: node --check dist/action-catalog.js
-      - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py scripts/action_catalog.py
+      - run: python -m py_compile src-tauri/resources/native_experiment_runner.py scripts/native_experiment_adapter_validation.py scripts/action_catalog.py scripts/native_all_experiment_parity_validation.py
       - run: python scripts/native_utube_workspace_validation.py
       - run: python scripts/native_original_setup_parity_validation.py
+      - run: python scripts/native_all_experiment_parity_validation.py
       - run: python scripts/native_experiment_adapter_validation.py
       - run: rustfmt --edition 2021 --emit stdout src-tauri/src/lib.rs >/dev/null

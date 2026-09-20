@@ -128,127 +128,135 @@ def result(experiment_id: str, backend: str, parameters: dict[str, Any], metrics
 
 
 def numerical_methods(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    xmax = f(p, "xMax", 2.5, 0.2, 8.0)
-    order = i(p, "order", 9, 1, 19)
-    if order % 2 == 0:
-        order -= 1
-    points = i(p, "points", 401, 81, 2001)
-    x = np.linspace(-xmax, xmax, points)
-    approx = np.zeros_like(x)
-    for k in range((order + 1) // 2):
-        approx += ((-1.0) ** k) * x ** (2 * k + 1) / math.factorial(2 * k + 1)
-    exact = np.sin(x)
-    err = np.abs(exact - approx)
-    orders = list(range(1, order + 1, 2))
-    at_x = min(1.5, xmax)
-    conv = []
-    for n in orders:
-        val = sum(((-1.0) ** k) * at_x ** (2 * k + 1) / math.factorial(2 * k + 1) for k in range((n + 1) // 2))
-        conv.append(abs(math.sin(at_x) - val))
+    from numerical_lab.core import Method, ReferenceBackend, scan_sine, summarize_scan
+    method = Method(str(p.get("method", "range_reduced")))
+    dtype = str(p.get("dtype", "float64"))
+    backend = ReferenceBackend(str(p.get("referenceBackend", "mpmath")))
+    digits = i(p, "referencePrecisionDigits", 80, 20, 200)
+    tol = f(p, "toleranceMultiplier", 8.0, 0.1, 1000.0)
+    max_terms = i(p, "maxTerms", 120, 1, 500)
+    x_min = f(p, "xMin", -8.0, -100.0, 100.0)
+    x_max = f(p, "xMax", 8.0, -100.0, 100.0)
+    if x_max <= x_min:
+        raise ValueError("x maximum must exceed x minimum")
+    points = i(p, "points", 401, 21, 5001)
+    x_values = np.linspace(x_min, x_max, points)
+    out = scan_sine(
+        x_values, method=method, dtype=dtype, tolerance_multiplier=tol,
+        max_terms=max_terms, reference_backend=backend,
+        reference_precision_digits=digits,
+    )
+    summary = summarize_scan(out)
+    rows = []
+    keys = list(out)
+    for idx in range(points):
+        row = {}
+        for key in keys:
+            value = np.asarray(out[key], dtype=object)[idx]
+            row[key] = clean(value)
+        rows.append(row)
     return result(
         "numerical-methods",
-        "native-numpy-series",
-        {"xMax": xmax, "order": order, "points": points},
-        {"maxAbsoluteError": float(np.max(err)), "rmsAbsoluteError": float(np.sqrt(np.mean(err * err))), "referenceX": at_x},
+        "pinned-numerical_lab.scan_sine",
+        {
+            "method": method.value, "dtype": dtype, "referenceBackend": backend.value,
+            "referencePrecisionDigits": digits, "toleranceMultiplier": tol,
+            "maxTerms": max_terms, "xMin": x_min, "xMax": x_max, "points": points,
+        },
+        {k: clean(v) for k, v in summary.items()},
         [
-            xy_series("approx", f"T{order}(x)", x, approx, x_label="x", y_label="value"),
-            xy_series("exact", "sin(x)", x, exact, x_label="x", y_label="value"),
-            xy_series("error", "absolute error", x, err, x_label="x", y_label="|error|"),
-            xy_series("convergence", "error vs Taylor order", orders, conv, x_label="Taylor order", y_label="absolute error"),
+            xy_series("approximation", "Taylor approximation", out["x"], out["approximation"], x_label="x (rad)", y_label="sin(x)"),
+            xy_series("reference", "reference", out["x"], out["reference"], x_label="x (rad)", y_label="sin(x)"),
+            xy_series("absolute-error", "absolute error", out["x"], out["absolute_error"], x_label="x (rad)", y_label="absolute error"),
+            xy_series("normalized-error", "normalized error", out["x"], out["normalized_error"], x_label="x (rad)", y_label="error / allowed error"),
+            xy_series("terms-used", "terms used", out["x"], out["terms_used"], x_label="x (rad)", y_label="terms"),
+            xy_series("cancellation", "cancellation ratio", out["x"], out["cancellation_ratio"], x_label="x (rad)", y_label="cancellation ratio"),
         ],
-        "Maclaurin sine-series experiment. Error behavior is specific to the selected function, interval, arithmetic and truncation order; it is not a universal floating-point accuracy guarantee.",
+        "Pinned Numerical Error Analysis Studio core. Reliability combines stopping, reference accuracy and cancellation diagnostics; a converged Taylor term alone is not sufficient evidence of numerical accuracy.",
+        [{"id":"scan","label":"Complete parameter scan","rows":rows}],
     )
-
 
 def ising_monte_carlo(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    L = i(p, "size", 24, 6, 64)
-    temp = f(p, "temperature", 2.269, 0.05, 8.0)
-    sweeps = i(p, "sweeps", 160, 20, 1200)
-    seed = i(p, "seed", 12345, 0, 2_147_483_647)
-    rng = np.random.default_rng(seed)
-    spins = rng.choice(np.array([-1, 1], dtype=np.int8), size=(L, L))
-    beta = 1.0 / temp
-    mags, energies, accepts = [], [], []
-    accepted_total = 0
-    attempts_total = 0
-
-    def energy_per_spin() -> float:
-        return float(-np.sum(spins * (np.roll(spins, 1, 0) + np.roll(spins, 1, 1))) / (L * L))
-
-    for sweep in range(sweeps):
-        accepted = 0
-        for _ in range(L * L):
-            r = int(rng.integers(0, L)); c = int(rng.integers(0, L))
-            s = int(spins[r, c])
-            nn = int(spins[(r + 1) % L, c] + spins[(r - 1) % L, c] + spins[r, (c + 1) % L] + spins[r, (c - 1) % L])
-            dE = 2 * s * nn
-            if dE <= 0 or rng.random() < math.exp(-beta * dE):
-                spins[r, c] = -s
-                accepted += 1
-        accepted_total += accepted
-        attempts_total += L * L
-        mags.append(float(np.mean(spins)))
-        energies.append(energy_per_spin())
-        accepts.append(accepted / (L * L))
-    x = np.arange(1, sweeps + 1)
-    burn = max(1, sweeps // 3)
-    m = np.asarray(mags[burn:])
-    e = np.asarray(energies[burn:])
+    from ising_lab.core import IsingParams, simulate
+    params = IsingParams(
+        size=i(p, "size", 24, 4, 256),
+        coupling=f(p, "coupling", 1.0, -10.0, 10.0),
+        field=f(p, "field", 0.0, -10.0, 10.0),
+        temperature=f(p, "temperature", 2.269, 0.01, 20.0),
+        dimension=i(p, "dimension", 2, 1, 2),
+    )
+    method = str(p.get("scanMethod", "wolff"))
+    out = simulate(
+        params, method=method,
+        equilibration_sweeps=i(p, "equilibrationSweeps", 400, 0, 100000),
+        measurement_sweeps=i(p, "measurementSweeps", 800, 1, 100000),
+        measure_every=i(p, "measureEvery", 1, 1, 1000),
+        initial=str(p.get("initialCondition", "random")),
+        seed=i(p, "seed", 2026, 0, 2147483647),
+        record_every=i(p, "recordEvery", 10, 1, 1000),
+    )
+    scalar = {k: clean(v) for k,v in out.items() if isinstance(v,(str,int,float,bool,np.integer,np.floating))}
+    work = np.asarray(out["trajectory_work_units"],dtype=float)
+    energy = np.asarray(out["trajectory_energy"],dtype=float)
+    mag = np.asarray(out["trajectory_magnetization"],dtype=float)
+    final = np.asarray(out["final_config"])
     return result(
         "ising-monte-carlo",
-        "native-numpy-metropolis-2d",
-        {"size": L, "temperature": temp, "sweeps": sweeps, "seed": seed},
-        {
-            "meanMagnetization": float(np.mean(m)),
-            "meanAbsMagnetization": float(np.mean(np.abs(m))),
-            "meanEnergyPerSpin": float(np.mean(e)),
-            "acceptanceFraction": accepted_total / max(attempts_total, 1),
-            "finalMagnetization": mags[-1],
-        },
+        "pinned-ising_lab.simulate",
+        clean({
+            "dimension": params.dimension, "size": params.size, "coupling": params.coupling,
+            "field": params.field, "temperature": params.temperature, "method": method,
+            "equilibrationSweeps": p.get("equilibrationSweeps",400),
+            "measurementSweeps": p.get("measurementSweeps",800),
+            "measureEvery": p.get("measureEvery",1),
+            "initialCondition": p.get("initialCondition","random"),
+            "seed": p.get("seed",2026),
+        }),
+        scalar,
         [
-            xy_series("magnetization", "magnetization", x, mags, x_label="Monte Carlo sweep", y_label="m"),
-            xy_series("energy", "energy per spin", x, energies, x_label="Monte Carlo sweep", y_label="E/N"),
-            xy_series("acceptance", "acceptance fraction", x, accepts, x_label="Monte Carlo sweep", y_label="accepted / attempted"),
+            xy_series("energy","energy per site",work,energy,x_label="work units",y_label="E/N"),
+            xy_series("magnetization","magnetization per site",work,mag,x_label="work units",y_label="M/N"),
         ],
-        "Finite 2-D square-lattice nearest-neighbor Ising Metropolis run with seeded pseudorandom updates. Finite-size, burn-in and autocorrelation matter; one run is not a thermodynamic-limit criticality measurement.",
+        "Pinned Ising Monte Carlo Lab core. Finite-size, equilibration, autocorrelation, update-method compatibility and effective sample size must be considered before interpreting thermodynamic behavior.",
+        [{"id":"final-config","label":"Final lattice configuration","rows":[{"shape":list(final.shape),"meanSpin":float(np.mean(final)),"minSpin":int(np.min(final)),"maxSpin":int(np.max(final))}]}],
     )
-
 
 def random_walk(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    steps = i(p, "steps", 400, 20, 5000)
-    walkers = i(p, "walkers", 1500, 50, 12000)
-    seed = i(p, "seed", 20260919, 0, 2_147_483_647)
-    dimension = i(p, "dimension", 2, 1, 3)
-    rng = np.random.default_rng(seed)
-    pos = np.zeros((walkers, dimension), dtype=float)
-    msd = np.zeros(steps + 1, dtype=float)
-    mean_r = np.zeros(steps + 1, dtype=float)
-    sample_path = np.zeros((steps + 1, dimension), dtype=float)
-    for n in range(1, steps + 1):
-        axis = rng.integers(0, dimension, size=walkers)
-        sign = rng.choice(np.array([-1.0, 1.0]), size=walkers)
-        pos[np.arange(walkers), axis] += sign
-        sample_path[n] = pos[0]
-        r2 = np.sum(pos * pos, axis=1)
-        msd[n] = float(np.mean(r2))
-        mean_r[n] = float(np.mean(np.sqrt(r2)))
-    n = np.arange(steps + 1)
-    fit = np.polyfit(n[max(2, steps // 10):], msd[max(2, steps // 10):], 1)
-    series = [
-        xy_series("msd", "ensemble MSD", n, msd, x_label="steps", y_label="⟨r²⟩"),
-        xy_series("mean-radius", "mean radius", n, mean_r, x_label="steps", y_label="⟨r⟩"),
+    from rw_mc_studio.random_walk import simulate_endpoints, summarize_endpoints, simulate_trajectory, theoretical_msd, theoretical_mean_radius
+    dim = i(p, "dimension", 2, 1, 50)
+    steps = i(p, "steps", 1000, 1, 1000000)
+    walkers = i(p, "walkers", 10000, 1, 1000000)
+    seed = i(p, "seed", 12345, 0, 2147483647)
+    model = str(p.get("stepModel", "fixed"))
+    if model == "uniform":
+        p1 = f(p, "uniformA", 0.5, 0.0, 100.0)
+        p2 = f(p, "uniformB", 1.5, 0.0001, 100.0)
+        if p2 <= p1: raise ValueError("Uniform upper bound must exceed lower bound")
+    else:
+        p1 = f(p, "fixedStep", 1.0, 0.0001, 100.0); p2 = None
+    endpoints, meta = simulate_endpoints(dim,steps,walkers,model,p1,p2,seed=seed,return_metadata=True)
+    summary = summarize_endpoints(endpoints)
+    traj = simulate_trajectory(dim,min(steps,i(p,"trajectorySteps",500,1,100000)),model,p1,p2,seed=seed+1)
+    radii=np.linalg.norm(endpoints,axis=1)
+    series=[
+        xy_series("radius-samples","endpoint radius",range(len(radii)),radii,x_label="walker",y_label="radius"),
     ]
-    if dimension >= 2:
-        series.append(xy_series("sample-path", "sample walker path", sample_path[:, 0], sample_path[:, 1], x_label="x", y_label="y", chart="scatter"))
+    if dim>=2:
+        series.append(xy_series("trajectory","sample trajectory",traj[:,0],traj[:,1],x_label="x",y_label="y",chart="scatter"))
     return result(
         "random-walk-monte-carlo",
-        "native-numpy-random-walk",
-        {"steps": steps, "walkers": walkers, "dimension": dimension, "seed": seed},
-        {"finalMSD": float(msd[-1]), "expectedMSD": float(steps), "msdSlope": float(fit[0]), "relativeFinalError": float(abs(msd[-1] - steps) / max(steps, 1))},
+        "pinned-rw_mc_studio.simulate_endpoints",
+        {"dimension":dim,"steps":steps,"walkers":walkers,"seed":seed,"stepModel":model,"p1":p1,"p2":p2},
+        {
+            **{k:clean(v) for k,v in summary.items() if isinstance(v,(str,int,float,bool,np.integer,np.floating))},
+            "theoreticalMSD": theoretical_msd(steps,model,p1,p2),
+            "theoreticalMeanRadius": theoretical_mean_radius(dim,steps,model,p1,p2),
+            "engine": meta.get("engine"),
+        },
         series,
-        "Unbiased lattice random walk with unit steps and a finite seeded ensemble. Monte Carlo variation is expected; agreement of MSD with N is a statistical reference, not proof of RNG quality.",
+        "Pinned Random Walk and Monte Carlo Simulation Studio core. Ensemble confidence intervals describe finite Monte Carlo sampling; they do not validate the pseudorandom generator or asymptotic formulas outside their assumptions.",
+        [{"id":"endpoint-summary","label":"Endpoint summary","rows":[clean(summary)]}],
     )
-
 
 def _rk4(rhs, state: np.ndarray, t: float, dt: float) -> np.ndarray:
     k1 = np.asarray(rhs(t, state), float)
@@ -259,94 +267,64 @@ def _rk4(rhs, state: np.ndarray, t: float, dt: float) -> np.ndarray:
 
 
 def nonlinear_chaos(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    duration = f(p, "duration", 80.0, 5.0, 400.0)
-    dt = f(p, "dt", 0.02, 0.001, 0.1)
-    damping = f(p, "damping", 0.2, 0.0, 4.0)
-    drive = f(p, "drive", 1.2, 0.0, 5.0)
-    omega = f(p, "driveOmega", 2.0 / 3.0, 0.05, 5.0)
-    theta0 = f(p, "theta0", 0.2, -math.pi, math.pi)
-    delta0 = f(p, "perturbation", 1e-7, 1e-12, 1e-2)
-    count = min(40000, max(200, int(duration / dt) + 1))
-    t = np.linspace(0.0, dt * (count - 1), count)
-    a = np.array([theta0, 0.0], float)
-    c = np.array([theta0 + delta0, 0.0], float)
-    theta = np.zeros(count); velocity = np.zeros(count); sep = np.zeros(count)
-    poincare_x, poincare_y = [], []
-    period = 2 * math.pi / omega
-    next_sample = period
-
-    def rhs(tt: float, y: np.ndarray) -> np.ndarray:
-        return np.array([y[1], -damping * y[1] - math.sin(y[0]) + drive * math.cos(omega * tt)])
-
-    for k, tt in enumerate(t):
-        theta[k] = a[0]; velocity[k] = a[1]
-        sep[k] = float(np.linalg.norm(c - a))
-        if tt + 0.5 * dt >= next_sample:
-            poincare_x.append(((a[0] + math.pi) % (2 * math.pi)) - math.pi)
-            poincare_y.append(a[1])
-            next_sample += period
-        if k + 1 < count:
-            a = _rk4(rhs, a, tt, dt)
-            c = _rk4(rhs, c, tt, dt)
-    valid = sep[(sep > delta0 * 2) & (sep < 0.2)]
-    lyap = None
-    if len(valid) >= 5:
-        idx = np.where((sep > delta0 * 2) & (sep < 0.2))[0]
-        coeff = np.polyfit(t[idx], np.log(sep[idx] / delta0), 1)
-        lyap = float(coeff[0])
-    series = [
-        xy_series("theta", "angle", t, theta, x_label="time", y_label="θ (rad)"),
-        xy_series("phase", "phase portrait", theta, velocity, x_label="θ (rad)", y_label="ω (rad/time)", chart="scatter"),
-        xy_series("separation", "paired-trajectory separation", t, sep, x_label="time", y_label="phase-space separation"),
-    ]
-    if len(poincare_x) >= 2:
-        series.append(xy_series("poincare", "Poincaré section", poincare_x, poincare_y, x_label="θ mod 2π", y_label="ω", chart="scatter"))
+    from chaos_lab.core import DoublePendulumParams, simulate_double_pendulum, double_pendulum_energy, double_pendulum_cartesian
+    params=DoublePendulumParams(
+        mass1=f(p,"mass1",1.0,.01,100.0), mass2=f(p,"mass2",1.0,.01,100.0),
+        length1=f(p,"length1",1.0,.01,100.0), length2=f(p,"length2",1.0,.01,100.0),
+        gravity=f(p,"gravity",9.81,.01,100.0), damping=f(p,"damping",.05,0.0,20.0),
+    )
+    initial=np.asarray([
+        f(p,"theta1",1.2,-2*math.pi,2*math.pi), f(p,"omega1",0.0,-100.0,100.0),
+        f(p,"theta2",1.0,-2*math.pi,2*math.pi), f(p,"omega2",0.0,-100.0,100.0),
+    ])
+    duration=f(p,"duration",40.0,.1,1000.0); dt=f(p,"dt",.005,1e-5,1.0)
+    times,states=simulate_double_pendulum(initial,params,duration=duration,dt=dt)
+    energy=double_pendulum_energy(states,params); cart=double_pendulum_cartesian(states,params)
+    drift=float(np.max(np.abs(energy-energy[0]))/max(abs(float(energy[0])),np.finfo(float).tiny))
     return result(
         "nonlinear-chaos",
-        "native-rk4-driven-pendulum",
-        {"duration": duration, "dt": dt, "damping": damping, "drive": drive, "driveOmega": omega, "theta0": theta0, "perturbation": delta0},
-        {"maxAbsTheta": float(np.max(np.abs(theta))), "maxAbsVelocity": float(np.max(np.abs(velocity))), "finiteWindowDivergenceRate": lyap, "poincareSamples": len(poincare_x)},
-        series,
-        "Driven damped pendulum integrated with fixed-step RK4. The finite-window divergence estimate is diagnostic only and is not an asymptotic Lyapunov proof without convergence and renormalization checks.",
+        "pinned-chaos_lab.simulate_double_pendulum",
+        clean({"mass1":params.mass1,"mass2":params.mass2,"length1":params.length1,"length2":params.length2,"gravity":params.gravity,"damping":params.damping,"initial":initial,"duration":duration,"dt":dt}),
+        {"relativeEnergyDrift":drift,"samples":len(times),"finalTheta1":float(states[-1,0]),"finalTheta2":float(states[-1,2])},
+        [
+            xy_series("theta1","theta1",times,states[:,0],x_label="time",y_label="angle (rad)"),
+            xy_series("theta2","theta2",times,states[:,2],x_label="time",y_label="angle (rad)"),
+            xy_series("phase1","upper-arm phase",states[:,0],states[:,1],x_label="theta1",y_label="omega1",chart="scatter"),
+            xy_series("energy","total mechanical energy",times,energy,x_label="time",y_label="energy"),
+        ],
+        "Pinned Nonlinear Dynamics & Chaos Lab double-pendulum core. Apparent irregularity, flip maps and finite-time Lyapunov estimates require timestep/convergence checks before being interpreted as chaos evidence.",
+        [{"id":"cartesian-endpoint","label":"Final Cartesian state","rows":[{"x1":float(cart["x1"][-1]),"y1":float(cart["y1"][-1]),"x2":float(cart["x2"][-1]),"y2":float(cart["y2"][-1])}]}],
     )
-
 
 def oscillation(p: dict[str, Any], mode: str) -> dict[str, Any]:
-    duration = f(p, "duration", 30.0, 1.0, 300.0)
-    dt = f(p, "dt", 0.01, 0.0005, 0.1)
-    omega0 = f(p, "omega0", 2.0, 0.05, 20.0)
-    zeta = f(p, "zeta", 0.08, 0.0, 2.0)
-    force = f(p, "force", 0.6, 0.0, 20.0)
-    drive_omega = f(p, "driveOmega", 1.6, 0.0, 20.0)
-    x0 = f(p, "x0", 1.0, -100.0, 100.0)
-    count = min(50000, max(100, int(duration / dt) + 1))
-    t = np.linspace(0.0, dt * (count - 1), count)
-    state = np.array([x0, 0.0], float)
-    x = np.zeros(count); v = np.zeros(count); energy = np.zeros(count)
-
-    def rhs(tt: float, y: np.ndarray) -> np.ndarray:
-        return np.array([y[1], force * math.cos(drive_omega * tt) - 2 * zeta * omega0 * y[1] - omega0 * omega0 * y[0]])
-
-    for k, tt in enumerate(t):
-        x[k], v[k] = state
-        energy[k] = 0.5 * v[k] ** 2 + 0.5 * omega0 ** 2 * x[k] ** 2
-        if k + 1 < count:
-            state = _rk4(rhs, state, tt, dt)
-    tail = x[max(0, count // 2):]
+    from oscillation_lab.core import OscillatorParams, simulate_fixed, linear_energy, energy_balance_diagnostic
+    params=OscillatorParams(
+        mass=f(p,"mass",1.0,.001,1000.0),
+        omega0=f(p,"omega0",2*math.pi,.001,1000.0),
+        gamma=f(p,"gamma",.1,0.0,100.0),
+        force_amplitude=f(p,"force",1.0,0.0,1000.0),
+        force_frequency=f(p,"driveOmega",6.0,0.0,1000.0),
+    )
+    initial=np.asarray([f(p,"x0",1.0,-1000.0,1000.0),f(p,"v0",0.0,-1000.0,1000.0)])
+    duration=f(p,"duration",20.0,.01,10000.0); dt=f(p,"dt",.01,1e-6,10.0)
+    method=str(p.get("method","rk4"))
+    out=simulate_fixed(initial,params,duration=duration,dt=dt,method=method)
+    times=np.asarray(out["time"]); states=np.asarray(out["state"])
+    energy=linear_energy(states,params); balance=energy_balance_diagnostic(times,states,params)
     return result(
         "oscillation-integration",
-        "native-rk4-linear-oscillator",
-        {"duration": duration, "dt": dt, "omega0": omega0, "zeta": zeta, "force": force, "driveOmega": drive_omega, "x0": x0},
-        {"maxAbsDisplacement": float(np.max(np.abs(x))), "rmsTailDisplacement": float(np.sqrt(np.mean(tail * tail))), "finalEnergy": float(energy[-1]), "steps": count - 1},
+        "pinned-oscillation_lab.simulate_fixed",
+        clean({"mass":params.mass,"omega0":params.omega0,"gamma":params.gamma,"forceAmplitude":params.force_amplitude,"driveOmega":params.force_frequency,"initial":initial,"duration":duration,"dt":dt,"method":method}),
+        {"actualDt":float(out["actual_dt"]),"samples":len(times),"maxAbsDisplacement":float(np.max(np.abs(states[:,0]))),"maxRelativeEnergyBalanceResidual":float(balance["max_relative_balance_residual"])},
         [
-            xy_series("displacement", "displacement", t, x, x_label="time", y_label="x"),
-            xy_series("velocity", "velocity", t, v, x_label="time", y_label="dx/dt"),
-            xy_series("phase", "phase portrait", x, v, x_label="x", y_label="dx/dt", chart="scatter"),
-            xy_series("energy", "mechanical energy", t, energy, x_label="time", y_label="E"),
+            xy_series("displacement","displacement",times,states[:,0],x_label="time (s)",y_label="u (m)"),
+            xy_series("velocity","velocity",times,states[:,1],x_label="time (s)",y_label="v (m/s)"),
+            xy_series("phase","phase portrait",states[:,0],states[:,1],x_label="u (m)",y_label="v (m/s)",chart="scatter"),
+            xy_series("energy","mechanical energy",times,energy,x_label="time (s)",y_label="E"),
+            xy_series("balance-residual","energy balance residual",times,balance["balance_residual"],x_label="time (s)",y_label="energy residual"),
         ],
-        "Single-degree-of-freedom linearly damped, harmonically forced oscillator integrated with fixed-step RK4. Real structural modes and experimental uncertainty are outside this adapter result.",
+        "Pinned Oscillation & Numerical Integration Lab core. Energy conservation is meaningful only for conservative configurations; damped or driven cases must be interpreted through the energy-power balance.",
     )
-
 
 def radia_magnet(p: dict[str, Any], mode: str) -> dict[str, Any]:
     period_mm = f(p, "periodMm", 50.0, 1.0, 1000.0)
@@ -1501,6 +1479,288 @@ def run_global_analysis_tool(experiment_id: str, tool: str, p: dict[str, Any]) -
 def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: str) -> dict[str, Any]:
     if tool in {"result-inspector", "bootstrap", "regression", "robust-regression", "convergence-diagnostics", "visualization-summary", "visualization-transform", "local-sensitivity", "elasticity-sensitivity", "standardized-sensitivity", "polynomial-regression", "monte-carlo-propagation", "doe-design", "parameter-estimation", "polynomial-cv", "pca-svd", "conditioning-diagnostics", "tikhonov", "tsvd", "correlation-matrix", "pareto-frontier", "robust-sensitivity", "run-comparison", "morris-design"}:
         return run_global_analysis_tool(experiment_id, tool, p)
+    if experiment_id == "numerical-methods" and tool in {"parameter-scan","single-point-convergence","method-comparison","compliance"}:
+        from numerical_lab.core import Method, ReferenceBackend, scan_sine, summarize_scan, sine_taylor, convergence_scan, machine_epsilon
+        method=Method(str(p.get("method","range_reduced"))); dtype=str(p.get("dtype","float64"))
+        backend=ReferenceBackend(str(p.get("referenceBackend","mpmath"))); digits=i(p,"referencePrecisionDigits",80,20,200)
+        tol=f(p,"toleranceMultiplier",8.0,.1,1000.0); max_terms=i(p,"maxTerms",120,1,500)
+        if tool=="parameter-scan":
+            return numerical_methods(p,mode)
+        if tool=="single-point-convergence":
+            x=f(p,"singleX",1.5,-100.0,100.0); terms=i(p,"convergenceTerms",60,2,300)
+            single=sine_taylor(x,method=method,dtype=dtype,tolerance_multiplier=tol,max_terms=max_terms,reference_backend=backend,reference_precision_digits=digits)
+            conv=convergence_scan(x,method=method,dtype=dtype,max_terms=terms,reference_backend=backend,reference_precision_digits=digits)
+            return result(experiment_id,"pinned-numerical_lab.single-point",p,{
+                "approximation":single.value,"reference":single.reference,"absoluteError":single.absolute_error,
+                "normalizedError":single.normalized_error,"termsUsed":single.terms_used,"lastTerm":single.last_term,
+                "cancellationRatio":single.cancellation_ratio,"ulpError":single.ulp_error,
+                "stoppingCriterionMet":single.stopping_criterion_met,"accuracyPassed":single.accuracy_passed,
+                "numericallyReliable":single.numerically_reliable,"falseConvergence":single.false_convergence,
+            },[
+                xy_series("absolute-error","absolute error",conv["terms"],conv["absolute_error"],x_label="Taylor terms",y_label="absolute error"),
+                xy_series("last-term","last Taylor term",conv["terms"],np.abs(conv["last_term"]),x_label="Taylor terms",y_label="|last term|"),
+            ],"Pinned scalar Taylor evaluation and convergence study using the configured arithmetic/reference engine.",[{"id":"convergence","label":"Complete convergence data","rows":[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in conv.items()} for idx in range(len(conv["terms"]))]}])
+        if tool=="method-comparison":
+            x=np.linspace(f(p,"xMin",-8.0,-100,100),f(p,"xMax",8.0,-100,100),i(p,"points",401,21,5001))
+            reduced=scan_sine(x,method=Method.RANGE_REDUCED,dtype=dtype,tolerance_multiplier=tol,max_terms=max_terms,reference_backend=backend,reference_precision_digits=digits)
+            raw=scan_sine(x,method=Method.RAW,dtype=dtype,tolerance_multiplier=tol,max_terms=max_terms,reference_backend=backend,reference_precision_digits=digits)
+            sr=summarize_scan(reduced); sw=summarize_scan(raw)
+            rows=[{"method":"range_reduced",**clean(sr)},{"method":"raw",**clean(sw)}]
+            return result(experiment_id,"pinned-numerical_lab.method-comparison",p,{
+                "rangeReducedMaxError":sr["maximum_absolute_error"],"rawMaxError":sw["maximum_absolute_error"],
+                "rangeReducedFalseConvergence":sr["false_convergence_count"],"rawFalseConvergence":sw["false_convergence_count"],
+            },[
+                xy_series("reduced-error","range-reduced absolute error",x,reduced["absolute_error"],x_label="x (rad)",y_label="absolute error"),
+                xy_series("raw-error","raw Taylor absolute error",x,raw["absolute_error"],x_label="x (rad)",y_label="absolute error"),
+            ],"Same scan/reference settings for raw and range-reduced Taylor evaluation.",[{"id":"comparison","label":"Method comparison","rows":rows}])
+        xs=np.asarray([-80,-20,-math.pi,-1,0,1,math.pi,20,80],dtype=float)
+        checks=scan_sine(xs,method=method,dtype=dtype,tolerance_multiplier=tol,max_terms=max_terms,reference_backend=backend,reference_precision_digits=digits)
+        rows=[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in checks.items()} for idx in range(len(xs))]
+        return result(experiment_id,"pinned-numerical_lab.validation",p,{
+            "machineEpsilon":machine_epsilon(dtype),"validationPoints":len(xs),
+            "reliabilityRate":float(np.mean(checks["numerically_reliable"])),
+            "falseConvergenceCount":int(np.sum(checks["false_convergence"])),
+        },[xy_series("validation-error","validation absolute error",xs,checks["absolute_error"],x_label="x (rad)",y_label="absolute error")],
+        "Built-in numerical compliance samples representative small and cancellation-prone arguments; it is evidence for this implementation/configuration, not a proof over all real inputs.",[{"id":"validation","label":"Validation points","rows":rows}])
+
+    if experiment_id == "ising-monte-carlo" and tool in {"method-comparison","equilibration","multi-chain","scan-1d","scan-2d","finite-size","snapshot","compliance"}:
+        from ising_lab.core import IsingParams, simulate, method_comparison, multi_chain_convergence, thermodynamic_scan, finite_size_scan, exact_observables, notebook_temperature_grid, all_plus_energy
+        params=IsingParams(size=i(p,"size",24,4,256),coupling=f(p,"coupling",1.0,-10,10),field=f(p,"field",0.0,-10,10),temperature=f(p,"temperature",2.269,.01,20),dimension=i(p,"dimension",2,1,2))
+        seed=i(p,"seed",2026,0,2147483647); method=str(p.get("scanMethod","wolff")); measure_every=i(p,"measureEvery",1,1,1000)
+        if tool=="method-comparison":
+            out=method_comparison(params,equilibration_sweeps=i(p,"comparisonEquilibration",300,0,100000),measurement_sweeps=i(p,"comparisonMeasurement",600,1,100000),measure_every=measure_every,seed=seed)
+            rows=[]; series=[]
+            for name,data in out.items():
+                if name=="analytic": rows.append({"method":"analytic",**{k:clean(v) for k,v in data.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))}}); continue
+                rows.append({"method":name,**{k:clean(v) for k,v in data.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))}})
+                series.append(xy_series(name+"-energy",name+" energy",data["trajectory_work_units"],data["trajectory_energy"],x_label="work units",y_label="E/N"))
+            return result(experiment_id,"pinned-ising_lab.method_comparison",p,{"methods":len(out)-1},series,"Pinned four-method comparison plus independent exact reference where available.",[{"id":"methods","label":"Method metrics","rows":rows}])
+        if tool=="equilibration":
+            out=simulate(params,method=method,equilibration_sweeps=0,measurement_sweeps=i(p,"diagnosticCycles",1000,10,100000),measure_every=1,seed=seed,record_every=i(p,"recordEvery",10,1,1000))
+            from ising_lab.core import equilibration_diagnostics
+            diag=equilibration_diagnostics(np.asarray(out["trajectory_energy"]),int(out["record_stride"]))
+            return result(experiment_id,"pinned-ising_lab.equilibration",p,{**{k:clean(v) for k,v in diag.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))}},[
+                xy_series("eq-energy","energy per site",out["trajectory_work_units"],out["trajectory_energy"],x_label="work units",y_label="E/N"),
+                xy_series("eq-mag","magnetization per site",out["trajectory_work_units"],out["trajectory_magnetization"],x_label="work units",y_label="M/N"),
+            ],"Plateau and autocorrelation diagnostics support equilibration assessment but do not prove global mixing.",[{"id":"equilibration-diagnostics","label":"Equilibration diagnostics","rows":[clean(diag)]}])
+        if tool=="multi-chain":
+            out=multi_chain_convergence(params,method=method,equilibration_sweeps=i(p,"equilibrationSweeps",400,0,100000),measurement_sweeps=i(p,"measurementSweeps",800,1,100000),measure_every=measure_every,seed=seed)
+            return result(experiment_id,"pinned-ising_lab.multi_chain_convergence",p,{"rhatEnergy":out["rhat_energy"],"rhatAbsMagnetization":out["rhat_abs_magnetization"],"samplesPerChain":out["samples_per_chain"]},[],str(out["interpretation"]),[{"id":"chains","label":"Multi-chain diagnostics","rows":clean(out["chains"])}])
+        if tool in {"scan-1d","scan-2d"}:
+            dim=1 if tool=="scan-1d" else 2
+            current=IsingParams(size=params.size,coupling=params.coupling,field=params.field,temperature=params.temperature,dimension=dim)
+            if b(p,"useNotebookMesh",False) and dim==2:
+                temps=np.asarray(notebook_temperature_grid(),dtype=float)
+            else:
+                temps=np.linspace(f(p,"tMin",1.0,.01,20),f(p,"tMax",4.0,.02,20),i(p,"scanPoints",21,3,201))
+            out=thermodynamic_scan(temps,current,method=method,equilibration_sweeps=i(p,"equilibrationSweeps",400,0,100000),measurement_sweeps=i(p,"measurementSweeps",800,1,100000),measure_every=measure_every,seed=seed)
+            rows=[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items()} for idx in range(len(temps))]
+            return result(experiment_id,"pinned-ising_lab.thermodynamic_scan",p,{"dimension":dim,"points":len(temps)},[
+                xy_series("scan-energy","energy per site",out["temperature"],out["energy_per_site"],x_label="T",y_label="E/N"),
+                xy_series("scan-mag","|M|/N",out["temperature"],out["mean_abs_magnetization"],x_label="T",y_label="|M|/N"),
+                xy_series("scan-heat","specific heat",out["temperature"],out["specific_heat"],x_label="T",y_label="C"),
+                xy_series("scan-susc","susceptibility",out["temperature"],out["susceptibility_standard"],x_label="T",y_label="chi"),
+            ],"Finite-temperature Monte Carlo scan with exact/reference columns supplied by the pinned Ising core.",[{"id":"temperature-scan","label":"Thermodynamic scan","rows":rows}])
+        if tool=="finite-size":
+            sizes=[]
+            for token in str(p.get("latticeSizes","8,12,16,24,32")).split(","):
+                token=token.strip()
+                if token: sizes.append(int(token))
+            out=finite_size_scan(np.asarray(sizes,dtype=int),params,method=method,equilibration_sweeps=i(p,"equilibrationSweeps",400,0,100000),measurement_sweeps=i(p,"measurementSweeps",800,1,100000),measure_every=measure_every,seed=seed)
+            rows=[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items()} for idx in range(len(out["size"]))]
+            return result(experiment_id,"pinned-ising_lab.finite_size_scan",p,{"sizes":len(rows)},[
+                xy_series("finite-mag","|M|/N",out["size"],out["mean_abs_magnetization"],x_label="N",y_label="|M|/N"),
+                xy_series("finite-energy","E/N",out["size"],out["energy_per_site"],x_label="N",y_label="E/N"),
+            ],"Finite-size scan is not a thermodynamic-limit extrapolation unless a justified scaling model is applied.",[{"id":"finite-size","label":"Finite-size scan","rows":rows}])
+        if tool=="snapshot":
+            out=simulate(params,method=method,equilibration_sweeps=i(p,"snapshotSweeps",200,0,100000),measurement_sweeps=1,measure_every=1,initial=str(p.get("initialCondition","random")),seed=seed,record_every=max(1,i(p,"recordEvery",10,1,1000)))
+            cfg=np.asarray(out["final_config"])
+            rows=[{"row":idx,"spins":" ".join(str(int(v)) for v in np.asarray(row).ravel())} for idx,row in enumerate(cfg if cfg.ndim>1 else [cfg])]
+            return result(experiment_id,"pinned-ising_lab.snapshot",p,{"shape":list(cfg.shape),"magnetizationPerSite":float(np.mean(cfg))},[],"Single finite seeded lattice realization.",[{"id":"snapshot","label":"Lattice snapshot","rows":rows}])
+        exact=exact_observables(params)
+        plus=all_plus_energy(params)
+        return result(experiment_id,"pinned-ising_lab.compliance",p,{
+            "exactEnergyPerSite":clean(exact.get("energy_per_site")),"exactMagnetization":clean(exact.get("magnetization")),"allPlusEnergy":clean(plus),
+        },[],"Pinned exact/reference compliance values for the configured finite model.",[{"id":"exact-reference","label":"Exact/reference observables","rows":[clean(exact)]}])
+
+    if experiment_id == "random-walk-monte-carlo" and tool in {"ensemble","trajectory","parameter-scan","repeated-mc","convergence-scan","high-d-mc","qmc","theory-volume","return-probability","first-passage","grid-vs-mc","reproducibility","validate-preset"}:
+        from rw_mc_studio.random_walk import simulate_endpoints, summarize_endpoints, simulate_trajectory, return_probability
+        from rw_mc_studio.scans import random_walk_scan, mc_convergence_scan
+        from rw_mc_studio.monte_carlo import repeated_circle_trials, nd_ball_volume_mc, theoretical_nd_ball_volume, grid_circle_area, grid_sphere_volume, circle_area_mc
+        from rw_mc_studio.advanced import repeated_scrambled_qmc, first_passage_1d, multi_seed_random_walk
+        seed=i(p,"seed",12345,0,2147483647); dim=i(p,"dimension",2,1,50); steps=i(p,"steps",1000,1,1000000); walkers=i(p,"walkers",10000,1,1000000)
+        model=str(p.get("stepModel","fixed")); pa=f(p,"fixedStep",1.0,.0001,100.0) if model=="fixed" else f(p,"uniformA",.5,0,100); pb=None if model=="fixed" else f(p,"uniformB",1.5,.0001,100)
+        if tool=="ensemble":
+            return random_walk(p,mode)
+        if tool=="trajectory":
+            tr=simulate_trajectory(dim,i(p,"trajectorySteps",500,1,100000),model,pa,pb,seed=seed)
+            series=[xy_series("trajectory-x","x coordinate",range(len(tr)),tr[:,0],x_label="step",y_label="x")]
+            if dim>=2: series.append(xy_series("trajectory-xy","trajectory",tr[:,0],tr[:,1],x_label="x",y_label="y",chart="scatter"))
+            return result(experiment_id,"pinned-rw_mc_studio.simulate_trajectory",p,{"steps":len(tr)-1,"dimension":dim},series,"One seeded trajectory; ensemble claims require repeated independent walkers.")
+        if tool=="parameter-scan":
+            vals=[float(x.strip()) for x in str(p.get("scanValues","100,300,1000,3000")).split(",") if x.strip()]
+            base_model=str(p.get("baseStepModel","fixed")); p1=f(p,"baseFixedStep",1,.0001,100) if base_model=="fixed" else f(p,"baseUniformA",.5,0,100); p2=None if base_model=="fixed" else f(p,"baseUniformB",1.5,.0001,100)
+            frame=random_walk_scan(vals,scan_variable=str(p.get("scanVariable","n_steps")),dim=i(p,"baseDimension",2,1,50),n_steps=i(p,"baseSteps",1000,1,1000000),n_walkers=i(p,"baseWalkers",10000,1,1000000),model=base_model,p1=p1,p2=p2,seed=seed)
+            rows=frame.to_dict(orient="records"); axis=str(p.get("scanVariable","n_steps"))
+            return result(experiment_id,"pinned-rw_mc_studio.random_walk_scan",p,{"points":len(rows)},[xy_series("scan-msd","MSD",frame[axis],frame["msd"],x_label=axis,y_label="MSD")], "Pinned batch parameter scan.",[{"id":"scan","label":"Random-walk parameter scan","rows":rows}])
+        if tool=="repeated-mc":
+            out=repeated_circle_trials(i(p,"samplesPerTrial",10000,10,10000000),i(p,"independentTrials",100,2,10000),seed)
+            return result(experiment_id,"pinned-rw_mc_studio.repeated_circle_trials",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},[],"Repeated unit-disk Monte Carlo estimates quantify run-to-run sampling variation.",[{"id":"repeated-mc","label":"Repeated Monte Carlo summary","rows":[clean(out)]}])
+        if tool=="convergence-scan":
+            vals=[int(float(x.strip())) for x in str(p.get("sampleCounts","100,300,1000,3000,10000")).split(",") if x.strip()]
+            frame=mc_convergence_scan(vals,n_trials=i(p,"trialsPerCount",50,2,1000),seed=seed)
+            return result(experiment_id,"pinned-rw_mc_studio.mc_convergence_scan",p,{"points":len(frame)},[xy_series("mc-rmse","RMSE",frame["n_samples"],frame["rmse"],x_label="samples",y_label="RMSE")],"Monte Carlo convergence across independent trial counts.",[{"id":"convergence","label":"MC convergence","rows":frame.to_dict(orient="records")}])
+        if tool=="high-d-mc":
+            out=nd_ball_volume_mc(dim,i(p,"pseudoRandomSamples",100000,100,10000000),seed=seed)
+            return result(experiment_id,"pinned-rw_mc_studio.nd_ball_volume_mc",p,{**{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},"theoreticalVolume":theoretical_nd_ball_volume(dim)},[],"Pseudo-random Monte Carlo estimate of the unit d-ball volume.",[{"id":"high-d","label":"High-dimensional MC","rows":[clean(out)]}])
+        if tool=="qmc":
+            out=repeated_scrambled_qmc(dim,power=i(p,"qmcPower",14,4,24),n_replicates=i(p,"qmcScrambles",8,2,128),seed=seed)
+            estimates=np.asarray(out.get("estimates",[]),dtype=float)
+            rows=[{"replicate":idx+1,"estimate":float(value)} for idx,value in enumerate(estimates)]
+            return result(experiment_id,"pinned-rw_mc_studio.repeated_scrambled_qmc",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},[xy_series("qmc-replicates","QMC replicate estimates",range(1,len(estimates)+1),estimates,x_label="replicate",y_label="volume estimate")] if len(estimates) else [],"Repeated scrambled Sobol QMC provides randomized-QMC uncertainty evidence, not deterministic error bounds.",[{"id":"qmc","label":"Repeated QMC","rows":rows}])
+        if tool=="theory-volume":
+            dims=np.arange(1,51); vols=[theoretical_nd_ball_volume(int(d)) for d in dims]
+            return result(experiment_id,"pinned-rw_mc_studio.theoretical_nd_ball_volume",p,{"dimensions":50},[xy_series("volume-curve","unit d-ball volume",dims,vols,x_label="dimension",y_label="volume")],"Exact unit d-ball volume formula.",[{"id":"volume-curve","label":"Theoretical volumes","rows":[{"dimension":int(d),"volume":float(v)} for d,v in zip(dims,vols)]}])
+        if tool=="return-probability":
+            out=return_probability(dim,max_steps=i(p,"horizon",5000,1,1000000),n_trials=i(p,"independentTrajectories",1000,1,100000),seed=seed)
+            return result(experiment_id,"pinned-rw_mc_studio.return_probability",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},[],"Finite-horizon return probability; non-return by H is censoring, not proof of transience.",[{"id":"return","label":"Return probability","rows":[clean(out)]}])
+        if tool=="first-passage":
+            out=first_passage_1d(i(p,"boundaryMagnitude",10,1,10000),n_trials=i(p,"trials",5000,1,1000000),max_steps=i(p,"maxSteps",100000,1,10000000),seed=seed)
+            times=np.asarray(out.get("hit_times",[]),dtype=float)
+            series=[xy_series("hit-times","first-passage hit times",range(len(times)),times,x_label="hit index",y_label="steps")] if len(times) else []
+            return result(experiment_id,"pinned-rw_mc_studio.first_passage_1d",p,{k:clean(v) for k,v in out.items() if isinstance(v,(int,float,str,bool,np.integer,np.floating))},series,"Finite-horizon first-passage experiment with right/left absorbing boundaries.",[{"id":"first-passage","label":"First-passage summary","rows":[{k:clean(v) for k,v in out.items() if k!="hit_times"}]}])
+        if tool=="grid-vs-mc":
+            k2=i(p,"grid2d",500,10,5000); k3=i(p,"grid3d",100,5,1000)
+            grid2=grid_circle_area(k2); grid3=grid_sphere_volume(k3)
+            mc2=circle_area_mc(k2*k2,seed=seed); mc3=nd_ball_volume_mc(3,k3**3,seed=seed+1)
+            rows=[{"method":"2D midpoint grid","estimate":clean(grid2["estimate"]),"absoluteError":clean(grid2["absolute_error"]),"evaluations":grid2["points"]},{"method":"2D MC","estimate":clean(mc2.get("estimate")),"absoluteError":clean(mc2.get("absolute_error")),"evaluations":k2*k2},{"method":"3D midpoint grid","estimate":clean(grid3["estimate"]),"absoluteError":clean(grid3["absolute_error"]),"evaluations":grid3["points"]},{"method":"3D MC","estimate":clean(mc3.get("estimate")),"absoluteError":clean(mc3.get("absolute_error")),"evaluations":k3**3}]
+            return result(experiment_id,"pinned-rw_mc_studio.grid-vs-mc",p,{"comparisons":4},[],"Equal-evaluation-count comparison between deterministic midpoint grids and Monte Carlo.",[{"id":"grid-vs-mc","label":"Grid vs Monte Carlo","rows":rows}])
+        if tool=="reproducibility":
+            seeds=[seed+j for j in range(i(p,"independentSeeds",8,2,128))]
+            audit_model=str(p.get("auditStepModel","fixed")); ap1=f(p,"fixedStep",1,.0001,100) if audit_model=="fixed" else f(p,"uniformA",.5,0,100); ap2=None if audit_model=="fixed" else f(p,"uniformB",1.5,.0001,100)
+            frame,summary=multi_seed_random_walk(dim,i(p,"multiSeedSteps",1000,1,1000000),i(p,"walkersPerSeed",5000,1,1000000),seeds,audit_model,ap1,ap2)
+            rows=frame.to_dict(orient="records")
+            return result(experiment_id,"pinned-rw_mc_studio.multi_seed_random_walk",p,{"seeds":len(seeds),**clean(summary)},[],"Multi-seed reproducibility audit quantifies seed-to-seed variation.",[{"id":"reproducibility","label":"Reproducibility audit","rows":rows}])
+        from rw_mc_studio.presets import loads_preset
+        out=loads_preset(str(p.get("presetJson","{}")))
+        return result(experiment_id,"pinned-rw_mc_studio.loads_preset",p,{"valid":True,"schemaVersion":out.get("schema_version",3)},[],"Preset parser validates schema/required fields only; it does not execute the configuration.",[{"id":"preset","label":"Validated preset","rows":[clean(out)]}])
+
+    if experiment_id == "nonlinear-chaos" and tool in {"driven-scan","kapitza-scan","double-trajectory","mass-response","lyapunov","lyapunov-convergence","flip-map","compliance"}:
+        from chaos_lab.core import DoublePendulumParams, driven_poincare_scan, kapitza_stability_scan, simulate_double_pendulum, double_pendulum_energy, double_pendulum_cartesian, double_pendulum_mass_response, lyapunov_benettin, lyapunov_convergence_scan, flip_time_map, step_convergence_diagnostic
+        params=DoublePendulumParams(mass1=f(p,"mass1",1,.01,100),mass2=f(p,"mass2",1,.01,100),length1=f(p,"length1",1,.01,100),length2=f(p,"length2",1,.01,100),gravity=f(p,"gravity",9.81,.01,100),damping=f(p,"damping",.05,0,20))
+        initial=np.asarray([f(p,"theta1",1.2,-2*math.pi,2*math.pi),f(p,"omega1",0,-100,100),f(p,"theta2",1,-2*math.pi,2*math.pi),f(p,"omega2",0,-100,100)])
+        if tool=="driven-scan":
+            amps=np.linspace(f(p,"driveMin",.2,0,10),f(p,"driveMax",1.5,0,10),i(p,"amplitudeScanPoints",25,3,201))
+            out=driven_poincare_scan(amps,gamma=f(p,"damping",.05,0,20),omega0=1.0,drive_frequency=f(p,"driveFrequency",.65,.01,100),theta0=float(initial[0]),omega_initial=float(initial[1]),periods=i(p,"drivePeriods",500,10,5000),discard_periods=i(p,"discardPeriods",200,0,4000),steps_per_period=i(p,"rk4StepsPerPeriod",120,20,1000))
+            return result(experiment_id,"pinned-chaos_lab.driven_poincare_scan",p,{"samples":len(out["theta"])},[xy_series("poincare","Poincare samples",out["theta"],out["omega"],x_label="theta",y_label="omega",chart="scatter")],"Pinned driven-pendulum Poincare amplitude scan.",[{"id":"poincare","label":"Poincare samples","rows":[{"driveAmplitude":float(a),"theta":float(t),"omega":float(w)} for a,t,w in zip(out["drive_amplitude"],out["theta"],out["omega"])]}])
+        if tool=="kapitza-scan":
+            amps=np.linspace(0,f(p,"kapitzaMaxAmplitude",.3,0,10),i(p,"amplitudeScanPoints",25,3,201))
+            out=kapitza_stability_scan(amps,gravity=params.gravity,length=params.length1,drive_frequency=f(p,"driveFrequency",40,.01,100),damping=f(p,"damping",.08,0,20),periods=i(p,"kapitzaTotalPeriods",240,10,5000),discard_periods=i(p,"kapitzaDiscardedPeriods",160,0,4000),steps_per_period=i(p,"rk4StepsPerPeriod",120,20,1000))
+            return result(experiment_id,"pinned-chaos_lab.kapitza_stability_scan",p,{"samples":len(out["theta"])},[xy_series("kapitza","sampled angle",out["drive_amplitude"],out["theta"],x_label="pivot amplitude",y_label="theta",chart="scatter")],"Pinned Kapitza stabilization scan.",[])
+        if tool=="double-trajectory":
+            return nonlinear_chaos(p,mode)
+        if tool=="mass-response":
+            masses=np.linspace(f(p,"mass1Min",.5,.01,100),f(p,"mass1Max",2,.01,100),i(p,"massScanPoints",21,3,201))
+            out=double_pendulum_mass_response(masses,params,initial_state=initial,duration=f(p,"massScanDuration",20,.1,1000),dt=f(p,"massScanDt",.01,1e-5,1))
+            peak_rows=[{"mass1":float(m),"theta1Peak":float(theta)} for m,theta in zip(out["mass1"],out["theta1_peak"])]
+            count_rows=[{"mass1":float(m),"peakCount":int(c)} for m,c in zip(out["scan_mass1"],out["peak_count"])]
+            return result(experiment_id,"pinned-chaos_lab.double_pendulum_mass_response",p,{"scanPoints":len(out["scan_mass1"]),"recordedPeaks":len(out["theta1_peak"])},[
+                xy_series("mass-peak-count","peak count",out["scan_mass1"],out["peak_count"],x_label="m1",y_label="post-transient peak count"),
+                xy_series("mass-response","theta1 peak samples",out["mass1"],out["theta1_peak"],x_label="m1",y_label="theta1 peak",chart="scatter") if len(out["theta1_peak"]) else xy_series("mass-peak-count-copy","peak count",out["scan_mass1"],out["peak_count"],x_label="m1",y_label="peak count")
+            ],"Pinned upper-mass response spectrum; peak samples do not by themselves prove a dynamical bifurcation.",[{"id":"mass-response-counts","label":"Mass response counts","rows":count_rows},{"id":"mass-response-peaks","label":"Mass response peaks","rows":peak_rows}])
+        if tool=="lyapunov":
+            out=lyapunov_benettin(initial,params,duration=f(p,"lyapunovDuration",40,.1,1000),dt=f(p,"lyapunovDt",.005,1e-5,1))
+            return result(experiment_id,"pinned-chaos_lab.lyapunov_benettin",p,{"estimate":out["estimate"],"actualDt":out["actual_dt"]},[
+                xy_series("lyap-cumulative","cumulative exponent",out["time"],out["cumulative_exponent"],x_label="time",y_label="lambda"),
+                xy_series("lyap-local","local exponent",out["time"],out["local_exponent"],x_label="time",y_label="lambda local"),
+            ],"Finite-time Benettin estimate with periodic renormalization; timestep sensitivity is required before interpretation.")
+        if tool=="lyapunov-convergence":
+            base=f(p,"lyapunovDt",.005,1e-5,1); dts=np.asarray([base*2,base,base/2])
+            out=lyapunov_convergence_scan(dts,initial,params,duration=f(p,"lyapunovDuration",40,.1,1000))
+            return result(experiment_id,"pinned-chaos_lab.lyapunov_convergence_scan",p,{"finestEstimate":out["finest_dt_estimate"],"relativeSpread":out["relative_spread"]},[xy_series("lyap-dt","Lyapunov estimate",out["actual_dt"],out["estimate"],x_label="dt",y_label="lambda")],"Timestep-sensitivity study for the finite-time Lyapunov estimate.",[{"id":"lyapunov-convergence","label":"Lyapunov convergence","rows":[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items() if isinstance(v,np.ndarray)} for idx in range(len(out["dt"]))]}])
+        if tool=="flip-map":
+            grid=i(p,"flipGrid",25,5,101); axis=np.linspace(-math.pi,math.pi,grid)
+            zero_damped=DoublePendulumParams(params.mass1,params.mass2,params.length1,params.length2,params.gravity,0.0)
+            out=flip_time_map(axis,axis,zero_damped,t_max=f(p,"flipMaxTime",60,.1,1000),dt=f(p,"flipDt",.02,.0001,1))
+            finite=np.asarray(out["flip_time"]); frac=float(np.isfinite(finite).mean())
+            return result(experiment_id,"pinned-chaos_lab.flip_time_map",p,{"grid":grid,"finiteFlipFraction":frac},[],"First-flip time map on the configured initial-angle grid.",[{"id":"flip-map","label":"Flip map","rows":[{"theta1":float(a),"theta2":float(bv),"flipTime":clean(finite[ii,jj])} for ii,a in enumerate(axis) for jj,bv in enumerate(axis)]}])
+        zero_damped=DoublePendulumParams(params.mass1,params.mass2,params.length1,params.length2,params.gravity,0.0)
+        diag=step_convergence_diagnostic(initial,zero_damped,duration=min(5.0,f(p,"duration",40,.1,1000)),dt=f(p,"dt",.005,1e-5,1))
+        return result(experiment_id,"pinned-chaos_lab.step_convergence_diagnostic",p,clean(diag),[],"Pinned dt-versus-dt/2 state/energy compliance check.",[{"id":"compliance","label":"Compliance diagnostics","rows":[clean(diag)]}])
+
+    if experiment_id == "oscillation-integration" and tool in {"method-comparison","timestep-scan","damping-regimes","resonance-scan","beat-analysis","nonlinear-amplitude","compliance"}:
+        from oscillation_lab.core import OscillatorParams, Method, method_comparison, convergence_scan, analytic_free_response, resonance_scan, simulate_fixed, nonlinear_period_scan, energy_balance_diagnostic
+        params=OscillatorParams(mass=f(p,"mass",1,.001,1000),omega0=f(p,"omega0",2*math.pi,.001,1000),gamma=f(p,"gamma",.1,0,100),force_amplitude=f(p,"force",1,0,1000),force_frequency=f(p,"driveOmega",6,0,1000))
+        initial=np.asarray([f(p,"x0",1,-1000,1000),f(p,"v0",0,-1000,1000)])
+        duration=f(p,"duration",20,.01,10000); dt=f(p,"dt",.01,1e-6,10)
+        if tool=="method-comparison":
+            out=method_comparison(initial,params,duration=duration,dt=dt); rows=[]; series=[]
+            ref_key="analytic" if "analytic" in out else "dop853"; ref=np.asarray(out[ref_key]["state"])
+            for name,data in out.items():
+                st=np.asarray(data["state"]); tm=np.asarray(data["time"]); err=np.linalg.norm(st-np.asarray(out[ref_key]["state"]),axis=1) if st.shape==ref.shape else np.asarray([])
+                rows.append({"method":name,"samples":len(tm),"actualDt":clean(data.get("actual_dt")),"maxStateError":float(np.max(err)) if len(err) else None})
+                series.append(xy_series(name,name+" displacement",tm,st[:,0],x_label="time",y_label="u"))
+            return result(experiment_id,"pinned-oscillation_lab.method_comparison",p,{"methods":len(rows),"reference":ref_key},series,"Pinned fixed-step methods compared with analytic/adaptive reference where applicable.",[{"id":"method-comparison","label":"Method comparison","rows":rows}])
+        if tool=="timestep-scan":
+            if params.force_amplitude!=0: params=OscillatorParams(params.mass,params.omega0,params.gamma,0.0,params.force_frequency)
+            vals=np.geomspace(f(p,"dtMax",.1,1e-6,10),f(p,"dtMin",.001,1e-6,10),i(p,"scanPoints",9,3,101))
+            out=convergence_scan(vals,initial,params,duration=duration,method=str(p.get("method","rk4")))
+            rows=[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items() if isinstance(v,np.ndarray)} for idx in range(len(out["actual_dt"]))]
+            return result(experiment_id,"pinned-oscillation_lab.convergence_scan",p,{"observedOrder":out["observed_order"]},[
+                xy_series("convergence","maximum state error",out["actual_dt"],out["maximum_state_error"],x_label="actual dt",y_label="max state error")
+            ],"Exact free-response convergence scan; forcing is disabled for this diagnostic.",[{"id":"convergence","label":"Timestep convergence","rows":rows}])
+        if tool=="damping-regimes":
+            times=np.linspace(0,max(duration,5*2*math.pi/params.omega0),1500); critical=2*params.omega0
+            rows=[]; series=[]
+            for name,gamma in {"Underdamped":.1*critical,"Critical":critical,"Overdamped":2.4*critical}.items():
+                pp=OscillatorParams(params.mass,params.omega0,gamma,0.0,params.force_frequency); states=analytic_free_response(times,initial,pp)
+                rows.append({"regime":name,"gamma":gamma}); series.append(xy_series(name,name,times,states[:,0],x_label="time",y_label="u"))
+            return result(experiment_id,"pinned-oscillation_lab.analytic_free_response",p,{"regimes":3},series,"Analytic free-response damping regimes with identical initial conditions.",[{"id":"damping","label":"Damping regimes","rows":rows}])
+        if tool=="resonance-scan":
+            rp=OscillatorParams(params.mass,params.omega0,f(p,"resonanceGamma",.1,.000001,100),f(p,"resonanceForce",1,.000001,1000),params.force_frequency)
+            freq=np.linspace(f(p,"omegaRatioMin",.2,.01,10)*params.omega0,f(p,"omegaRatioMax",2,.02,10)*params.omega0,i(p,"frequencyScanPoints",61,5,501))
+            out=resonance_scan(freq,rp,initial_state=initial)
+            return result(experiment_id,"pinned-oscillation_lab.resonance_scan",p,{"points":len(freq),"peakRatio":float(out["frequency_ratio"][int(np.argmax(out["numerical_amplitude"]))])},[
+                xy_series("resonance-num","numerical amplitude",out["frequency_ratio"],out["numerical_amplitude"],x_label="Omega/omega0",y_label="amplitude"),
+                xy_series("resonance-analytic","analytic amplitude",out["frequency_ratio"],out["analytic_amplitude"],x_label="Omega/omega0",y_label="amplitude"),
+            ],"Pinned driven resonance scan; numerical settling must be checked via remaining-free-transient diagnostic.",[{"id":"resonance","label":"Resonance scan","rows":[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items()} for idx in range(len(freq))]}])
+        if tool=="beat-analysis":
+            bp=OscillatorParams(params.mass,params.omega0,0.0,max(f(p,"resonanceForce",1,.000001,1000),.001),params.force_frequency)
+            out=simulate_fixed(initial,bp,duration=max(duration,30.0),dt=min(dt,.01),method=Method.RK4)
+            delta=abs(bp.omega0-bp.force_frequency)
+            return result(experiment_id,"pinned-oscillation_lab.beat-analysis",p,{"beatFrequencyHz":delta/(2*math.pi),"beatPeriod":None if delta==0 else 2*math.pi/delta},[xy_series("beat","driven response",out["time"],np.asarray(out["state"])[:,0],x_label="time",y_label="u")],"Near-resonant conservative beat analysis.")
+        if tool=="nonlinear-amplitude":
+            amps=np.linspace(.02,f(p,"maxInitialAngle",2.5,.01,3.13),i(p,"amplitudeScanPoints",31,5,301))
+            out=nonlinear_period_scan(amps,params.omega0)
+            return result(experiment_id,"pinned-oscillation_lab.nonlinear_period_scan",p,{"points":len(amps),"largestPeriodRatio":float(np.max(out["period_ratio"]))},[
+                xy_series("nonlinear-period","exact nonlinear period",out["initial_amplitude"],out["exact_nonlinear_period"],x_label="theta0",y_label="period"),
+                xy_series("numerical-period","numerical period",out["initial_amplitude"],out["numerical_period"],x_label="theta0",y_label="period"),
+            ],"Pinned nonlinear pendulum period scan against elliptic-integral reference.",[{"id":"nonlinear","label":"Nonlinear period scan","rows":[{k:clean(np.asarray(v,dtype=object)[idx]) for k,v in out.items()} for idx in range(len(amps))]}])
+        conservative=OscillatorParams(params.mass,params.omega0,0.0,0.0,params.force_frequency)
+        out=simulate_fixed(initial,conservative,duration=min(duration,20.0),dt=dt,method=Method.RK4)
+        diag=energy_balance_diagnostic(np.asarray(out["time"]),np.asarray(out["state"]),conservative)
+        return result(experiment_id,"pinned-oscillation_lab.energy_balance_diagnostic",p,{"maxRelativeBalanceResidual":diag["max_relative_balance_residual"]},[
+            xy_series("balance","energy-balance residual",out["time"],diag["balance_residual"],x_label="time",y_label="residual")
+        ],"Pinned conservative energy-balance compliance diagnostic.")
+
+    if experiment_id == "kerr-shadow" and tool == "morphology-sweep":
+        from physical_lab_kerr_shadow_sweep import kerr_shadow_morphology_sweep
+        depth=str(p.get("sweepDepth","Standard"))
+        spins={"Quick":[0.0,0.6,0.9],"Standard":[0.0,0.3,0.6,0.8,0.9,0.98],"Deep":[0.0,0.15,0.3,0.45,0.6,0.75,0.9,0.97,0.985]}.get(depth,[0.0,0.3,0.6,0.8,0.9,0.98])
+        inclinations=[]
+        for token in str(p.get("observerInclinationsText","15,30,45,60,75")).split(","):
+            token=token.strip()
+            if token: inclinations.append(float(token))
+        out=kerr_shadow_morphology_sweep(spins=spins,inclinations_deg=inclinations,curve_samples=i(p,"curveSamples",320,120,1200))
+        rows=out["rows"]
+        return result(experiment_id,"physical_lab_kerr_shadow_sweep.kerr_shadow_morphology_sweep",p,{
+            "cases":len(rows),"maxAbsHorizontalShiftOverM":out["max_abs_horizontal_shift_over_M"],
+            "maxAbsSignedFlattening":out["max_abs_signed_flattening"]
+        },[
+            xy_series("shadow-shift","horizontal shift",[r["spin_a_over_M"] for r in rows],[r["horizontal_shift_over_M"] for r in rows],x_label="a/M",y_label="shift/M",chart="scatter"),
+            xy_series("shadow-flat","signed flattening",[r["spin_a_over_M"] for r in rows],[r["signed_flattening"] for r in rows],x_label="a/M",y_label="flattening",chart="scatter"),
+        ],out["boundary"],[{"id":"morphology","label":"Kerr shadow morphology sweep","rows":rows}])
+
     if experiment_id == "kerr-geodesics" and tool in {"refinement","comparison","spin-sweep"}:
         if tool == "comparison":
             from physical_lab_kerr_geodesics import KerrOrbitConfig, integrate_case, result_summary
@@ -1596,7 +1856,7 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
         start_ratio=f(p,"duffingStartRatio",.7,.1,3.0); stop_ratio=f(p,"duffingStopRatio",1.6,.2,5.0)
         if stop_ratio <= start_ratio: raise ValueError("Duffing stop frequency ratio must exceed start ratio")
         q=_sweep_quality(str(p.get("duffingSweepQuality","Standard")),nonlinear=True)
-        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"force",.3,0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
+        out=duffing_frequency_sweep(omega_0=omega0,zeta=f(p,"zeta",.05,0.0,1.5),cubic_stiffness=f(p,"cubicStiffness",1.0,0.0,50.0),force_amplitude=f(p,"duffingForce",f(p,"force",.3,0.0,20.0),0.0,20.0),frequency_start=start_ratio*omega0,frequency_stop=stop_ratio*omega0,frequency_points=q["points"],settle_cycles=q["settle"],observe_cycles=q["observe"],points_per_cycle=q["ppc"])
         rows=out["rows"]; omega=[r["omega_rad_s"] for r in rows]
         return result(experiment_id,"physical_lab_frequency_response.duffing_frequency_sweep",p,{
             "forwardPeakFrequencyRadS":out["forward_peak_frequency_rad_s"],"forwardPeakAmplitude":out["forward_peak_amplitude"],"reversePeakFrequencyRadS":out["reverse_peak_frequency_rad_s"],"reversePeakAmplitude":out["reverse_peak_amplitude"],"maxBranchAmplitudeGap":out["max_branch_amplitude_gap"]
@@ -1613,28 +1873,58 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             return result(experiment_id,"physical_lab_utube_advanced.dimensionless_groups",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Dimensionless groups summarize the nominated operating point."),[{"id":"dimensionless","label":"Dimensionless groups","rows":[out]}])
         if tool=="inverse-geometry":
             from physical_lab_utube_advanced import inverse_geometry_design
-            out=inverse_geometry_design(f(p,"targetThresholdRpm",250.0,1.0,1000.0),volume,solve_for=str(p.get("solveFor","rin_m")))
+            out=inverse_geometry_design(
+                f(p,"targetThresholdRpm",250.0,1.0,1000.0),
+                f(p,"inverseVolumeMl",volume,.05,30.0),
+                solve_for=str(p.get("solveFor","rin_m")),
+                bounds=(f(p,"geometryLowerM",.005,.0001,.2),f(p,"geometryUpperM",.060,.0002,.2)))
             return result(experiment_id,"physical_lab_utube_advanced.inverse_geometry_design",p,{k:v for k,v in out.items() if isinstance(v,(int,float,str,bool))},[],str(out.get("boundary") or "Inverse geometry design is model-based."),[{"id":"inverse-geometry","label":"Inverse geometry design","rows":[out]}])
         if tool=="design-space":
             from physical_lab_utube_advanced import design_space
-            vols=np.linspace(max(.05,volume-.5),volume+.5,3); rins=np.linspace(max(.001,rin-.001),rin+.001,3); radii=np.linspace(max(.0005,radius-.0005),radius+.0005,3)
-            frame=design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=nq,max_points=100)
+            vols=[float(x.strip()) for x in str(p.get("designVolumesMl","1,2,3,4,5")).split(",") if x.strip()]
+            center_rin=float(str(p.get("rinTextM",rin)).strip() or rin); center_a=float(str(p.get("aTextM",radius)).strip() or radius)
+            rins=np.linspace(max(.001,center_rin-.001),center_rin+.001,3); radii=np.linspace(max(.0005,center_a-.0005),center_a+.0005,3)
+            frame=design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"optionalTargetRpm",250.0,1.0,1000.0),nq=i(p,"planningNq",nq,12,128),max_points=400)
             return result(experiment_id,"physical_lab_utube_advanced.design_space",p,{"designPoints":len(frame)},[],"Design-space screening is a bounded model study, not manufacturing qualification.",[{"id":"design-space","label":"Design space","rows":frame.to_dict(orient="records")}])
         if tool=="robust-design":
             from physical_lab_utube_advanced import robust_design_space, pareto_robust_design
-            vols=np.linspace(max(.05,volume-.3),volume+.3,3); rins=np.linspace(max(.001,rin-.0005),rin+.0005,3); radii=np.linspace(max(.0005,radius-.00025),radius+.00025,3)
-            frame=robust_design_space(volumes_ml=vols,rin_values_m=rins,a_values_m=radii,target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0),nq=max(12,min(nq,32)),max_points=80)
+            nominal_v=float(str(p.get("nominalVText",volume)).strip() or volume)
+            nominal_rin=float(str(p.get("nominalRinText",rin)).strip() or rin)
+            nominal_a=float(str(p.get("nominalAText",radius)).strip() or radius)
+            vols=[nominal_v]; rins=[nominal_rin]; radii=[nominal_a]
+            frame=robust_design_space(
+                volumes_ml=vols,rin_values_m=rins,a_values_m=radii,
+                volume_tolerance_ml=f(p,"tolVMl",.05,0.0,10.0),
+                rin_tolerance_m=f(p,"tolRinM",.0002,0.0,.01),
+                a_tolerance_m=f(p,"tolAM",.0001,0.0,.01),
+                target_threshold_rpm=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0),
+                nq=i(p,"robustNq",max(12,min(nq,48)),12,128),max_points=120)
             pareto=pareto_robust_design(frame)
             return result(experiment_id,"physical_lab_utube_advanced.robust_design_space",p,{"designPoints":len(frame),"paretoPoints":len(pareto)},[],"Robust/Pareto screening compares modeled tolerance sensitivity and does not certify a design.",[{"id":"robust-design","label":"Robust design space","rows":frame.to_dict(orient="records")},{"id":"pareto","label":"Pareto robust designs","rows":pareto.to_dict(orient="records")}])
         if tool=="adaptive-plan":
             from physical_lab_utube_advanced import adaptive_threshold_plan
-            target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
-            out=adaptive_threshold_plan([{"n_rpm":target-5,"state":"below"},{"n_rpm":target+5,"state":"above"}],target)
+            target=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0)
+            observations=[]
+            for line in str(p.get("observedClassifications","")).splitlines():
+                line=line.strip()
+                if not line: continue
+                parts=[x.strip() for x in line.split(",")]
+                if len(parts)!=2: raise ValueError("Observed classifications must use rpm,below or rpm,above")
+                state=parts[1].lower()
+                if state not in {"below","above"}: raise ValueError("Observed classification state must be below or above")
+                observations.append({"n_rpm":float(parts[0]),"state":state})
+            if not observations:
+                observations=[{"n_rpm":target-5,"state":"below"},{"n_rpm":target+5,"state":"above"}]
+            out=adaptive_threshold_plan(observations,target,target_bracket_rpm=f(p,"empiricalBracketRpm",2.0,.1,200.0),exploration_step_rpm=max(.1,f(p,"fineStepRpm",2.0,.1,50.0)))
             rows=out if isinstance(out,list) else [out]
             return result(experiment_id,"physical_lab_utube_advanced.adaptive_threshold_plan",p,{"planItems":len(rows)},[],"Adaptive planning proposes bounded next measurements; it does not execute hardware.",[{"id":"adaptive-plan","label":"Adaptive threshold plan","rows":rows}])
         if tool=="verification-requirements":
             from physical_lab_utube_advanced import verification_requirements
-            rows=verification_requirements(target_threshold_rpm=f(p,"targetThresholdRpm",250.0,1.0,1000.0))
+            rows=verification_requirements(
+                target_threshold_rpm=f(p,"robustTargetRpm",f(p,"targetThresholdRpm",250.0,1.0,1000.0),1.0,1000.0),
+                threshold_tolerance_rpm=f(p,"thresholdToleranceRpm",2.0,.01,100.0),
+                minimum_separation_rpm=f(p,"minGapRpm",5.0,-100.0,500.0),
+                maximum_numerical_change_rpm=f(p,"maxNumericalDeltaRpm",1.0,0.0,100.0))
             if isinstance(rows,dict): rows=[rows]
             return result(experiment_id,"physical_lab_utube_advanced.verification_requirements",p,{"requirements":len(rows)},[],"Verification requirements are explicit planning criteria, not certification.",[{"id":"verification-requirements","label":"Verification requirements","rows":rows}])
         if tool=="research-questions":
@@ -1646,18 +1936,22 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
             from physical_lab_utube_uncertainty import local_uncertainty_budget
             means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
             std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0}
-            out=local_uncertainty_budget(means,std,nq=nq)
+            out=local_uncertainty_budget(means,std,output=str(p.get("budgetOutput","n_g_rpm")),nq=nq)
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_uncertainty.local_uncertainty_budget",p,{"budgetTerms":len(rows)},[],"Local uncertainty budgets linearize the model around the nominated operating point.",[{"id":"uncertainty-budget","label":"Local uncertainty budget","rows":rows}])
         if tool=="hysteresis-analysis":
             from physical_lab_utube_hysteresis import analyze_hysteresis_sweeps
+            rates=[float(x.strip()) for x in str(p.get("rampRatesText","0.5,1,2,4,8")).split(",") if x.strip()]
             target=f(p,"targetThresholdRpm",250.0,1.0,1000.0)
-            out=analyze_hysteresis_sweeps([volume]*3,[1.0,2.0,4.0],[target+1,target+2,target+4],[target-1,target-2,target-4],rin_m=rin,a_m=radius,nq=nq)
+            H=f(p,"empiricalHRpm",2.0,0.0,100.0); tau=f(p,"rateLagTauS",.35,0.0,100.0)
+            ups=[target+H+r*tau for r in rates]; downs=[target-H-r*tau for r in rates]
+            out=analyze_hysteresis_sweeps([f(p,"predictionVMl",volume,.05,30.0)]*len(rates),rates,ups,downs,rin_m=f(p,"hystRinM",rin,.001,.1),a_m=f(p,"hystAM",radius,.0001,.05),nq=i(p,"hystNq",nq,12,128))
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_hysteresis.analyze_hysteresis_sweeps",p,{"rows":len(rows)},[],"Hysteresis analysis is reduced-order and does not replace CFD or additional measurements.",[{"id":"hysteresis-analysis","label":"Hysteresis sweep analysis","rows":rows}])
         if tool=="rate-sweep":
             from physical_lab_utube_hysteresis import rate_sweep_prediction
-            out=rate_sweep_prediction(volume,[0.5,1.0,2.0,4.0],response_tau_s=f(p,"responseTau",.2,0.0,1000.0),quasi_static_halfwidth_rpm=f(p,"quasiStaticHalfwidth",1.0,0.0,1000.0),rin_m=rin,a_m=radius,nq=nq)
+            rates=[float(x.strip()) for x in str(p.get("rampRatesText","0.5,1,2,4,8")).split(",") if x.strip()]
+            out=rate_sweep_prediction(f(p,"predictionVMl",volume,.05,30.0),rates,response_tau_s=f(p,"rateLagTauS",f(p,"responseTau",.35,0.0,1000.0),0.0,100.0),quasi_static_halfwidth_rpm=f(p,"empiricalHRpm",f(p,"quasiStaticHalfwidth",2.0,0.0,1000.0),0.0,100.0),rin_m=f(p,"predictionRinM",rin,.001,.1),a_m=f(p,"predictionAM",radius,.0001,.05),nq=i(p,"predictionNq",nq,12,128))
             rows=out.to_dict(orient="records") if hasattr(out,"to_dict") else (out if isinstance(out,list) else [out])
             return result(experiment_id,"physical_lab_utube_hysteresis.rate_sweep_prediction",p,{"rows":len(rows)},[],"Rate-sweep predictions are reduced-order dynamic estimates.",[{"id":"rate-sweep","label":"Rate sweep prediction","rows":rows}])
         if tool=="digital-twin-calibration":
@@ -1696,7 +1990,7 @@ def run_experiment_tool(experiment_id: str, tool: str, p: dict[str, Any], mode: 
         from physical_lab_utube_uncertainty import propagate_uncertainty
         means={"volume_ml":volume,"n_rpm":rpm,"rin_m":rin,"a_m":radius,"rho_kg_m3":f(p,"rhoKgM3",997.8,100.0,5000.0),"gamma_mN_m":f(p,"gammaMnM",72.0,1.0,500.0),"theta_deg":f(p,"thetaDeg",0.0,-180.0,180.0)}
         std={"volume_ml":f(p,"uVolumeMl",.05,0.0,10.0),"n_rpm":f(p,"uRpm",1.0,0.0,100.0),"rin_m":f(p,"uRinMm",.2,0.0,10.0)/1000.0,"a_m":f(p,"uRadiusMm",.1,0.0,10.0)/1000.0,"rho_kg_m3":f(p,"uRho",1.0,0.0,100.0),"gamma_mN_m":f(p,"uGamma",1.0,0.0,100.0),"theta_deg":f(p,"uThetaDeg",1.0,0.0,90.0)}
-        out=propagate_uncertainty(means,std,samples=i(p,"uncertaintySamples",300,50,5000),seed=i(p,"uncertaintySeed",0,0,2147483647),nq=nq); ng=out["outputs"]["n_g_rpm"]; rec=out["records"]
+        out=propagate_uncertainty(means,std,samples=i(p,"mcSamplesOriginal",i(p,"uncertaintySamples",300,50,100000),50,100000),seed=i(p,"mcSeedOriginal",i(p,"uncertaintySeed",0,0,2147483647),0,2147483647),nq=nq); ng=out["outputs"]["n_g_rpm"]; rec=out["records"]
         vals=[r.get("n_g_rpm") for r in rec if r.get("n_g_rpm") is not None]
         return result(experiment_id,"physical_lab_utube_uncertainty.propagate_uncertainty",p,{"samplesSucceeded":out["samples_succeeded"],"samplesFailed":out["samples_failed"],"thresholdMeanRpm":ng.get("mean"),"thresholdStdRpm":ng.get("std"),"thresholdP05Rpm":ng.get("p05"),"thresholdP95Rpm":ng.get("p95")},[xy_series("uncertainty","threshold samples",range(len(vals)),vals,x_label="sample",y_label="n_g (rpm)")],out["boundary"])
 

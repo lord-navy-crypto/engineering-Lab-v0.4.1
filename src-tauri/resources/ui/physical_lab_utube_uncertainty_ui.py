@@ -36,8 +36,6 @@ def _input_controls(st: Any, profile: str) -> tuple[dict[str, float], dict[str, 
 
 def render_utube_uncertainty(st: Any, profile: str) -> None:
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
-    if not active:
-        return
     st.markdown("#### U-Tube Uncertainty & Validation")
     st.caption("Propagate explicitly supplied parameter uncertainty through the deterministic U-tube model and compare predictive intervals with experiment. No uncertainty source is inferred automatically.")
 
@@ -77,10 +75,12 @@ def render_utube_uncertainty(st: Any, profile: str) -> None:
 
     with tab_compare:
         result = st.session_state.get(f"pl_ut_uq_result_{profile}")
-        sources = _sources(__import__('pathlib').Path(active))
+        sources = _sources(__import__('pathlib').Path(active)) if active else []
         candidates = [s for s in sources if {"V_mL","n_minus_rpm","n_plus_rpm"}.issubset(set(map(str, s["frame"].columns)))]
         if not isinstance(result, dict):
             st.info("Run Monte Carlo propagation first to create a predictive distribution.")
+        elif not active:
+            st.info("Select or create a Project with a macro-volume experiment dataset to compare predictive intervals with measurements.")
         elif not candidates:
             st.info("No macro-volume experiment dataset is available for predictive-interval comparison.")
         else:

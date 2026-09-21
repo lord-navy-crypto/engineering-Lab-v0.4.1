@@ -23,6 +23,9 @@ required = [
     'src-tauri/resources/ui/physical_lab_requirements_verification.py',
     'src-tauri/resources/ui/physical_lab_requirements_verification_ui.py',
     'src-tauri/resources/ui/physical_lab_project_surface_patch.py',
+    'src-tauri/resources/ui/physical_lab_utube_experiment.py','src-tauri/resources/ui/physical_lab_utube_experiment_ui.py',
+    'src-tauri/resources/ui/physical_lab_utube_uncertainty.py','src-tauri/resources/ui/physical_lab_utube_uncertainty_ui.py',
+    'src-tauri/resources/ui/physical_lab_utube_advanced.py','src-tauri/resources/ui/physical_lab_utube_advanced_ui.py',
     'src-tauri/resources/ui/physical_lab_advanced.py','src-tauri/resources/ui/physical_lab_model_builder.py','BUILD_PHYSICAL_LAB.command','PACKAGE_RELEASE_DMG.command',
     'VERSION','scripts/version_consistency.py'
 ]
@@ -32,11 +35,11 @@ if missing:
 
 mods = json.loads((root/'src-tauri/resources/modules.json').read_text())
 ids = [m['id'] for m in mods]
-assert len(mods) == 13, f'Expected 13 modules, found {len(mods)}'
+assert len(mods) == 14, f'Expected 14 modules, found {len(mods)}'
 assert len(ids) == len(set(ids)), 'Duplicate module ids'
-assert sum(m['kind']=='lab' for m in mods) == 10
+assert sum(m['kind']=='lab' for m in mods) == 11
 assert sum(m['kind']=='runtime' for m in mods) == 3
-bundled_ids={'kerr-geodesics','solar-system-dynamics','honeycomb-lattice'}
+bundled_ids={'kerr-geodesics','solar-system-dynamics','honeycomb-lattice','utube-rotation'}
 assert {m['id'] for m in mods if m.get('bundled',False)} == bundled_ids
 assert all(not m.get('fragileDependencies') for m in mods if m.get('bundled',False))
 assert all(m['repo'].startswith('lord-navy-crypto/') for m in mods)

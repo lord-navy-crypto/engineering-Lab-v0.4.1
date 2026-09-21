@@ -384,6 +384,45 @@
     "fullModeNote": "Same bundled reduced-unit lattice model today. It is not relabeled as an ab-initio or calibrated graphene solver."
   },
   {
+    "kind": "lab",
+    "repo": "lord-navy-crypto/engineering-Lab-v0.4.1",
+    "branch": "main",
+    "bundled": true,
+    "entrypoint": "app.py",
+    "requirements": "requirements.txt",
+    "launcher": null,
+    "runtimeRequires": [],
+    "pythonRequires": ">=3.10",
+    "verifyImports": [
+      "numpy",
+      "scipy",
+      "pandas",
+      "plotly",
+      "streamlit"
+    ],
+    "supportedArches": [
+      "arm64",
+      "x86_64"
+    ],
+    "systemRequires": [],
+    "runtimeExcludes": [],
+    "fragileDependencies": [],
+    "safeBackend": "standard",
+    "id": "utube-rotation",
+    "name": "Rotating U-Tube Research Studio",
+    "category": "Engineering Physics & Fluid Experiment",
+    "description": "Full Streamlit U-Tube workshop with deterministic threshold/capacity modeling, physical visualization, numerical convergence, uncertainty, free-energy analysis, inverse design, DOE/Sweep and project-data comparison.",
+    "tags": [
+      "U-Tube",
+      "Fluid experiment",
+      "Threshold",
+      "Uncertainty",
+      "DOE"
+    ],
+    "safeModeNote": "Uses the full bundled deterministic U-Tube model and analysis workspace; project data are optional for model-only studies.",
+    "fullModeNote": "Same bundled U-Tube implementation today. Project-backed experimental comparison activates only when a Project dataset is selected."
+  },
+  {
     "id": "radia-runtime",
     "name": "RADIA Universal2 Runtime",
     "category": "Runtime & Builders",

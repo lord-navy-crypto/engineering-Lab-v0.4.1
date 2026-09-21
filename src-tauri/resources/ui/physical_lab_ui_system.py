@@ -22,6 +22,7 @@ PROFILE_LABELS = {
     "honeycomb-lattice": "Multilayer Honeycomb Lattice",
     "radiation-platform": "Radiation Platform",
     "radia-magnet-studio": "RADIA Magnet Studio",
+    "utube-rotation": "Rotating U-Tube Research Studio",
 }
 
 
@@ -427,6 +428,7 @@ WORKSHOP_PURPOSE = {
     "honeycomb-lattice": "Explore lattice dynamics, modes, defects, and transport-oriented quantities in a structured computational workflow.",
     "radiation-platform": "Connect trajectory and field inputs to radiation analysis, scans, references, and engineering interpretation.",
     "radia-magnet-studio": "Configure a magnet model, solve the field, inspect trajectory/field metrics, and study manufacturing sensitivity.",
+    "utube-rotation": "Explore rotating-fluid threshold behavior, geometry, numerical convergence, uncertainty, experiment comparison and engineering design.",
 }
 
 

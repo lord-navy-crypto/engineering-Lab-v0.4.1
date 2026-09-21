@@ -72,23 +72,44 @@ function mockDependencies(){
 }
 
 async function refreshAll(){
-  try{
-    if(invoke){
-      modules = await invoke('list_modules');
-      dependencies = await invoke('list_dependencies');
-      const depArr = await invoke('dependency_statuses'); dependencyStatuses=Object.fromEntries(depArr.map(s=>[s.id,s]));
-      const arr = await invoke('module_statuses'); statuses=Object.fromEntries(arr.map(s=>[s.id,s]));
-      runtime = await invoke('runtime_status');
-      logDir = await invoke('log_directory');
-      dataDir = await invoke('data_directory');
-    }else{
-      modules=mockModules(); dependencies=mockDependencies(); statuses=Object.fromEntries(modules.map(m=>[m.id,{id:m.id,installed:false,ready:false,safeReady:false,fullReady:false,state:'Not installed'}]));
-      runtime={pythonReady:true,pythonVersion:'Preview mode',radiaReady:false,radiaDetail:'Not checked',pychronoReady:false,pychronoDetail:'Not checked',pychronoPython:null,chronoReady:false,chronoDetail:'Not built',vampireReady:false,vampireDetail:'Not installed',cmakeReady:false,cmakeDetail:'Not checked',xcodeCltReady:true,xcodeCltDetail:'Preview mode',arch:'arm64',os:'macOS'};
-      dependencyStatuses=Object.fromEntries(dependencies.map(d=>[d.id,{id:d.id,level:'yellow',label:'Preview',detail:d.notes||'',locations:[],version:null}])); logDir='~/Library/Application Support/Physical Lab/logs'; dataDir='~/Library/Application Support/Physical Lab';
-    }
+  if(!invoke){
+    modules=mockModules();
+    dependencies=mockDependencies();
+    statuses=Object.fromEntries(modules.map(m=>[m.id,{id:m.id,installed:false,ready:false,safeReady:false,fullReady:false,state:'Not installed'}]));
+    runtime={pythonReady:true,pythonVersion:'Preview mode',radiaReady:false,radiaDetail:'Not checked',pychronoReady:false,pychronoDetail:'Not checked',pychronoPython:null,chronoReady:false,chronoDetail:'Not built',vampireReady:false,vampireDetail:'Not installed',cmakeReady:false,cmakeDetail:'Not checked',xcodeCltReady:true,xcodeCltDetail:'Preview mode',arch:'arm64',os:'macOS'};
+    dependencyStatuses=Object.fromEntries(dependencies.map(d=>[d.id,{id:d.id,level:'yellow',label:'Preview',detail:d.notes||'',locations:[],version:null}]));
+    logDir='~/Library/Application Support/Physical Lab/logs';
+    dataDir='~/Library/Application Support/Physical Lab';
     await refreshResearchBasics();
     render();
-  }catch(e){toast(String(e),true)}
+    return;
+  }
+
+  const failures=[];
+  const safeInvoke=async(name,args,fallback)=>{
+    try{return await invoke(name,args)}
+    catch(e){failures.push(name+': '+String(e));return fallback}
+  };
+
+  modules=await safeInvoke('list_modules',undefined,modules||[]);
+  dependencies=await safeInvoke('list_dependencies',undefined,dependencies||[]);
+  const depArr=await safeInvoke('dependency_statuses',undefined,[]);
+  if(depArr.length) dependencyStatuses=Object.fromEntries(depArr.map(s=>[s.id,s]));
+
+  const arr=await safeInvoke('module_statuses',undefined,[]);
+  if(arr.length) statuses=Object.fromEntries(arr.map(s=>[s.id,s]));
+
+  runtime=await safeInvoke('runtime_status',undefined,runtime||{});
+  logDir=await safeInvoke('log_directory',undefined,logDir||'');
+  dataDir=await safeInvoke('data_directory',undefined,dataDir||'');
+
+  try{await refreshResearchBasics()}catch(e){failures.push('research refresh: '+String(e))}
+  render();
+
+  if(failures.length){
+    console.error('Physical Lab refresh failures',failures);
+    toast('Some status probes failed; available Python/dependency data is still shown. Check Task/console for details.',true);
+  }
 }
 
 function statusFor(m){return statuses[m.id]||{installed:false,ready:false,safeReady:false,fullReady:false,state:'Unknown'}};
@@ -154,7 +175,7 @@ function dependencyAction(d,state){
   if(d.id==='radia'||d.id==='fftw') return `<button class="${ready?'secondary':'primary'}" data-install="radia-runtime">${ready?'Repair / rebuild RADIA':'Install with Physical Lab'}</button>`;
   if(d.id==='chrono-modal') return `<button class="${ready?'secondary':'primary'}" data-install="chrono-modal-runtime">${ready?'Repair / rebuild':'Build with Physical Lab'}</button>`;
   if(d.id==='vampire') return `<button class="${ready?'secondary':'primary'}" data-install="vampire-runtime">${ready?'Repair / rebuild':'Build with Physical Lab'}</button>`;
-  if(d.delivery==='module-managed') return `<button class="secondary" data-dependency-action="${esc(d.id)}">Open PyPI</button>`;
+  if(d.delivery==='module-managed') return `<button class="${ready?'secondary':'primary'}" data-dependency-install="${esc(d.id)}">${ready?'Repair dependency':'Install dependency'}</button><button class="secondary" data-dependency-action="${esc(d.id)}">Package source</button>`;
   return `<button class="${ready?'secondary':'primary'}" data-dependency-action="${esc(d.id)}">${d.id==='xcode-clt'&&state.level==='red'?'Open macOS installer':'Open official source'}</button>`;
 }
 
@@ -197,6 +218,17 @@ function renderDependencies(){
   }
   grid.innerHTML=states.map(([d,st])=>{const locs=(st.locations||[]);const priority=dependencyPriority(d,st);const locHtml=locs.length?`<details class="dependency-locations"><summary>${locs.length} detected location${locs.length===1?'':'s'}</summary>${locs.map(x=>`<code>${esc(x)}</code>`).join('')}</details>`:'';return `<article class="dependency-card"><div class="dependency-card-head"><div><div class="category">${esc(d.category)}</div><h4>${esc(d.name)}</h4></div><span class="health-light ${esc(st.level)}"><i></i>${esc(st.label)}</span></div><div class="dependency-priority"><strong>${esc(priority.label)}</strong><span>${esc(priority.detail)}</span></div><p class="desc">${esc(d.description)}</p><div class="dependency-meta"><div><span>Delivery</span><strong>${esc(deliveryLabel(d.delivery))}</strong></div><div><span>Used by</span><strong>${esc((d.usedBy||[]).join(' · '))}</strong></div><div><span>Version</span><strong>${esc(st.version||'—')}</strong></div></div><div class="dependency-detail">${esc(st.detail||d.notes||'')}</div>${locHtml}<div class="card-actions">${dependencyAction(d,st)}</div></article>`}).join('');
   document.querySelectorAll('[data-dependency-action]').forEach(b=>b.onclick=()=>runDependencyAction(b.dataset.dependencyAction));
+  document.querySelectorAll('[data-dependency-install]').forEach(b=>b.onclick=()=>installManagedDependency(b.dataset.dependencyInstall));
+}
+async function installManagedDependency(id){
+  if(!invoke){toast('Preview mode: dependency installation is available in the desktop build.');return}
+  const dep=(dependencies||[]).find(d=>d.id===id);
+  toast('Installing '+(dep?.name||id)+' in managed Lab environments…');
+  try{
+    const msg=await invoke('install_dependency',{dependencyId:id});
+    toast(msg);
+  }catch(e){toast(String(e),true)}
+  await refreshAll();
 }
 async function runDependencyAction(id){
   if(!invoke){toast('Preview mode: this action is available in the desktop build.');return}

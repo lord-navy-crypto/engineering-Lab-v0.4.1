@@ -243,11 +243,11 @@ function render(){
   if(el('logPath'))el('logPath').textContent=logDir||'not available'; if(el('dataPath'))el('dataPath').textContent=dataDir||'not available';
   const installed=labs.filter(m=>statusFor(m).ready).length;
   el('stats').innerHTML=[[String(modules.length),'Integrated modules'],[String(labs.length),'Physics labs'],[String(runtimes.length),'Runtime builders'],[String(installed),'Ready to open']].map(s=>`<div class="stat"><strong>${s[0]}</strong><span>${s[1]}</span></div>`).join('');
-  el('featuredGrid').innerHTML=nativeUtubeCard()+labs.slice(-2).map(labCard).join('');
+  el('featuredGrid').innerHTML=labs.slice(-3).map(labCard).join('');
   const cats=['All',...new Set(labs.map(m=>m.category))];
   el('labFilters').innerHTML=cats.map(c=>`<button class="filter ${c===activeCategory?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
   const visible=activeCategory==='All'?labs:labs.filter(m=>m.category===activeCategory);
-  el('labGrid').innerHTML=(activeCategory==='All'?nativeUtubeCard():'')+visible.map(labCard).join('');
+  el('labGrid').innerHTML=visible.map(labCard).join('');
   el('runtimeGrid').innerHTML=runtimes.map(runtimeCard).join('');
   renderRuntimeSummary(); renderDependencies(); renderResearch(); renderModelBuilder(); renderSettings(); applyUiSettings(); bindDynamic(); bindNativeUtube(); renderTasks(); applySearch();
 }

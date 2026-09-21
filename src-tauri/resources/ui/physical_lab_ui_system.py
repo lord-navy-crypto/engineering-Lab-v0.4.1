@@ -337,6 +337,71 @@ div[data-testid="stAlert"] {
     padding-right: .9rem !important;
   }
 }
+
+/* Workshop information architecture v4 */
+.pl-workshop-guidance{
+  display:grid;
+  grid-template-columns:minmax(130px,.35fr) minmax(260px,1.65fr);
+  gap:.8rem 1.2rem;
+  align-items:start;
+  margin:.65rem 0 1.35rem;
+  padding:.82rem 1rem;
+  border:1px solid var(--pl-border);
+  border-radius:var(--pl-radius-md);
+  background:var(--pl-surface);
+}
+.pl-workshop-guidance b{font-size:.78rem;letter-spacing:.02em}
+.pl-workshop-guidance span{font-size:.76rem;line-height:1.55;color:var(--pl-muted)}
+div[data-testid="stTabs"]{margin-top:.65rem;margin-bottom:1.1rem}
+div[data-testid="stTabs"] [data-baseweb="tab-list"]{
+  gap:.35rem;
+  padding:.32rem;
+  border:1px solid var(--pl-border);
+  border-radius:12px;
+  background:var(--pl-surface);
+}
+div[data-testid="stTabs"] button[role="tab"]{
+  border-radius:9px;
+  padding:.52rem .78rem;
+  font-size:.78rem;
+}
+div[data-testid="stExpander"]{
+  border:1px solid var(--pl-border) !important;
+  border-radius:12px !important;
+  background:var(--pl-surface) !important;
+  margin:.55rem 0 !important;
+}
+div[data-testid="stExpander"] summary{
+  font-weight:650;
+  letter-spacing:.01em;
+}
+div[data-testid="stForm"]{
+  border:1px solid var(--pl-border) !important;
+  border-radius:14px !important;
+  padding:1rem !important;
+  background:var(--pl-surface) !important;
+}
+[data-testid="stSidebar"] .pl-sidebar-section{
+  margin:.8rem 0 .45rem;
+  padding-top:.72rem;
+  border-top:1px solid var(--pl-border);
+}
+[data-testid="stSidebar"] .pl-sidebar-section b{
+  display:block;
+  font-size:.72rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin-bottom:.2rem;
+}
+[data-testid="stSidebar"] .pl-sidebar-section span{
+  display:block;
+  color:var(--pl-muted);
+  font-size:.69rem;
+  line-height:1.45;
+}
+@media(max-width:760px){
+  .pl-workshop-guidance{grid-template-columns:1fr}
+}
 </style>
 """
 
@@ -349,6 +414,46 @@ PLOTLY_COLORWAY = [
 
 def profile_label(profile: str) -> str:
     return PROFILE_LABELS.get(profile, profile.replace("-", " ").title())
+
+
+WORKSHOP_PURPOSE = {
+    "numerical-methods": "Study numerical accuracy, floating-point failure, convergence, and reference agreement.",
+    "ising-monte-carlo": "Configure a statistical-physics model, run finite-sample experiments, and inspect criticality and sampling quality.",
+    "random-walk-monte-carlo": "Run stochastic transport and estimator experiments, then compare scaling, uncertainty, and computational efficiency.",
+    "nonlinear-chaos": "Explore nonlinear dynamics through trajectories, sensitivity, Lyapunov behavior, and finite-window diagnostics.",
+    "oscillation-integration": "Compare dynamical response and numerical integrators while checking convergence and energy/work consistency.",
+    "kerr-geodesics": "Explore relativistic trajectories and derived orbital structure with explicit numerical checks.",
+    "solar-system-dynamics": "Run controlled orbital-dynamics experiments and inspect long-horizon numerical and physical diagnostics.",
+    "honeycomb-lattice": "Explore lattice dynamics, modes, defects, and transport-oriented quantities in a structured computational workflow.",
+    "radiation-platform": "Connect trajectory and field inputs to radiation analysis, scans, references, and engineering interpretation.",
+    "radia-magnet-studio": "Configure a magnet model, solve the field, inspect trajectory/field metrics, and study manufacturing sensitivity.",
+}
+
+
+def render_workshop_overview(st: Any, profile: str) -> None:
+    """Render a compact, display-only workflow scaffold above the upstream Lab UI."""
+    render_workbench_header(
+        st,
+        profile_label(profile),
+        WORKSHOP_PURPOSE.get(profile, "Computational physics and engineering workshop."),
+        kicker="Engineering Lab workshop",
+    )
+    render_stage_rail(st, [
+        ("Overview", "question & model"),
+        ("Setup", "physical parameters"),
+        ("Run", "numerical experiment"),
+        ("Results", "primary outputs"),
+        ("Analysis", "sensitivity & interpretation"),
+        ("Verification", "checks & provenance"),
+    ])
+    st.markdown(
+        '<div class="pl-workshop-guidance">'
+        '<b>Recommended flow</b>'
+        '<span>Set the physical model first, choose numerical quality second, run the core experiment, '
+        'then use the post-run Research Workbench for deeper analysis and verification.</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_lab_identity(st: Any, profile: str, subtitle: str = "Computational physics & engineering workbench") -> None:

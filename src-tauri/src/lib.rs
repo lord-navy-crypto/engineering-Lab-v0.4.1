@@ -243,10 +243,24 @@ fn python_candidates() -> Vec<String> {
     if let Ok(p) = std::env::var("PYTHON_BIN") {
         if !p.trim().is_empty() { candidates.push(p); }
     }
-    // Prefer well-supported desktop runtimes, but include python.org Framework
-    // locations because Finder-launched apps do not inherit an interactive shell PATH.
+    // Finder-launched apps do not inherit an interactive shell PATH, so check
+    // the common absolute locations used by python.org, Homebrew, pyenv and Conda.
     for minor in [12u32, 13, 14, 11, 10] {
         candidates.extend(python_candidates_for_minor(minor));
+    }
+    let home=home_dir();
+    for p in [
+        home.join(".pyenv/shims/python3"),
+        home.join(".pyenv/shims/python"),
+        home.join(".local/bin/python3"),
+        home.join("miniforge3/bin/python3"),
+        home.join("miniforge3/bin/python"),
+        home.join("miniconda3/bin/python3"),
+        home.join("miniconda3/bin/python"),
+        home.join("anaconda3/bin/python3"),
+        home.join("anaconda3/bin/python"),
+    ] {
+        candidates.push(p.to_string_lossy().to_string());
     }
     candidates.extend([
         "/opt/homebrew/bin/python3".to_string(),

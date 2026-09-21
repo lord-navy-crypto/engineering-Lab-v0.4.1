@@ -94,6 +94,164 @@ def _config_from_ui(st: Any) -> SolarSystemConfig:
     )
 
 
+def _render_interactive_orbital_preview(st: Any, result: Mapping[str, Any]) -> None:
+    """Render the actual interactive orbital model immediately after a run."""
+    t = np.asarray(result["time_years"], dtype=float)
+    r = np.asarray(result["positions_AU"], dtype=float)
+    if t.size == 0 or r.ndim != 3 or r.shape[1:] != (3, 3):
+        st.warning("Interactive orbital view is unavailable because the trajectory result is incomplete.")
+        return
+
+    summary = result_summary(dict(result))
+    st.markdown("### Interactive orbital model")
+    st.caption(
+        "Drag to rotate, scroll/pinch to zoom, and use Play or the time slider to inspect the barycentric Sun–Jupiter–Saturn trajectory."
+    )
+
+    try:
+        import plotly.graph_objects as go
+
+        # Keep animation responsive even for long runs with thousands of output samples.
+        frame_count = min(120, int(t.size))
+        frame_idx = np.unique(np.linspace(0, t.size - 1, frame_count, dtype=int))
+        body_names = ("Sun", "Jupiter", "Saturn")
+        marker_sizes = (9, 7, 6)
+
+        fig = go.Figure()
+        for body, name in enumerate(body_names):
+            fig.add_trace(go.Scatter3d(
+                x=r[:, body, 0],
+                y=r[:, body, 1],
+                z=r[:, body, 2],
+                mode="lines",
+                name=f"{name} trajectory",
+                line={"width": 3 if body else 2},
+                opacity=0.72 if body else 0.5,
+                hovertemplate=(
+                    f"{name} trajectory<br>"
+                    "x=%{x:.4f} AU<br>y=%{y:.4f} AU<br>z=%{z:.4f} AU<extra></extra>"
+                ),
+            ))
+
+        initial = int(frame_idx[0])
+        for body, name in enumerate(body_names):
+            fig.add_trace(go.Scatter3d(
+                x=[r[initial, body, 0]],
+                y=[r[initial, body, 1]],
+                z=[r[initial, body, 2]],
+                mode="markers+text",
+                name=name,
+                text=[name],
+                textposition="top center",
+                marker={"size": marker_sizes[body]},
+                hovertemplate=(
+                    f"{name}<br>t={t[initial]:.3f} yr<br>"
+                    "x=%{x:.4f} AU<br>y=%{y:.4f} AU<br>z=%{z:.4f} AU<extra></extra>"
+                ),
+            ))
+
+        frames = []
+        slider_steps = []
+        for idx in frame_idx:
+            frame_name = f"{float(t[idx]):.6f}"
+            frames.append(go.Frame(
+                name=frame_name,
+                data=[
+                    go.Scatter3d(
+                        x=[r[idx, body, 0]],
+                        y=[r[idx, body, 1]],
+                        z=[r[idx, body, 2]],
+                        mode="markers+text",
+                        text=[body_names[body]],
+                        textposition="top center",
+                        marker={"size": marker_sizes[body]},
+                        hovertemplate=(
+                            f"{body_names[body]}<br>t={t[idx]:.3f} yr<br>"
+                            "x=%{x:.4f} AU<br>y=%{y:.4f} AU<br>z=%{z:.4f} AU<extra></extra>"
+                        ),
+                    )
+                    for body in range(3)
+                ],
+                traces=[3, 4, 5],
+            ))
+            slider_steps.append({
+                "args": [[frame_name], {
+                    "frame": {"duration": 0, "redraw": True},
+                    "mode": "immediate",
+                    "transition": {"duration": 0},
+                }],
+                "label": f"{t[idx]:.1f}",
+                "method": "animate",
+            })
+
+        fig.frames = frames
+        fig.update_layout(
+            height=650,
+            margin={"l": 0, "r": 0, "t": 52, "b": 0},
+            title="Barycentric 3-D orbital evolution",
+            scene={
+                "xaxis_title": "x (AU)",
+                "yaxis_title": "y (AU)",
+                "zaxis_title": "z (AU)",
+                "aspectmode": "data",
+            },
+            legend={"orientation": "h"},
+            uirevision="solar-orbit-camera",
+            updatemenus=[{
+                "type": "buttons",
+                "direction": "left",
+                "x": 0.02,
+                "y": 0.02,
+                "showactive": False,
+                "buttons": [
+                    {
+                        "label": "▶ Play",
+                        "method": "animate",
+                        "args": [None, {
+                            "frame": {"duration": 80, "redraw": True},
+                            "fromcurrent": True,
+                            "transition": {"duration": 0},
+                        }],
+                    },
+                    {
+                        "label": "Ⅱ Pause",
+                        "method": "animate",
+                        "args": [[None], {
+                            "frame": {"duration": 0, "redraw": False},
+                            "mode": "immediate",
+                            "transition": {"duration": 0},
+                        }],
+                    },
+                ],
+            }],
+            sliders=[{
+                "active": 0,
+                "currentvalue": {"prefix": "Time: ", "suffix": " yr"},
+                "pad": {"t": 40},
+                "steps": slider_steps,
+            }],
+        )
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            config={"displaylogo": False, "responsive": True, "scrollZoom": True},
+            key="pl_solar_interactive_orbit",
+        )
+    except Exception as exc:
+        st.warning(f"Interactive orbital rendering could not load: {exc}")
+        return
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Simulated span", f"{t[-1] - t[0]:.1f} yr")
+    c2.metric("Final Ts/Tj", f"{summary['final_period_ratio']:.5f}")
+    c3.metric("5:2 deviation", f"{summary['final_resonance_deviation_5_2']:+.2e}")
+    c4.metric("Min J–S separation", f"{summary['minimum_separation_AU']:.3f} AU")
+    st.caption(
+        "This view animates the computed output samples; it does not rerun the solver during playback. "
+        "Open Results for orbital elements, resonance history and invariant diagnostics."
+    )
+
+
 def _render_result(st: Any, result: Mapping[str, Any]) -> None:
     summary = result_summary(dict(result))
     d = result["diagnostics"]
@@ -379,7 +537,13 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
                 result = integrate_case(config)
             st.session_state["pl_solar_system_result"] = result
             st.session_state["pl_solar_system_result_summary"] = result_summary(result)
-            st.success("Orbital integration completed. Open Results.")
+            st.success("Orbital integration completed. The interactive orbital window is ready below.")
+
+        setup_result = st.session_state.get("pl_solar_system_result")
+        if isinstance(setup_result, Mapping):
+            _render_interactive_orbital_preview(st, setup_result)
+        else:
+            st.info("Run the interactive orbital model to open the 3-D trajectory window here.")
 
     result = st.session_state.get("pl_solar_system_result")
     with result_tab:

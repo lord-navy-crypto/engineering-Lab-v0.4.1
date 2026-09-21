@@ -164,7 +164,12 @@ for token in [
     "Setup & run",
     "Results",
     "Sensitivity audit",
-    "Advanced tools",
+    "Analysis & V&V",
+    "Campaign / Project",
+    "Solver refinement",
+    "Inclination sweep",
+    "Model-effect audit",
+    "Requirement screening",
 ]:
     assert token in solar, f"Solar UI behavior lost: {token}"
 
@@ -211,8 +216,8 @@ assert "utube-studio" in project_patch
 assert "render_project_workspace(st, profile, namespace)" in project_patch
 assert "Project & evidence workspace" in engineering
 
-# 7. All ten managed Lab profiles remain represented across the workbench /
-# standalone Project surface contract.
+# 7. All managed Lab profiles remain represented across the workbench /
+# standalone Project surface contract, including the restored first-class U-Tube.
 profiles = [
     "numerical-methods",
     "ising-monte-carlo",
@@ -224,10 +229,45 @@ profiles = [
     "kerr-geodesics",
     "solar-system-dynamics",
     "honeycomb-lattice",
+    "utube-rotation",
 ]
 combined = advanced + engineering + project_patch + builtin_entry
 for profile in profiles:
     assert profile in combined, f"Managed profile lost from UI routing: {profile}"
+
+# 8. First-class bundled model routing must not regress to hidden legacy-host-only profiles.
+surface_registry = read("physical_lab_surface_registry.py")
+for token in [
+    'profile not in {"nonlinear-chaos", "solar-system-dynamics"}',
+    '"Analysis & V&V"',
+    '"Campaign / Project"',
+]:
+    assert token in solar, f"Solar first-class routing/analysis lost: {token}"
+for token in [
+    'profile not in {PROFILE, "kerr-geodesics"}',
+]:
+    assert token in kerr, f"Kerr first-class routing lost: {token}"
+for token in [
+    'profile not in {"oscillation-integration", "honeycomb-lattice"}',
+]:
+    assert token in lattice, f"Lattice first-class routing lost: {token}"
+for token in [
+    '"Solar-system workspace"',
+    '"Orbital Dynamics"',
+    '"Refinement & Resonance"',
+    '"Kerr workspace"',
+    '"Lattice workspace"',
+    '"U-Tube workspace"',
+]:
+    assert token in builtin_entry, f"First-class bundled workspace selector lost: {token}"
+for token in [
+    'profiles=("nonlinear-chaos", "solar-system-dynamics")',
+    'profiles=("nonlinear-chaos", "kerr-geodesics")',
+    'profiles=("oscillation-integration", "honeycomb-lattice")',
+    '"U-Tube Hysteresis & Dynamics"',
+    '"U-Tube Robust Design & Digital Twin"',
+]:
+    assert token in surface_registry, f"Capability registry first-class route lost: {token}"
 
 print("Engineering Lab PR #91 UI refactor completeness: PASS")
 print(f"- protected Engineering capabilities: {len(engineering_capabilities)}")

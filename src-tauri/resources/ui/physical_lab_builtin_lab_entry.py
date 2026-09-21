@@ -29,31 +29,68 @@ st.set_page_config(page_title=f"Physical Lab · {TITLE}", layout="wide")
 # system. Keep the launcher entry deliberately quiet to avoid duplicate headers.
 
 if PROFILE == "kerr-geodesics":
-    from physical_lab_kerr_ui import render_kerr_geodesic_workspace
-    from physical_lab_kerr_platform_ui import render_kerr_platform_workspace
-    from physical_lab_new_model_refinements import KERR_VARIANT
-    from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
-
-    # The model's internal computational profile remains nonlinear-chaos for
-    # backwards-compatible Compute Engine / campaign records.  The launcher ID
-    # is intentionally independent and first-class.
-    render_kerr_geodesic_workspace(st, PROFILE)
-    render_kerr_platform_workspace(st, PROFILE)
-    render_new_model_refinement_for_variant(st, KERR_VARIANT)
+    kerr_workspace = st.radio(
+        "Kerr workspace",
+        ["Geodesic Dynamics", "Experiment / Compute", "Refinement", "Project & Evidence"],
+        horizontal=True,
+        key="pl_kerr_first_class_workspace",
+    )
+    if kerr_workspace == "Geodesic Dynamics":
+        from physical_lab_kerr_ui import render_kerr_geodesic_workspace
+        render_kerr_geodesic_workspace(st, PROFILE)
+    elif kerr_workspace == "Experiment / Compute":
+        from physical_lab_kerr_platform_ui import render_kerr_platform_workspace
+        render_kerr_platform_workspace(st, PROFILE)
+    elif kerr_workspace == "Refinement":
+        from physical_lab_new_model_refinements import KERR_VARIANT
+        from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
+        render_new_model_refinement_for_variant(st, KERR_VARIANT)
+    else:
+        try:
+            from physical_lab_project_kernel import render_project_workspace
+            render_project_workspace(st, PROFILE, {})
+        except Exception as exc:
+            st.warning(f"Kerr Project / Evidence surface could not load: {exc}")
 elif PROFILE == "solar-system-dynamics":
-    from physical_lab_solar_system_ui import render_solar_system_workspace
-    from physical_lab_new_model_refinements import SOLAR_VARIANT
-    from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
-
-    render_solar_system_workspace(st, PROFILE)
-    render_new_model_refinement_for_variant(st, SOLAR_VARIANT)
+    solar_workspace = st.radio(
+        "Solar-system workspace",
+        ["Orbital Dynamics", "Refinement & Resonance", "Project & Evidence"],
+        horizontal=True,
+        key="pl_solar_first_class_workspace",
+    )
+    if solar_workspace == "Orbital Dynamics":
+        from physical_lab_solar_system_ui import render_solar_system_workspace
+        render_solar_system_workspace(st, PROFILE)
+    elif solar_workspace == "Refinement & Resonance":
+        from physical_lab_new_model_refinements import SOLAR_VARIANT
+        from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
+        render_new_model_refinement_for_variant(st, SOLAR_VARIANT)
+    else:
+        try:
+            from physical_lab_project_kernel import render_project_workspace
+            render_project_workspace(st, PROFILE, {})
+        except Exception as exc:
+            st.warning(f"Solar Project / Evidence surface could not load: {exc}")
 elif PROFILE == "honeycomb-lattice":
-    from physical_lab_lattice_ui import render_lattice_workspace
-    from physical_lab_new_model_refinements import LATTICE_VARIANT
-    from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
-
-    render_lattice_workspace(st, PROFILE)
-    render_new_model_refinement_for_variant(st, LATTICE_VARIANT)
+    lattice_workspace = st.radio(
+        "Lattice workspace",
+        ["Dynamics & Phonons", "Refinement", "Project & Evidence"],
+        horizontal=True,
+        key="pl_lattice_first_class_workspace",
+    )
+    if lattice_workspace == "Dynamics & Phonons":
+        from physical_lab_lattice_ui import render_lattice_workspace
+        render_lattice_workspace(st, PROFILE)
+    elif lattice_workspace == "Refinement":
+        from physical_lab_new_model_refinements import LATTICE_VARIANT
+        from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
+        render_new_model_refinement_for_variant(st, LATTICE_VARIANT)
+    else:
+        try:
+            from physical_lab_project_kernel import render_project_workspace
+            render_project_workspace(st, PROFILE, {})
+        except Exception as exc:
+            st.warning(f"Lattice Project / Evidence surface could not load: {exc}")
 else:
     st.markdown("## Rotating U-Tube Research Studio")
     st.caption(
@@ -82,15 +119,16 @@ else:
         from physical_lab_utube_robust_ui import render_utube_robust_engineering
         render_utube_robust_engineering(st, PROFILE)
 
-# sitecustomize installs the Evidence Center wrapper around this function before
-# Streamlit executes the entry point, so a single call exposes the same canonical
-# .physlab Project + nine-view Evidence Center used by the external Labs.
-try:
-    from physical_lab_project_kernel import render_project_workspace
-
-    render_project_workspace(st, PROFILE, {})
-except Exception as exc:
-    st.warning(f"Physical Lab Project / Evidence surface could not load: {exc}")
+# U-Tube keeps the canonical Project surface mounted because its measurement-backed
+# tools can consume project datasets while model-only tools remain standalone.
+# Kerr, Solar and Lattice expose Project & Evidence explicitly in their top-level
+# workspace selector above to avoid duplicate panels.
+if PROFILE == "utube-rotation":
+    try:
+        from physical_lab_project_kernel import render_project_workspace
+        render_project_workspace(st, PROFILE, {})
+    except Exception as exc:
+        st.warning(f"Physical Lab Project / Evidence surface could not load: {exc}")
 
 st.caption(
     "Scientific boundary: these are computational model workspaces. Their numerical "

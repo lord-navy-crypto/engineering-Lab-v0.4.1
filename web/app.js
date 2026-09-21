@@ -182,11 +182,14 @@ function dependencyAction(d,state){
 function dependencyPriority(d,st){
   if(st.level==='red') return {rank:0,label:'Fix now',detail:st.detail||d.notes||''};
   if(st.level==='green') return {rank:3,label:'Ready',detail:st.detail||''};
+  if(d.delivery==='module-managed'&&String(st.label||'').includes('Lab sync needed')){
+    return {rank:1,label:'Already found · sync Lab venv',detail:st.detail||'Package exists in another Python environment; only the isolated Lab environment needs synchronization.'};
+  }
   if(d.id==='cmake') return {rank:2,label:'Optional — needed for Chrono::Modal build',detail:st.detail||d.notes||''};
   if(d.id==='chrono-modal') return {rank:2,label:'Optional runtime',detail:'Build only when you want Chrono::Modal experiments.'};
   if(d.id==='vampire') return {rank:2,label:'Optional runtime',detail:'Build only when you want atomistic-magnetism experiments.'};
   if(d.id==='pychrono') return {rank:2,label:'Optional runtime',detail:'Current core Labs do not require PyChrono unless a PyChrono adapter is enabled.'};
-  if(d.delivery==='module-managed') return {rank:1,label:'Auto-managed',detail:'Physical Lab installs or repairs this package inside each Lab venv.'};
+  if(d.delivery==='module-managed') return {rank:1,label:'Auto-managed',detail:st.detail||'Physical Lab installs or repairs this package inside each Lab venv.'};
   return {rank:2,label:'Optional / on demand',detail:st.detail||d.notes||''};
 }
 function exportDependencyDoctorReport(){

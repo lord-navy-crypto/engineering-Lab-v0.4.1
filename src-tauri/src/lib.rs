@@ -720,16 +720,50 @@ fn conda_python_candidates() -> Vec<PathBuf> {
 }
 
 fn discovered_python_envs(app:&AppHandle)->Vec<PathBuf>{
+    fn add_python(out:&mut Vec<PathBuf>,seen:&mut HashSet<String>,p:PathBuf){
+        if p.is_file() {
+            let key=fs::canonicalize(&p).unwrap_or(p.clone()).to_string_lossy().to_string();
+            if seen.insert(key){out.push(p);}
+        }
+    }
+    fn scan_env_root(out:&mut Vec<PathBuf>,seen:&mut HashSet<String>,root:PathBuf){
+        let Ok(entries)=fs::read_dir(root) else{return};
+        for entry in entries.flatten(){
+            let base=entry.path();
+            for rel in ["bin/python","bin/python3"] {
+                add_python(out,seen,base.join(rel));
+            }
+        }
+    }
+
     let mut out=Vec::new(); let mut seen=HashSet::new();
     for c in python_candidates(){
         let p=if c.contains('/') {PathBuf::from(c)} else {output("which", &[c.as_str()]).map(PathBuf::from).unwrap_or_default()};
-        if p.is_file() && seen.insert(p.to_string_lossy().to_string()){out.push(p);}
+        add_python(&mut out,&mut seen,p);
     }
     for p in conda_python_candidates().into_iter().chain(pychrono_candidates()){
-        if p.is_file() && seen.insert(p.to_string_lossy().to_string()){out.push(p);}
+        add_python(&mut out,&mut seen,p);
     }
+
+    let home=home_dir();
+    // Common user-managed environments are important for Finder-launched apps,
+    // which do not inherit the interactive shell PATH.
+    scan_env_root(&mut out,&mut seen,home.join(".virtualenvs"));
+    scan_env_root(&mut out,&mut seen,home.join("venvs"));
+    scan_env_root(&mut out,&mut seen,home.join(".venvs"));
+    scan_env_root(&mut out,&mut seen,home.join(".pyenv/versions"));
+    scan_env_root(&mut out,&mut seen,home.join(".local/share/uv/python"));
+
+    // Also recognize a project-local virtual environment when the desktop app
+    // is launched from a source checkout.
+    if let Ok(cwd)=std::env::current_dir(){
+        for rel in [".venv/bin/python",".venv/bin/python3","venv/bin/python","venv/bin/python3"] {
+            add_python(&mut out,&mut seen,cwd.join(rel));
+        }
+    }
+
     if let Ok(specs)=module_specs(){for spec in specs.into_iter().filter(|m|m.kind=="lab"){
-        if let Ok(p)=venv_python(app,&spec.id){if p.is_file() && seen.insert(p.to_string_lossy().to_string()){out.push(p);}}
+        if let Ok(p)=venv_python(app,&spec.id){add_python(&mut out,&mut seen,p);}
     }}
     out
 }
@@ -872,7 +906,50 @@ fn dependency_action(dependency_id: String) -> Result<String,String> {
 }
 
 
-fn install_managed_python_dependency_blocking(app:&AppHandle, dependency_id:&str) -> Result<String,String> {
+fn run_dependency_pip_task(app:&AppHandle, task:&str, dep:&DependencySpec, spec:&ModuleSpec, vpy:&Path) -> Result<(),String>{
+    let mut command=Command::new(vpy);
+    command.args(["-m","pip","install","--upgrade",&dep.id])
+        .current_dir(module_root(app,&spec.id)?)
+        .stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    emit_task(app,task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+        &format!("Installing for {}",spec.name),"Running",None,
+        format!("Using {}",vpy.to_string_lossy()),false,None);
+
+    let mut child=command.spawn().map_err(|e|format!("Could not start pip for {}: {e}",spec.name))?;
+    let stdout=child.stdout.take();
+    let stderr=child.stderr.take();
+    let mut readers=Vec::new();
+
+    if let Some(out)=stdout {
+        let app2=app.clone(); let t=task.to_string(); let id=dep.id.clone(); let title=dep.name.clone(); let lab=spec.name.clone();
+        readers.push(thread::spawn(move||{
+            for line in BufReader::new(out).lines().map_while(Result::ok){
+                if !line.trim().is_empty(){
+                    emit_task(&app2,&t,&format!("dependency:{id}"),&format!("{title} dependency repair"),
+                        &format!("pip · {lab}"),"Running",None,line,false,None);
+                }
+            }
+        }));
+    }
+    if let Some(err)=stderr {
+        let app2=app.clone(); let t=task.to_string(); let id=dep.id.clone(); let title=dep.name.clone(); let lab=spec.name.clone();
+        readers.push(thread::spawn(move||{
+            for line in BufReader::new(err).lines().map_while(Result::ok){
+                if !line.trim().is_empty(){
+                    emit_task(&app2,&t,&format!("dependency:{id}"),&format!("{title} dependency repair"),
+                        &format!("pip · {lab}"),"Running",None,line,false,None);
+                }
+            }
+        }));
+    }
+
+    let status=child.wait().map_err(|e|e.to_string())?;
+    for reader in readers { let _=reader.join(); }
+    if status.success(){Ok(())}else{Err(format!("pip failed for {} with status {status}",spec.name))}
+}
+
+fn install_managed_python_dependency_blocking(app:&AppHandle, task:&str, dependency_id:&str) -> Result<String,String> {
     let dep=dependency_specs()?.into_iter().find(|d|d.id==dependency_id).ok_or_else(||"Unknown dependency".to_string())?;
     if dep.delivery!="module-managed" { return Err(format!("{} is not a managed Python dependency.",dep.name)); }
 
@@ -881,18 +958,31 @@ fn install_managed_python_dependency_blocking(app:&AppHandle, dependency_id:&str
     let mut repaired=Vec::new();
     let mut failures=Vec::new();
 
-    for spec in modules.into_iter().filter(|m|m.kind=="lab") {
+    let targets:Vec<ModuleSpec>=modules.into_iter()
+        .filter(|m|m.kind=="lab" && m.verify_imports.iter().any(|x|x==dependency_id))
+        .collect();
+    let total=targets.len().max(1) as f64;
+
+    for (index,spec) in targets.into_iter().enumerate() {
         let vpy=venv_python(app,&spec.id)?;
         if !vpy.is_file() { continue; }
         installed_targets.push(spec.name.clone());
 
-        let status=Command::new(&vpy)
-            .args(["-m","pip","install","--upgrade",dependency_id])
-            .current_dir(module_root(app,&spec.id)?)
-            .status();
+        let percent=5.0+(index as f64/total)*85.0;
+        if let Some((version,path))=python_package_probe(&vpy,dependency_id){
+            emit_task(app,task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+                &format!("Recognized in {}",spec.name),"Running",Some(percent),
+                format!("Already installed: {} {} at {}",dep.name,version,path),false,None);
+            repaired.push(spec.name.clone());
+            continue;
+        }
 
-        match status {
-            Ok(code) if code.success() => {
+        emit_task(app,task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+            &format!("Downloading for {}",spec.name),"Running",Some(percent),
+            format!("{} is missing from this managed Lab environment; pip download/install started.",dep.name),false,None);
+
+        match run_dependency_pip_task(app,task,&dep,&spec,&vpy) {
+            Ok(()) => {
                 let check=Command::new(&vpy).args(["-m","pip","check"]).output();
                 if let Ok(out)=check {
                     if !out.status.success() {
@@ -906,7 +996,6 @@ fn install_managed_python_dependency_blocking(app:&AppHandle, dependency_id:&str
                 }
                 repaired.push(spec.name.clone());
             }
-            Ok(code) => failures.push(format!("{} (pip exit {})",spec.name,code.code().unwrap_or(-1))),
             Err(e) => failures.push(format!("{} ({e})",spec.name)),
         }
     }
@@ -933,10 +1022,24 @@ async fn install_dependency(app:AppHandle, dependency_id:String) -> Result<Strin
     if dep.delivery!="module-managed" {
         return Err(format!("{} is not installed through the managed Python dependency workflow.",dep.name));
     }
+    let task=task_id(&format!("dependency-{}",dependency_id));
+    emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+        "Starting","Running",Some(1.0),
+        "Scanning managed Lab environments and recognizing already-installed packages.",false,None);
+
     let app2=app.clone();
     let id2=dependency_id.clone();
-    tokio::task::spawn_blocking(move||install_managed_python_dependency_blocking(&app2,&id2))
-        .await.map_err(|e|e.to_string())?
+    let task2=task.clone();
+    let result=tokio::task::spawn_blocking(move||install_managed_python_dependency_blocking(&app2,&task2,&id2))
+        .await.map_err(|e|e.to_string())?;
+
+    match &result {
+        Ok(message)=>emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+            "Complete","Complete",Some(100.0),message.clone(),true,None),
+        Err(e)=>emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+            "Failed","Failed",None,e.clone(),true,Some(e.clone())),
+    }
+    result
 }
 
 

@@ -17,6 +17,7 @@ LABS = {
     "kerr-geodesics": ("Kerr Black Hole Geodesics", "Relativity & Astrophysics"),
     "solar-system-dynamics": ("Sun–Jupiter–Saturn Dynamics", "Computational Astrophysics"),
     "honeycomb-lattice": ("Multilayer Honeycomb Lattice", "Materials & Condensed Matter"),
+    "utube-rotation": ("Rotating U-Tube Research Studio", "Engineering Physics & Fluid Experiment"),
 }
 
 if PROFILE not in LABS:
@@ -46,13 +47,34 @@ elif PROFILE == "solar-system-dynamics":
 
     render_solar_system_workspace(st, "nonlinear-chaos")
     render_new_model_refinement_for_variant(st, SOLAR_VARIANT)
-else:
+elif PROFILE == "honeycomb-lattice":
     from physical_lab_lattice_ui import render_lattice_workspace
     from physical_lab_new_model_refinements import LATTICE_VARIANT
     from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
 
     render_lattice_workspace(st, "oscillation-integration")
     render_new_model_refinement_for_variant(st, LATTICE_VARIANT)
+else:
+    st.markdown("## Rotating U-Tube Research Studio")
+    st.caption(
+        "Full Streamlit workshop for the rotating U-tube experiment. Model-only studies work immediately; "
+        "Project-backed data comparison activates when an Engineering Lab Project is selected."
+    )
+    workspace = st.radio(
+        "U-Tube workspace",
+        ["Physical Model & Data", "Uncertainty & Validation", "Advanced Engineering"],
+        horizontal=True,
+        key="pl_utube_standalone_workspace",
+    )
+    if workspace == "Physical Model & Data":
+        from physical_lab_utube_experiment_ui import render_utube_experiment
+        render_utube_experiment(st, PROFILE)
+    elif workspace == "Uncertainty & Validation":
+        from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
+        render_utube_uncertainty(st, PROFILE)
+    else:
+        from physical_lab_utube_advanced_ui import render_utube_advanced
+        render_utube_advanced(st, PROFILE)
 
 # sitecustomize installs the Evidence Center wrapper around this function before
 # Streamlit executes the entry point, so a single call exposes the same canonical

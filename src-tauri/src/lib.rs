@@ -1182,6 +1182,22 @@ fn fragile_dependency_ready(app:&AppHandle, _spec:&ModuleSpec, vpy:Option<&Path>
     }
 }
 
+fn lab_import_smoke_ready(app:&AppHandle,spec:&ModuleSpec,vpy:&Path)->bool{
+    let mut mods=spec.verify_imports.clone();
+    if spec.id=="random-walk-monte-carlo" {
+        mods.extend([
+            "rw_mc_studio.random_walk".to_string(),
+            "rw_mc_studio.scans".to_string(),
+            "rw_mc_studio.advanced".to_string(),
+            "rw_mc_studio.monte_carlo".to_string(),
+        ]);
+    }
+    if mods.is_empty(){return true}
+    let code=format!("mods={:?}; import importlib; [importlib.import_module(m) for m in mods]; print('lab import smoke OK')",mods);
+    let Ok(source)=source_dir(app,&spec.id) else{return false};
+    Command::new(vpy).args(["-c",&code]).current_dir(source).output().map(|o|o.status.success()).unwrap_or(false)
+}
+
 fn mode_readiness(app:&AppHandle, spec:&ModuleSpec, installed:bool)->(bool,bool) {
     if spec.kind!="lab" { return (false,false); }
     let supported=arch_supported(spec);
@@ -1189,7 +1205,8 @@ fn mode_readiness(app:&AppHandle, spec:&ModuleSpec, installed:bool)->(bool,bool)
     let source=source_dir(app,&spec.id).ok();
     let base_ready = supported && installed
         && vpy.as_ref().map(|p|p.is_file()&&python_meets(p.to_string_lossy().as_ref(),&spec.python_requires)).unwrap_or(false)
-        && spec.entrypoint.as_ref().map(|e|source.as_ref().map(|p|p.join(e).is_file()).unwrap_or(false)).unwrap_or(false);
+        && spec.entrypoint.as_ref().map(|e|source.as_ref().map(|p|p.join(e).is_file()).unwrap_or(false)).unwrap_or(false)
+        && vpy.as_ref().map(|p|lab_import_smoke_ready(app,spec,p)).unwrap_or(false);
     if !base_ready { return (false,false); }
     let full_ready=spec.fragile_dependencies.iter().all(|d|fragile_dependency_ready(app,spec,vpy.as_deref(),d));
     (true,full_ready)
@@ -1352,7 +1369,7 @@ fn launch_module(app: AppHandle, state: State<'_, PhysicalLabState>, module_id: 
         let vpy=venv_python(&app,&module_id)?;
         let radia_dir=radia_dir().unwrap_or_else(||home_dir().join("Desktop/Radia-master/cpp/gcc"));
         let mut pythonpath=String::new();
-        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radia-magnet-studio"|"radiation-platform"|"kerr-geodesics"|"solar-system-dynamics"|"honeycomb-lattice") {
+        if matches!(module_id.as_str(), "numerical-methods"|"ising-monte-carlo"|"random-walk-monte-carlo"|"nonlinear-chaos"|"oscillation-integration"|"radia-magnet-studio"|"radiation-platform"|"kerr-geodesics"|"solar-system-dynamics"|"honeycomb-lattice"|"utube-rotation") {
             if let Some(ui_dir)=ui_overlay_dir(&app){pythonpath.push_str(&ui_dir.to_string_lossy());pythonpath.push(':');}
         }
         pythonpath.push_str(&source.to_string_lossy());

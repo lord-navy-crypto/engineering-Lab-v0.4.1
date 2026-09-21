@@ -10,7 +10,7 @@ import html
 import os
 from typing import Any
 
-from physical_lab_ui_system import DESIGN_CSS, apply_plotly_design, render_lab_identity
+from physical_lab_ui_system import DESIGN_CSS, apply_plotly_design, render_lab_identity, render_workshop_overview
 
 PROFILE = os.environ.get("PHYSICAL_LAB_UI_PROFILE", "").strip()
 ENABLED_PROFILES = {
@@ -167,9 +167,9 @@ if PROFILE in ENABLED_PROFILES:
                 options = PRESETS.get(PROFILE)
                 quality_options = QUALITY.get(PROFILE)
                 if options or quality_options:
-                    with st.expander("Run setup", expanded=False):
+                    with st.expander("Experiment setup & numerical quality", expanded=False):
                         st.caption(
-                            "Presets are optional starting points. They change model parameters only "
+                            "Presets are optional starting points for the physical setup. They change model parameters only "
                             "after Apply; the scientific controls remain editable below."
                         )
                         if options:
@@ -195,8 +195,11 @@ if PROFILE in ENABLED_PROFILES:
                                 for key, value in quality_options[quality_name].items():
                                     st.session_state[key] = value
                                 st.success(f"Quality: {quality_name}")
-                st.caption("Primary experiment controls follow below. Advanced display controls stay collapsed unless you open them.")
-                st.divider()
+                st.markdown(
+                    '<div class="pl-sidebar-section"><b>Primary experiment controls</b>'
+                    '<span>Physical parameters and model-specific controls from the original Lab continue below.</span></div>',
+                    unsafe_allow_html=True,
+                )
 
         def _enhanced_set_page_config(*args: Any, **kwargs: Any):
             # Run-Vault restores are staged at the end of the previous Streamlit run.
@@ -212,6 +215,9 @@ if PROFILE in ENABLED_PROFILES:
                             pass
             result = _original_set_page_config(*args, **kwargs)
             _original_markdown(BASE_CSS, unsafe_allow_html=True)
+            if not st.session_state.get(f"__pl_workshop_shell_{PROFILE}", False):
+                render_workshop_overview(st, PROFILE)
+                st.session_state[f"__pl_workshop_shell_{PROFILE}"] = True
             _render_preset_tools()
             return result
 

@@ -157,8 +157,8 @@ assert 'render_project_workspace' in project_surface
 assert 'render_advanced_experiments' in project_surface
 
 print(f'Physical Lab v{canonical_version} Research Workspace self-check: PASS')
-print('Modules: 13 (10 labs + 3 runtime/builders)')
-print('Top-level Labs: 10')
+print('Modules: 14 (11 labs + 3 runtime/builders)')
+print('Top-level Labs: 11')
 print('Dependency health catalog:', len(deps), 'items')
 print('Persistent backend logs + data-folder access: configured')
 print('Per-model uninstall + per-task delete: configured')

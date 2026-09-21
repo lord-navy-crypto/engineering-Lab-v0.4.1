@@ -158,6 +158,9 @@ for token in [
 
 for token in [
     "Run interactive orbital model",
+    "Interactive orbital model",
+    "Barycentric 3-D orbital evolution",
+    "pl_solar_interactive_orbit",
     "Run finite-time divergence audit",
     "pl_solar_system_result",
     "pl_solar_system_ftle",

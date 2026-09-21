@@ -273,7 +273,7 @@ def _platform(st: Any, cfg: LatticeConfig) -> None:
 
 
 def render_lattice_workspace(st: Any, profile: str) -> None:
-    if profile != "oscillation-integration":
+    if profile not in {"oscillation-integration", "honeycomb-lattice"}:
         return
 
     from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header

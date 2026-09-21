@@ -62,7 +62,7 @@ else:
     )
     workspace = st.radio(
         "U-Tube workspace",
-        ["Physical Model & Data", "Uncertainty & Validation", "Advanced Engineering"],
+        ["Physical Model & Data", "Uncertainty & Validation", "Advanced Design", "Hysteresis & Dynamics", "Robust Design & Digital Twin"],
         horizontal=True,
         key="pl_utube_standalone_workspace",
     )
@@ -72,9 +72,15 @@ else:
     elif workspace == "Uncertainty & Validation":
         from physical_lab_utube_uncertainty_ui import render_utube_uncertainty
         render_utube_uncertainty(st, PROFILE)
-    else:
+    elif workspace == "Advanced Design":
         from physical_lab_utube_advanced_ui import render_utube_advanced
         render_utube_advanced(st, PROFILE)
+    elif workspace == "Hysteresis & Dynamics":
+        from physical_lab_utube_hysteresis_ui import render_utube_hysteresis
+        render_utube_hysteresis(st, PROFILE)
+    else:
+        from physical_lab_utube_robust_ui import render_utube_robust_engineering
+        render_utube_robust_engineering(st, PROFILE)
 
 # sitecustomize installs the Evidence Center wrapper around this function before
 # Streamlit executes the entry point, so a single call exposes the same canonical

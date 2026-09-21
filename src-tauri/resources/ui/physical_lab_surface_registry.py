@@ -67,8 +67,8 @@ SURFACES: tuple[Surface, ...] = (
     # Existing project-level research surface and its component workspaces.
     _s(
         "utube-studio", "U-Tube Research Studio", "Experiments & Physics",
-        "Rotating U-tube model, threshold maps, theory↔experiment comparison, uncertainty, robust design, digital twin and hysteresis.",
-        launch_mode="route", route_hint="Project Workspace → U-Tube Research Studio",
+        "Rotating U-tube model, threshold maps, theory↔experiment comparison, uncertainty, advanced design, hysteresis, robust design and digital twin.",
+        launch_mode="route", route_hint="Rotating U-Tube Research Studio → choose a top-level workspace",
     ),
     _s("utube-physical", "U-Tube Physical Model & Data", "Experiments & Physics",
        "Physical view, threshold map, theory↔experiment comparison and DOE/sweep workflows.",
@@ -76,9 +76,15 @@ SURFACES: tuple[Surface, ...] = (
     _s("utube-uncertainty", "U-Tube Uncertainty", "Experiments & Physics",
        "Explicit model-input uncertainty and threshold sensitivity tools.",
        "physical_lab_utube_uncertainty_ui", "render_utube_uncertainty"),
-    _s("utube-advanced", "U-Tube Advanced Engineering & Twin", "Experiments & Physics",
-       "DIY data view, robust design, digital twin, hysteresis and verification-oriented tools.",
+    _s("utube-advanced", "U-Tube Advanced Design", "Experiments & Physics",
+       "Dimensionless physics, operating envelope, inverse design, sensitivity, design-space exploration, experiment planning and DIY data view.",
        "physical_lab_utube_advanced_ui", "render_utube_advanced"),
+    _s("utube-hysteresis", "U-Tube Hysteresis & Dynamics", "Experiments & Physics",
+       "Measured spin-up/spin-down hysteresis and ramp-rate dynamic-threshold analysis.",
+       "physical_lab_utube_hysteresis_ui", "render_utube_hysteresis"),
+    _s("utube-robust", "U-Tube Robust Design & Digital Twin", "Engineering Decisions & Reliability",
+       "Tolerance-corner screening, Pareto robust design, adaptive experiments, verification templates and measurement digital twins.",
+       "physical_lab_utube_robust_ui", "render_utube_robust_engineering"),
 
     # Data and measurement.
     _s("data-bridge", "Canonical Data Bridge", "Data & Measurement",

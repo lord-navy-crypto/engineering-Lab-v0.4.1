@@ -458,17 +458,83 @@ async function validateResearchModelAdapter(){if(!invoke||!modelBuilderBundle){t
 async function saveResearchModelToProject(){if(!invoke||!modelBuilderBundle){toast('Generate a model bundle first.',true);return}if(!activeWorkspaceId){toast('Create or select a canonical Project first.',true);return}try{const record=await invoke('save_model_builder_bundle',{workspaceId:activeWorkspaceId,bundlePath:modelBuilderBundle.bundle_path});await refreshResearchBasics();render();toast(`Saved ${record.name||'research model'} to the active Project.`)}catch(e){toast(String(e),true)}}
 async function openResearchModelBundle(){if(!invoke||!modelBuilderBundle)return;try{await invoke('model_builder_open_bundle',{bundlePath:modelBuilderBundle.bundle_path})}catch(e){toast(String(e),true)}}
 
+function taskStatusClass(t){
+  const s=(t.status||'').toLowerCase();
+  if(s.includes('fail'))return 'failed';
+  if(s.includes('cancel'))return 'cancelled';
+  if(t.done||s.includes('complete'))return 'complete';
+  return 'running';
+}
 function renderTasks(){
   const list=[...tasks.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  const running=list.filter(t=>!t.done).length; el('taskBadge').textContent=String(running); el('taskBadge').classList.toggle('hidden',running===0);
+  const running=list.filter(t=>!t.done).length;
+  el('taskBadge').textContent=String(running);
+  el('taskBadge').classList.toggle('hidden',running===0);
   if(!list.length){el('taskList').innerHTML='<div class="empty-state">No tasks yet.</div>';return}
-  el('taskList').innerHTML=list.map(t=>`<div class="task"><div class="task-head"><div><div class="task-title">${esc(t.title)}</div><div class="task-meta">${esc(t.stage||'Working')} · ${esc(t.moduleId||'Physical Lab')}</div></div><div class="task-controls"><div class="task-state">${esc(t.status||'Running')}</div>${t.done?`<button class="task-delete" data-task-delete="${esc(t.taskId)}" title="Delete task entry">×</button>`:`<button class="secondary small" data-task-cancel="${esc(t.taskId)}">Cancel</button>`}</div></div><div class="progress"><div style="width:${Math.max(2,Math.min(100,t.percent??18))}%"></div></div><div class="task-message">${esc(t.message||'')}</div></div>`).join('');
+
+  el('taskList').innerHTML=list.map(t=>{
+    const cls=taskStatusClass(t);
+    const pct=t.percent==null?null:Math.max(0,Math.min(100,Number(t.percent)||0));
+    const logs=(t.logLines||[]).slice(-20);
+    const logHtml=logs.length>1
+      ? `<details class="task-log"><summary>Recent output · ${logs.length} lines</summary><pre>${logs.map(esc).join('\n')}</pre></details>`
+      : '';
+    const progressClass=pct==null&&!t.done?' indeterminate':'';
+    const width=pct==null?(t.done?100:35):pct;
+    return `<div class="task task-${cls}">
+      <div class="task-head">
+        <div>
+          <div class="task-title">${esc(t.title||'Physical Lab task')}</div>
+          <div class="task-meta">${esc(t.stage||'Working')} · ${esc(t.moduleId||'Physical Lab')}</div>
+        </div>
+        <div class="task-controls">
+          <div class="task-state task-state-${cls}">${esc(t.status||'Running')}${pct!=null?` · ${Math.round(pct)}%`:''}</div>
+          ${t.done
+            ? `<button class="task-delete" data-task-delete="${esc(t.taskId)}" title="Delete task entry">×</button>`
+            : `<button class="secondary small" data-task-cancel="${esc(t.taskId)}" ${t.cancelRequested?'disabled':''}>${t.cancelRequested?'Cancelling…':'Cancel'}</button>`}
+        </div>
+      </div>
+      <div class="progress${progressClass}"><div style="width:${width}%"></div></div>
+      <div class="task-message">${esc(t.message||'')}</div>
+      ${logHtml}
+    </div>`;
+  }).join('');
+
   document.querySelectorAll('[data-task-delete]').forEach(b=>b.onclick=()=>{tasks.delete(b.dataset.taskDelete);renderTasks()});
   document.querySelectorAll('[data-task-cancel]').forEach(b=>b.onclick=()=>cancelTaskById(b.dataset.taskCancel));
 }
 
-async function cancelTaskById(id){if(!invoke)return;try{const msg=await invoke('cancel_task',{taskId:id});toast(msg)}catch(e){toast(String(e),true)}}
-function onTask(ev){const t=ev.payload||ev;const previous=tasks.get(t.taskId);t.updatedAt=Date.now();tasks.set(t.taskId,t);renderTasks();if(uiSettings.taskCompletionToasts&&t.done&&!previous?.done)toast(`${t.title||'Physical Lab task'} completed.`);}
+async function cancelTaskById(id){
+  if(!invoke)return;
+  const t=tasks.get(id);
+  if(t){t.cancelRequested=true;t.updatedAt=Date.now();tasks.set(id,t);renderTasks();}
+  try{
+    const msg=await invoke('cancel_task',{taskId:id});
+    toast(msg);
+  }catch(e){
+    if(t){t.cancelRequested=false;tasks.set(id,t);renderTasks();}
+    toast(String(e),true);
+  }
+}
+function onTask(ev){
+  const incoming=ev.payload||ev;
+  if(!incoming?.taskId)return;
+  const previous=tasks.get(incoming.taskId)||{};
+  const line=String(incoming.message||'').trim();
+  const history=[...(previous.logLines||[])];
+  if(line && history[history.length-1]!==line)history.push(line);
+  if(history.length>80)history.splice(0,history.length-80);
+
+  const t={...previous,...incoming,logLines:history,updatedAt:Date.now()};
+  if(t.done)t.cancelRequested=false;
+  tasks.set(t.taskId,t);
+  renderTasks();
+
+  if(uiSettings.taskCompletionToasts&&t.done&&!previous.done){
+    const failed=taskStatusClass(t)==='failed';
+    toast(`${t.title||'Physical Lab task'} ${failed?'failed':'completed'}.`,failed);
+  }
+}
 function applySearch(){const q=el('searchInput').value.trim().toLowerCase();document.querySelectorAll('.module-card[data-search]').forEach(c=>c.style.display=(!q||c.dataset.search.includes(q))?'':'none')}
 
 async function initEvents(){if(listen){await listen('physical-lab://task-progress',onTask)}}

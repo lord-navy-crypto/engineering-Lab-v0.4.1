@@ -37,22 +37,22 @@ if PROFILE == "kerr-geodesics":
     # The model's internal computational profile remains nonlinear-chaos for
     # backwards-compatible Compute Engine / campaign records.  The launcher ID
     # is intentionally independent and first-class.
-    render_kerr_geodesic_workspace(st, "nonlinear-chaos")
-    render_kerr_platform_workspace(st, "nonlinear-chaos")
+    render_kerr_geodesic_workspace(st, PROFILE)
+    render_kerr_platform_workspace(st, PROFILE)
     render_new_model_refinement_for_variant(st, KERR_VARIANT)
 elif PROFILE == "solar-system-dynamics":
     from physical_lab_solar_system_ui import render_solar_system_workspace
     from physical_lab_new_model_refinements import SOLAR_VARIANT
     from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
 
-    render_solar_system_workspace(st, "nonlinear-chaos")
+    render_solar_system_workspace(st, PROFILE)
     render_new_model_refinement_for_variant(st, SOLAR_VARIANT)
 elif PROFILE == "honeycomb-lattice":
     from physical_lab_lattice_ui import render_lattice_workspace
     from physical_lab_new_model_refinements import LATTICE_VARIANT
     from physical_lab_new_model_refinement_ui import render_new_model_refinement_for_variant
 
-    render_lattice_workspace(st, "oscillation-integration")
+    render_lattice_workspace(st, PROFILE)
     render_new_model_refinement_for_variant(st, LATTICE_VARIANT)
 else:
     st.markdown("## Rotating U-Tube Research Studio")

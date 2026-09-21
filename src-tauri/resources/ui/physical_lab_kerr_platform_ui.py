@@ -160,7 +160,7 @@ def _render_result(st: Any, manifest: Mapping[str, Any], campaign: Mapping[str, 
 
 
 def render_kerr_platform_workspace(st: Any, profile: str) -> None:
-    if profile != PROFILE:
+    if profile not in {PROFILE, "kerr-geodesics"}:
         return
 
     st.markdown("---")

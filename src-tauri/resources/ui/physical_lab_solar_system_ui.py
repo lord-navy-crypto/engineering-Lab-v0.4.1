@@ -350,7 +350,7 @@ def _render_direct_analysis(st: Any, config: SolarSystemConfig) -> None:
 
 
 def render_solar_system_workspace(st: Any, profile: str) -> None:
-    if profile != "nonlinear-chaos":
+    if profile not in {"nonlinear-chaos", "solar-system-dynamics"}:
         return
 
     from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header

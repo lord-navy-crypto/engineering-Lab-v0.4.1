@@ -630,7 +630,16 @@ fn verify_imports(app:&AppHandle,task:&str,spec:&ModuleSpec,vpy:&Path)->Result<(
     emit_task(app,task,&spec.id,&spec.name,"Verifying Python environment","Running",Some(90.0),"Running pip check and import smoke tests",false,None);
     let mut check=Command::new(vpy);check.args(["-m","pip","check"]).current_dir(source_dir(app,&spec.id)?);run_streaming(app,task,spec,"Dependency consistency check",Some(92.0),check)?;
     if !spec.verify_imports.is_empty(){
-        let code=format!("mods={:?}; import importlib; [importlib.import_module(m) for m in mods]; print('import smoke test OK:', ', '.join(mods))",spec.verify_imports);
+        let mut mods=spec.verify_imports.clone();
+        if spec.id=="random-walk-monte-carlo" {
+            mods.extend([
+                "rw_mc_studio.random_walk".to_string(),
+                "rw_mc_studio.scans".to_string(),
+                "rw_mc_studio.advanced".to_string(),
+                "rw_mc_studio.monte_carlo".to_string(),
+            ]);
+        }
+        let code=format!("mods={:?}; import importlib; [importlib.import_module(m) for m in mods]; print('import smoke test OK:', ', '.join(mods))",mods);
         let mut smoke=Command::new(vpy);smoke.args(["-c",&code]).current_dir(source_dir(app,&spec.id)?);run_streaming(app,task,spec,"Import smoke test",Some(95.0),smoke)?;
     }
     let lock=module_root(app,&spec.id)?.join("physical-lab-lock.txt");

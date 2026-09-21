@@ -958,7 +958,18 @@ fn run_dependency_pip_task(app:&AppHandle, task:&str, dep:&DependencySpec, spec:
         }));
     }
 
-    let status=child.wait().map_err(|e|e.to_string())?;
+    let status=loop{
+        if task_cancelled(app,task){
+            let _=child.kill();
+            let _=child.wait();
+            for reader in readers { let _=reader.join(); }
+            return Err("Task cancelled by user".into());
+        }
+        match child.try_wait().map_err(|e|e.to_string())?{
+            Some(status)=>break status,
+            None=>thread::sleep(Duration::from_millis(160)),
+        }
+    };
     for reader in readers { let _=reader.join(); }
     if status.success(){Ok(())}else{Err(format!("pip failed for {} with status {status}",spec.name))}
 }
@@ -1047,9 +1058,12 @@ async fn install_dependency(app:AppHandle, dependency_id:String) -> Result<Strin
     let result=tokio::task::spawn_blocking(move||install_managed_python_dependency_blocking(&app2,&task2,&id2))
         .await.map_err(|e|e.to_string())?;
 
+    if let Ok(mut cancelled)=app.state::<PhysicalLabState>().cancelled.lock(){cancelled.remove(&task);}
     match &result {
         Ok(message)=>emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
             "Complete","Complete",Some(100.0),message.clone(),true,None),
+        Err(e) if e.to_ascii_lowercase().contains("cancelled")=>emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
+            "Cancelled","Cancelled",None,"Dependency task cancelled.",true,None),
         Err(e)=>emit_task(&app,&task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
             "Failed","Failed",None,e.clone(),true,Some(e.clone())),
     }

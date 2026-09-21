@@ -391,7 +391,7 @@ def _verification_tab(st: Any) -> None:
 
 
 def render_kerr_geodesic_workspace(st: Any, profile: str) -> None:
-    if profile != PROFILE:
+    if profile not in {PROFILE, "kerr-geodesics"}:
         return
 
     from physical_lab_ui_system import render_boundary, render_stage_rail, render_workbench_header

@@ -782,6 +782,18 @@ fn discovered_python_envs(app:&AppHandle)->Vec<PathBuf>{
     out
 }
 
+fn python_info_for_app(app:&AppHandle) -> (bool,String,Option<String>) {
+    let requirement=Some(">=3.10".to_string());
+    for py in discovered_python_envs(app) {
+        let p=py.to_string_lossy().to_string();
+        if python_meets(&p,&requirement) {
+            let version=output(&p,&["--version"]).unwrap_or_else(||"Python 3".into());
+            return (true,version,Some(p));
+        }
+    }
+    (false,"Compatible Python 3 not found in system, Homebrew, python.org, Conda, pyenv, virtualenv, uv, project .venv, or managed Lab environments".into(),None)
+}
+
 fn python_package_probe(program:&Path,module:&str)->Option<(String,String)>{
     if !program.is_file(){return None}
     let code=format!(r#"import importlib
@@ -841,7 +853,7 @@ fn dependency_status(app:&AppHandle,dep:&DependencySpec,inventory:&HashMap<Strin
     let yellow=|label:String,detail:String,locations:Vec<String>,version:Option<String>|DependencyStatus{id:dep.id.clone(),level:"yellow".into(),label,detail,locations,version};
     let red=|label:String,detail:String,locations:Vec<String>,version:Option<String>|DependencyStatus{id:dep.id.clone(),level:"red".into(),label,detail,locations,version};
     match dep.id.as_str(){
-        "python-runtime"=>{let (ok,ver,path)=python_info();if ok{green("Ready".into(),format!("{ver}; compatible interpreter discovered."),path.into_iter().collect(),Some(ver))}else{red("Missing".into(),ver,vec![],None)}},
+        "python-runtime"=>{let (ok,ver,path)=python_info_for_app(app);if ok{green("Ready".into(),format!("{ver}; compatible interpreter discovered across all supported environment managers."),path.into_iter().collect(),Some(ver))}else{red("Missing".into(),ver,vec![],None)}},
         "conda-runtime"=>{if let Some(p)=conda_binary(){let v=output(p.to_string_lossy().as_ref(),&["--version"]);green("Found".into(),"Conda/Miniforge is available for specialized environments such as PyChrono; ordinary Lab venvs remain independent.".into(),vec![p.to_string_lossy().to_string()],v)}else{yellow("Optional / not found".into(),"Conda is not required by the current ordinary Lab venvs. Install it only for Conda-distributed runtimes such as PyChrono.".into(),vec![],None)}},
         "node-build"=>{let node=build_tool_binary("node");let npm=build_tool_binary("npm");if let (Some(n),Some(m))=(node,npm){let v=output(n.to_string_lossy().as_ref(),&["--version"]);green("Build ready".into(),"Node.js and npm are available for rebuilding the Physical Lab desktop shell from source.".into(),vec![n.to_string_lossy().to_string(),m.to_string_lossy().to_string()],v)}else{yellow("Build-time only / missing".into(),"Node.js + npm are needed only when rebuilding Physical Lab from source; a packaged app does not need them.".into(),vec![],None)}},
         "rust-build"=>{let cargo=build_tool_binary("cargo");let rustc=build_tool_binary("rustc");let rustup=build_tool_binary("rustup");if let (Some(c),Some(r),Some(u))=(cargo,rustc,rustup){let targets=output(u.to_string_lossy().as_ref(),&["target","list","--installed"]).unwrap_or_default();let a=targets.contains("aarch64-apple-darwin");let x=targets.contains("x86_64-apple-darwin");let detail=if a&&x{"Rust toolchain plus both Universal2 Apple targets are installed.".into()}else{format!("Rust toolchain is installed. Missing Apple target(s): {}{}; the build script can add them automatically.",if !a{"aarch64-apple-darwin "}else{""},if !x{"x86_64-apple-darwin"}else{""})};let v=output(r.to_string_lossy().as_ref(),&["--version"]);if a&&x{green("Universal2 build ready".into(),detail,vec![c.to_string_lossy().to_string(),r.to_string_lossy().to_string(),u.to_string_lossy().to_string()],v)}else{yellow("Rust ready / targets repairable".into(),detail,vec![c.to_string_lossy().to_string(),r.to_string_lossy().to_string(),u.to_string_lossy().to_string()],v)}}else{yellow("Build-time only / missing".into(),"cargo, rustc and rustup are required only to rebuild Physical Lab from source. The build script can bootstrap rustup.".into(),vec![],None)}},
@@ -850,9 +862,35 @@ fn dependency_status(app:&AppHandle,dep:&DependencySpec,inventory:&HashMap<Strin
             let entries=inventory.get(&dep.id).cloned().unwrap_or_default();
             let version=entries.first().map(|x|x.1.clone());
             let found:Vec<String>=entries.into_iter().map(|(py,v,path)|format!("{} → {} ({})",py,path,v)).collect();
-            if !missing.is_empty(){red("Missing in installed Lab".into(),format!("Missing from: {}. Repair those Labs to reinstall it.",missing.join(", ")),found,version)}
-            else if !found.is_empty(){green("Found".into(),format!("Detected in {} Python environment(s). Physical Lab still isolates versions per Lab.",found.len()),found,version)}
-            else{yellow("Not currently installed".into(),"No discovered environment currently imports this package. It will be installed automatically when a Lab that needs it is installed.".into(),vec![],None)}
+
+            if !missing.is_empty() && !found.is_empty(){
+                yellow(
+                    "Found · Lab sync needed".into(),
+                    format!(
+                        "{} is already installed in {} discovered Python environment(s), but these isolated Lab environments still need it: {}. Use Repair dependency to sync only those Lab venvs.",
+                        dep.name,found.len(),missing.join(", ")
+                    ),
+                    found,version
+                )
+            } else if !missing.is_empty(){
+                red(
+                    "Missing in managed Lab".into(),
+                    format!("{} was not found in any discovered Python environment and is missing from: {}.",dep.name,missing.join(", ")),
+                    vec![],version
+                )
+            } else if !found.is_empty(){
+                green(
+                    "Found".into(),
+                    format!("Detected in {} Python environment(s); all installed Labs that declare this package can import it.",found.len()),
+                    found,version
+                )
+            } else{
+                yellow(
+                    "Not currently needed".into(),
+                    "No discovered environment imports this package, and no installed Lab currently requires a repair for it. It will be installed automatically when needed.".into(),
+                    vec![],None
+                )
+            }
         },
         "xcode-clt"=>{let required=["clang","clang++","make","lipo","otool","install_name_tool","xcrun"];let missing:Vec<_>=required.iter().filter(|t|!tool_available(t)).map(|s|s.to_string()).collect();if let Some(path)=xcode_clt_path(){if missing.is_empty(){green("Ready".into(),"Apple native build toolchain is configured.".into(),vec![path],None)}else{red("Incomplete".into(),format!("xcode-select is configured, but these tools are missing: {}",missing.join(", ")),vec![path],None)}}else{red("Missing".into(),"Xcode Command Line Tools are not configured.".into(),vec![],None)}},
         "native-toolchain"=>{let tools=["git","curl","make","clang","clang++","ar","ranlib","lipo","shasum","tar","xcrun","file","ditto","zip","otool","install_name_tool"];let mut locations=Vec::new();let mut missing=Vec::new();for tool in tools{if let Some(path)=output("which",&[tool]).filter(|x|!x.is_empty()){locations.push(format!("{tool} → {path}"))}else{missing.push(tool.to_string())}}if missing.is_empty(){green("Ready".into(),"All native builder command-line tools were found.".into(),locations,None)}else{red("Incomplete".into(),format!("Missing native builder tools: {}",missing.join(", ")),locations,None)}},
@@ -997,7 +1035,7 @@ fn install_managed_python_dependency_blocking(app:&AppHandle, task:&str, depende
         if let Some((version,path))=python_package_probe(&vpy,dependency_id){
             emit_task(app,task,&format!("dependency:{}",dep.id),&format!("{} dependency repair",dep.name),
                 &format!("Recognized in {}",spec.name),"Running",Some(percent),
-                format!("Already installed: {} {} at {}",dep.name,version,path),false,None);
+                format!("Already installed in managed Lab environment: {} {} at {}",dep.name,version,path),false,None);
             repaired.push(spec.name.clone());
             continue;
         }
@@ -1093,7 +1131,7 @@ fn open_log_directory(app:AppHandle)->Result<String,String>{
 
 #[tauri::command]
 fn runtime_status(app: AppHandle) -> RuntimeStatus {
-    let (python_ready, python_version, python_path) = python_info();
+    let (python_ready, python_version, python_path) = python_info_for_app(&app);
     let radia_file = radia_extension();
     let radia_python = radia_compatible_python();
     let radia_ok = radia_python.is_some();

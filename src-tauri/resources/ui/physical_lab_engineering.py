@@ -227,6 +227,14 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         ("Diagnostics", "runtime and backend review"),
     ])
 
+    access_mode = st.radio(
+        "Capability access",
+        ["Full Capability · one layer", "Focused groups"],
+        horizontal=True,
+        key=f"pl_engineering_access_{profile}",
+        help="Full Capability restores direct discoverability of older model/research tools; Focused groups keeps the newer compact workflow."
+    )
+
     section = st.radio(
         "Engineering task",
         ["Analysis", "V&V", "Research", "Diagnostics"],
@@ -343,6 +351,30 @@ def render_engineering_vvuq(st, profile: str, namespace: dict | None = None) -> 
         st.caption(tool[1])
         st.markdown("---")
         _render_guarded(st, profile, tool[2], tool[0], tool[3])
+
+    if access_mode == "Full Capability · one layer":
+        flat_tools = list(analysis_tools)
+        flat_tools.extend([
+            ("Engineering uncertainty & requirements", "Error budgets, tolerance stacks, requirement margins and simulation↔measurement comparison.", "engineering-vvuq",
+             lambda: _render_engineering_vvuq_legacy(st, profile, namespace)),
+            ("Measurement & calibration evidence", "Register measurement/calibration evidence without mixing it into model controls.", "measurement-calibration",
+             lambda: _load_measurement_registry_module().render_measurement_workspace(st, profile)),
+            ("Engineering scenario review", "Review the bounded engineering interpretation for this profile.", "engineering-scenario",
+             lambda: _load_engineering_scenario_module().render_engineering_scenario_review(st, profile)),
+            ("Project & evidence workspace", "Canonical project, evidence and cross-tool workflow.", "project-kernel",
+             lambda: _load_project_kernel_module().render_project_workspace(st, profile, namespace)),
+            ("Research orchestrator", "Multi-step research orchestration and reusable workflows.", "research-orchestrator",
+             lambda: _load_research_orchestrator_ui_module().render_research_orchestrator(st, profile)),
+            ("Run & Diagnostics Log", "Runtime, backend and platform diagnostics.", "diagnostics-workspace",
+             lambda: _load_diagnostics_module().render_diagnostics_workspace(st, profile, _load_compute_engine_module())),
+        ])
+        labels = [item[0] for item in flat_tools]
+        chosen = st.selectbox("Full capability", labels, key=f"pl_engineering_flat_tool_{profile}")
+        tool = next(item for item in flat_tools if item[0] == chosen)
+        st.caption(tool[1])
+        st.markdown("---")
+        _render_guarded(st, profile, tool[2], tool[0], tool[3])
+        return
 
     if section == "Analysis":
         render_selected("analysis", analysis_tools)

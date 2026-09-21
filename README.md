@@ -8,6 +8,20 @@ It combines numerical-error analysis, Monte Carlo/statistical physics, stochasti
 
 The **Unreleased Research Model Builder MVP** adds a creator path alongside the ten built-in Lab families: a trusted local `.py` model can be statically inspected without execution, converted into a human-reviewed `ModelSpec`, wrapped by a generated adapter, previewed through deterministic controls/plots, checked for original↔adapter interface equivalence, and stored as a provenance-tracked model bundle inside a canonical `.physlab` Project.
 
+## Introduction
+
+Engineering Lab is a desktop computational engineering and physics platform designed to connect physical models, numerical simulation, experimental data, and engineering analysis in one local environment.
+
+The project began as a collection of separate physics and engineering tools, but gradually developed into a unified laboratory system. Instead of treating simulation as a single “run and view the graph” process, Engineering Lab is designed around a complete workflow: define a physical system, adjust meaningful parameters, run numerical models, inspect results, compare predictions with measurements, test sensitivity and uncertainty, and determine what should be changed next.
+
+The platform includes tools for electromagnetic systems, particle motion, radiation and undulator modeling, orbital and dynamical systems, lattice physics, U-tube experiments, signal analysis, model comparison, visualization, and engineering decision support. Many experiments provide both simplified and advanced controls so users can move from basic exploration toward deeper quantitative analysis.
+
+A major goal of the project is to preserve the connection between equations and engineering decisions. Parameters are not included only for display; wherever possible, users can change physically meaningful quantities and observe how those choices affect the behavior of the system. The platform also includes analysis tools for sensitivity, uncertainty, validation, comparison, diagnostics, and reproducibility.
+
+Engineering Lab is built as a local desktop application using Tauri, Rust, Python, JavaScript, and scientific-computing tools. It is designed to keep the scientific workflow accessible while still exposing the deeper mathematical and engineering structure behind each model.
+
+At its core, Engineering Lab turns computational physics into an interactive engineering workspace: not only asking **“What does the model predict?”**, but also **“Why did the result change, how reliable is it, and what should we modify next?”**
+
 ## 30-second overview
 
 | Question | Physical Lab answer |

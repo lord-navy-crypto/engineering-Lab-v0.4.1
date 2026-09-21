@@ -14,9 +14,14 @@ from physical_lab_solar_system_dynamics import (
     finite_time_lyapunov_indicator,
     integrate_case,
     result_summary,
+    run_refinement_pair,
 )
 from physical_lab_solar_system_workflow import (
+    DEFAULT_REQUIREMENTS,
+    _inclination_sweep,
+    _model_effect_audit,
     build_solar_system_manifest,
+    evaluate_requirements,
     render_report_markdown,
 )
 
@@ -250,6 +255,100 @@ def _render_platform(st: Any, config: SolarSystemConfig) -> None:
                 st.success("Solar-system campaign published to Lab session state.")
 
 
+def _render_direct_analysis(st: Any, config: SolarSystemConfig) -> None:
+    """Expose the verification studies that were previously only buried inside campaign execution."""
+    import pandas as pd
+
+    task = st.radio(
+        "Analysis / verification study",
+        ["Solver refinement", "Inclination sweep", "Model-effect audit", "Requirement screening"],
+        horizontal=True,
+        key="pl_solar_direct_study",
+    )
+
+    if task == "Solver refinement":
+        st.caption("Repeat the current model with tighter numerical settings and compare the resulting summary quantities.")
+        if st.button("Run solver-refinement pair", type="primary", key="pl_solar_refinement_direct"):
+            with st.spinner("Running baseline and refined integrations..."):
+                st.session_state["pl_solar_direct_refinement"] = run_refinement_pair(config)
+        data = st.session_state.get("pl_solar_direct_refinement")
+        if isinstance(data, Mapping):
+            cols = st.columns(3)
+            cols[0].metric("Max relative change", f"{float(data.get('max_relative_change', float('nan'))):.3e}")
+            cols[1].metric("Baseline samples", str((data.get("base_summary") or {}).get("samples", "—")))
+            cols[2].metric("Refined samples", str((data.get("refined_summary") or {}).get("samples", "—")))
+            st.json(data)
+
+    elif task == "Inclination sweep":
+        preset = st.selectbox("Sweep preset", ["compact", "standard"], key="pl_solar_direct_inclination_preset")
+        if st.button("Run inclination sweep", type="primary", key="pl_solar_inclination_direct"):
+            with st.spinner("Running inclination campaign..."):
+                st.session_state["pl_solar_direct_inclination"] = _inclination_sweep(config, preset)
+        rows = st.session_state.get("pl_solar_direct_inclination")
+        if isinstance(rows, list) and rows:
+            frame = pd.DataFrame(rows)
+            st.dataframe(frame, hide_index=True, width="stretch")
+            try:
+                import plotly.express as px
+                if {"inclination_jupiter_deg", "final_period_ratio"}.issubset(frame.columns):
+                    st.plotly_chart(
+                        px.line(frame, x="inclination_jupiter_deg", y="final_period_ratio", markers=True,
+                                title="Final period ratio versus Jupiter inclination"),
+                        width="stretch",
+                    )
+                if {"inclination_jupiter_deg", "minimum_separation_AU"}.issubset(frame.columns):
+                    st.plotly_chart(
+                        px.line(frame, x="inclination_jupiter_deg", y="minimum_separation_AU", markers=True,
+                                title="Minimum Jupiter–Saturn separation versus inclination"),
+                        width="stretch",
+                    )
+            except Exception:
+                pass
+
+    elif task == "Model-effect audit":
+        preset = st.selectbox("Audit preset", ["compact", "standard"], key="pl_solar_direct_effect_preset")
+        if st.button("Compare model variants", type="primary", key="pl_solar_effect_direct"):
+            with st.spinner("Comparing Newtonian, 1PN and legacy phenomenological variants..."):
+                st.session_state["pl_solar_direct_effects"] = _model_effect_audit(config, preset)
+        rows = st.session_state.get("pl_solar_direct_effects")
+        if isinstance(rows, list) and rows:
+            flat = []
+            for row in rows:
+                summary = dict(row.get("summary") or {})
+                flat.append({
+                    "case": row.get("case"),
+                    "final_period_ratio": summary.get("final_period_ratio"),
+                    "minimum_separation_AU": summary.get("minimum_separation_AU"),
+                    "relative_energy_drift": summary.get("relative_energy_drift"),
+                    "delta_period_ratio_vs_newtonian": row.get("delta_final_period_ratio_vs_newtonian"),
+                    "delta_jupiter_a_vs_newtonian": row.get("delta_jupiter_a_vs_newtonian"),
+                })
+            st.dataframe(pd.DataFrame(flat), hide_index=True, width="stretch")
+            st.caption("The velocity-cross and radial-drag cases are phenomenological legacy comparisons, not validated relativistic force laws.")
+
+    else:
+        result = st.session_state.get("pl_solar_system_result")
+        refinement = st.session_state.get("pl_solar_direct_refinement")
+        if not isinstance(result, Mapping):
+            st.info("Run the orbital model first. Requirement screening uses the current result diagnostics.")
+        else:
+            summary = result_summary(dict(result))
+            if not isinstance(refinement, Mapping):
+                st.info("Run Solver refinement above to include the numerical-refinement requirement.")
+            else:
+                metrics = {
+                    "solver_refinement_max_relative": float(refinement["max_relative_change"]),
+                    "barycenter_position_drift_AU": float(summary["barycenter_position_drift_AU"]),
+                    "absolute_linear_momentum_drift": float(summary["absolute_linear_momentum_drift"]),
+                    "relative_energy_drift": float(summary["relative_energy_drift"]),
+                    "relative_angular_momentum_drift": float(summary["relative_angular_momentum_drift"]),
+                }
+                screening = evaluate_requirements(metrics, DEFAULT_REQUIREMENTS, invariants_expected=bool(summary["invariants_expected"]))
+                st.metric("Computational screening", screening["status"])
+                st.dataframe(pd.DataFrame(screening["requirements"]), hide_index=True, width="stretch")
+                st.caption(screening["boundary"])
+
+
 def render_solar_system_workspace(st: Any, profile: str) -> None:
     if profile != "nonlinear-chaos":
         return
@@ -269,8 +368,8 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
         ("Verify", "finite-time sensitivity"),
     ])
 
-    setup_tab, result_tab, verify_tab, platform_tab = st.tabs([
-        "Setup & run", "Results", "Sensitivity audit", "Advanced tools"
+    setup_tab, result_tab, verify_tab, analysis_tab, platform_tab = st.tabs([
+        "Setup & run", "Results", "Sensitivity audit", "Analysis & V&V", "Campaign / Project"
     ])
 
     with setup_tab:
@@ -303,6 +402,9 @@ def render_solar_system_workspace(st: Any, profile: str) -> None:
                 "renormalizations": ftle.get("renormalizations"),
             })
             render_boundary(st, str(ftle.get("boundary") or "Finite-time divergence is a bounded numerical diagnostic."))
+
+    with analysis_tab:
+        _render_direct_analysis(st, config)
 
     with platform_tab:
         _render_platform(st, config)

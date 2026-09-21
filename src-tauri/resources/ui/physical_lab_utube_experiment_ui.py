@@ -464,12 +464,12 @@ def _sweep_tab(st: Any, profile: str) -> None:
 
 def render_utube_experiment(st: Any, profile: str) -> None:
     active = str(st.session_state.get(projects.ACTIVE_PROJECT_SESSION_KEY) or "")
-    if not active:
-        return
-    project_path = Path(active)
-    sources = _sources(project_path)
+    project_path = Path(active) if active else None
+    sources = _sources(project_path) if project_path is not None else []
     st.markdown("#### Rotating U-Tube Experiment")
-    st.caption("Native deterministic model, domain-specific physical visualization, raw-data contracts, numerical convergence, theory–experiment validation, threshold-regime mapping and allow-listed DOE/Sweep execution.")
+    st.caption("Deterministic model, physical visualization, threshold/capacity analysis, numerical convergence, free-energy scaling, theory–experiment validation and DOE/Sweep execution. Model-only tools do not require a Project.")
+    if project_path is None:
+        st.info("No Project selected. Model, Physical View, Threshold Map, Numerical Convergence, Free Energy and design tools remain available. Project data are needed only for dataset-backed comparison and evidence workflows.")
 
     selected = None
     if sources:

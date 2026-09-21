@@ -24,6 +24,7 @@ ENABLED_PROFILES = {
     "honeycomb-lattice",
     "radiation-platform",
     "radia-magnet-studio",
+    "utube-rotation",
 }
 
 if PROFILE in ENABLED_PROFILES:

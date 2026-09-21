@@ -339,10 +339,61 @@ def _render_reproducibility_group(st: Any, profile: str, project_path: Path) -> 
         st.caption(pack["boundary"])
 
 
+def _render_all_project_tools_flat(st: Any, profile: str, project_path: Path) -> None:
+    """Restore the September-12 one-layer tool access while keeping newer tools available."""
+    tools = [
+        ("Data Bridge", lambda: _render_data_bridge(st, profile, project_path)),
+        ("BetterBoard Discovery", lambda: __import__("physical_lab_betterboard_discovery_ui").render_betterboard_discovery(st, profile)),
+        ("LabBridge / Journey", lambda: __import__("physical_lab_labbridge_ui").render_labbridge(st, profile)),
+        ("Result Inspector", lambda: __import__("physical_lab_result_inspector_ui").render_result_inspector(st, profile)),
+        ("Run Comparison", lambda: __import__("physical_lab_run_comparison_ui").render_run_comparison(st, profile)),
+        ("Model Coupling", lambda: __import__("physical_lab_model_coupling_ui").render_model_coupling(st, profile)),
+        ("Pipeline DAG", lambda: __import__("physical_lab_pipeline_graph_ui").render_pipeline_graph(st, profile)),
+        ("Reproducibility Pack", lambda: _render_reproducibility_group(st, profile, project_path)),
+        ("Visualization Studio", lambda: __import__("physical_lab_visualization_studio_ui").render_visualization_studio(st, profile)),
+        ("Visual Analytics", lambda: __import__("physical_lab_visual_analytics_ui").render_visual_analytics(st, profile)),
+        ("Applied Math & Statistics", lambda: (
+            __import__("physical_lab_applied_analysis_ui").render_applied_analysis(st, profile),
+            __import__("physical_lab_applied_analysis_advanced_ui").render_applied_analysis_advanced(st, profile),
+            __import__("physical_lab_applied_math_deep_ui").render_applied_math_deep(st, profile),
+            __import__("physical_lab_sweep_design_bridge_ui").render_sweep_design_bridge(st, profile),
+        )),
+        ("Science Analysis", lambda: (
+            __import__("physical_lab_tradeoff_analysis_ui").render_tradeoff_analysis(st, profile),
+            __import__("physical_lab_science_protocol_ui").render_science_protocol_ui(st, profile, project_path),
+        )),
+        ("ModelSpec DIY", lambda: __import__("physical_lab_modelspec_diy_ui").render_modelspec_diy(st, profile)),
+    ]
+    st.markdown("#### Full Capability · one-layer access")
+    st.caption(
+        "Restored discoverability: the September-12 direct Project tools and later analysis/model tools are available here "
+        "without first choosing a tool family."
+    )
+    labels = [name for name, _renderer in tools]
+    selected = st.selectbox("Project tool", labels, key=f"pl_project_flat_tool_{profile}")
+    renderer = next(renderer for name, renderer in tools if name == selected)
+    st.markdown("---")
+    try:
+        renderer()
+    except Exception as exc:
+        st.warning(f"{selected} could not load: {exc}")
+
+
 def _render_project_tools(st: Any, profile: str, project_path: Path) -> None:
     st.markdown("### 🧰 Project Tools")
+    access = st.radio(
+        "Tool access",
+        ["Full Capability · one layer", "Organized groups"],
+        horizontal=True,
+        key=f"pl_project_access_mode_{profile}",
+        help="Full Capability restores the older direct-access layout; Organized groups keeps the newer compact navigation."
+    )
+    if access == "Full Capability · one layer":
+        _render_all_project_tools_flat(st, profile, project_path)
+        return
+
     st.caption(
-        "Choose a task family, then one tool. Only that tool is rendered, keeping the workspace readable and avoiding unrelated module initialization on every rerun."
+        "Choose a task family, then one tool. This organized mode keeps the workspace compact; switch to Full Capability for one-layer access."
     )
     tool_group = st.radio(
         "What do you want to do?",
